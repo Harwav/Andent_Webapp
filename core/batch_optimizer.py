@@ -12,6 +12,8 @@ import logging
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 
+from .cache import get_cache
+
 try:
     from stl import mesh
     NUMPY_STL_AVAILABLE = True
@@ -71,6 +73,12 @@ def get_stl_dimensions(file_path: str) -> Optional[STLDimensions]:
         return None
 
     try:
+        cache = get_cache()
+        cached_dimensions = cache.get_dimensions(file_path)
+        if cached_dimensions is not None:
+            logging.debug(f"Cache hit for STL dimensions: {os.path.basename(file_path)}")
+            return STLDimensions(file_path=file_path, **cached_dimensions)
+
         stl_mesh = mesh.Mesh.from_file(file_path)
 
         # Get bounding box
@@ -81,13 +89,23 @@ def get_stl_dimensions(file_path: str) -> Optional[STLDimensions]:
         y_mm = max_coords[1] - min_coords[1]
         z_mm = max_coords[2] - min_coords[2]
 
-        return STLDimensions(
+        dimensions = STLDimensions(
             file_path=file_path,
             x_mm=round(x_mm, 2),
             y_mm=round(y_mm, 2),
             z_mm=round(z_mm, 2),
             footprint_mm2=round(x_mm * y_mm, 2)
         )
+        cache.set_dimensions(
+            file_path,
+            {
+                "x_mm": dimensions.x_mm,
+                "y_mm": dimensions.y_mm,
+                "z_mm": dimensions.z_mm,
+                "footprint_mm2": dimensions.footprint_mm2,
+            },
+        )
+        return dimensions
     except Exception as e:
         logging.warning(f"Failed to get dimensions for {os.path.basename(file_path)}: {e}")
         return None
@@ -103,9 +121,17 @@ def get_stl_volume_ml(file_path: str) -> Optional[float]:
         return None
 
     try:
+        cache = get_cache()
+        cached_volume = cache.get_volume(file_path)
+        if cached_volume is not None:
+            logging.debug(f"Cache hit for STL volume: {os.path.basename(file_path)}")
+            return cached_volume
+
         stl_mesh = mesh.Mesh.from_file(file_path)
         volume_mm3, _, _ = stl_mesh.get_mass_properties()
-        return round(abs(volume_mm3) / 1000.0, 3)
+        volume_ml = round(abs(volume_mm3) / 1000.0, 3)
+        cache.set_volume(file_path, volume_ml)
+        return volume_ml
     except Exception as e:
         logging.warning(f"Failed to get volume for {os.path.basename(file_path)}: {e}")
         return None
