@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 from datetime import datetime
@@ -7,6 +8,7 @@ from typing import Any, List, Optional
 import numpy as np
 
 from .batch_optimizer import STLDimensions, get_stl_dimensions, get_stl_volume_ml
+from .cache import get_cache
 from stl import mesh as stl_mesh_module
 
 WORKFLOW_STANDARD = "standard"
@@ -28,18 +30,20 @@ STRUCTURE_SOLID = "solid"
 STRUCTURE_HOLLOW = "hollow"
 STRUCTURE_REVIEW = "review"
 
-THICKNESS_SAMPLE_BUDGET = 64
-THICKNESS_MIN_SAMPLE_COUNT = 24
-THICKNESS_MIN_VALID_SAMPLE_FRACTION = 0.35
+THICKNESS_SAMPLE_BUDGET = None
+THICKNESS_SAMPLE_BUDGET_MIN = 24
+THICKNESS_SAMPLE_BUDGET_MAX = 64
+THICKNESS_MIN_SAMPLE_COUNT = 16
+THICKNESS_MIN_VALID_SAMPLE_FRACTION = 0.25
 THICKNESS_MIN_HIT_DISTANCE_MM = 0.2
-HOLLOW_MAX_FILL_RATIO = 0.28
-SOLID_MIN_FILL_RATIO = 0.32
-HOLLOW_MAX_P10_MM = 3.0
-HOLLOW_MAX_P50_MM = 4.5
-HOLLOW_MIN_THIN_FRACTION_UNDER_5MM = 0.7
-SOLID_MIN_P10_MM = 3.5
-SOLID_MIN_P50_MM = 5.5
-SOLID_MAX_THIN_FRACTION_UNDER_5MM = 0.55
+HOLLOW_MAX_FILL_RATIO = 0.32
+SOLID_MIN_FILL_RATIO = 0.28
+HOLLOW_MAX_P10_MM = 3.5
+HOLLOW_MAX_P50_MM = 5.0
+HOLLOW_MIN_THIN_FRACTION_UNDER_5MM = 0.65
+SOLID_MIN_P10_MM = 3.0
+SOLID_MIN_P50_MM = 5.0
+SOLID_MAX_THIN_FRACTION_UNDER_5MM = 0.60
 
 _DATE_TOKEN_RE = re.compile(r"^\d{8}$|^\d{4}-\d{2}-\d{2}$")
 _RESERVED_CASE_TOKENS = {
@@ -341,31 +345,53 @@ def measure_mesh_thickness_stats(
     sample_budget: int = THICKNESS_SAMPLE_BUDGET,
     min_hit_distance_mm: float = THICKNESS_MIN_HIT_DISTANCE_MM,
 ) -> ThicknessStats:
+    use_cache = sample_budget is None
+    cache = get_cache()
+    if use_cache:
+        cached = cache.get_thickness(file_path)
+        if cached:
+            logging.debug(f"Cache hit for thickness: {os.path.basename(file_path)}")
+            return ThicknessStats(**cached)
+
+    def _finalize(result: ThicknessStats) -> ThicknessStats:
+        if use_cache:
+            cache.set_thickness(file_path, result.as_dict())
+        return result
+
     try:
         stl_mesh = stl_mesh_module.Mesh.from_file(file_path)
         triangles = np.asarray(stl_mesh.vectors, dtype=float)
     except Exception as exc:
-        return ThicknessStats(
+        return _finalize(ThicknessStats(
             sample_count=0,
             valid_sample_count=0,
             valid_sample_fraction=0.0,
             reason=f"Mesh loading failed: {exc}",
-        )
+        ))
 
     if triangles.size == 0:
-        return ThicknessStats(
+        return _finalize(ThicknessStats(
             sample_count=0,
             valid_sample_count=0,
             valid_sample_fraction=0.0,
             reason="Mesh has no triangles.",
-        )
+        ))
+
+    triangle_count = len(triangles)
+    if sample_budget is None:
+        if triangle_count < 500:
+            sample_budget = THICKNESS_SAMPLE_BUDGET_MIN
+        elif triangle_count < 2000:
+            sample_budget = 40
+        else:
+            sample_budget = THICKNESS_SAMPLE_BUDGET_MAX
 
     normals = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
     doubled_areas = np.linalg.norm(normals, axis=1)
     valid_triangles = doubled_areas > 1e-8
     manifold_edge_fraction, boundary_edge_count, non_manifold_edge_count = _edge_topology_stats(triangles)
     if not np.any(valid_triangles):
-        return ThicknessStats(
+        return _finalize(ThicknessStats(
             sample_count=0,
             valid_sample_count=0,
             valid_sample_fraction=0.0,
@@ -373,12 +399,12 @@ def measure_mesh_thickness_stats(
             boundary_edge_count=boundary_edge_count,
             non_manifold_edge_count=non_manifold_edge_count,
             reason="Mesh has no valid triangle areas for thickness sampling.",
-        )
+        ))
 
     valid_indices = np.flatnonzero(valid_triangles)
     sample_pick = _weighted_sample_indices(doubled_areas[valid_triangles], sample_budget)
     if sample_pick.size == 0:
-        return ThicknessStats(
+        return _finalize(ThicknessStats(
             sample_count=0,
             valid_sample_count=0,
             valid_sample_fraction=0.0,
@@ -386,7 +412,7 @@ def measure_mesh_thickness_stats(
             boundary_edge_count=boundary_edge_count,
             non_manifold_edge_count=non_manifold_edge_count,
             reason="Mesh sampling could not select any triangles.",
-        )
+        ))
 
     sampled_indices = valid_indices[sample_pick]
     sample_count = int(sampled_indices.size)
@@ -417,7 +443,7 @@ def measure_mesh_thickness_stats(
     valid_sample_count = len(thicknesses)
     valid_sample_fraction = (valid_sample_count / sample_count) if sample_count else 0.0
     if not thicknesses:
-        return ThicknessStats(
+        return _finalize(ThicknessStats(
             sample_count=sample_count,
             valid_sample_count=0,
             valid_sample_fraction=valid_sample_fraction,
@@ -425,10 +451,10 @@ def measure_mesh_thickness_stats(
             boundary_edge_count=boundary_edge_count,
             non_manifold_edge_count=non_manifold_edge_count,
             reason="No valid inward thickness probes reached an opposite surface.",
-        )
+        ))
 
     thickness_array = np.asarray(thicknesses, dtype=float)
-    return ThicknessStats(
+    return _finalize(ThicknessStats(
         sample_count=sample_count,
         valid_sample_count=valid_sample_count,
         valid_sample_fraction=valid_sample_fraction,
@@ -439,7 +465,7 @@ def measure_mesh_thickness_stats(
         manifold_edge_fraction=manifold_edge_fraction,
         boundary_edge_count=boundary_edge_count,
         non_manifold_edge_count=non_manifold_edge_count,
-    )
+    ))
 
 
 def _build_structure_metrics(
