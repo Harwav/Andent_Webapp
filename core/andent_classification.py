@@ -569,6 +569,29 @@ def resolve_ortho_structure(
             metrics=metrics,
         )
 
+    # Fallback: fill ratio and thickness disagree
+    # For unsectioned models, default to solid (most common in dental workflows)
+    # For antagonists, default to hollow (most common for bite guards)
+    if artifact.artifact_type == ARTIFACT_MODEL:
+        return StructureResolution(
+            structure=STRUCTURE_SOLID,
+            confidence="medium",
+            reason="Fill ratio/thickness borderline - defaulting unsectioned model to solid.",
+            fill_ratio=_round_metric(fill_ratio),
+            geometry_derived=True,
+            metrics=metrics,
+        )
+    elif artifact.artifact_type == ARTIFACT_ANTAGONIST:
+        return StructureResolution(
+            structure=STRUCTURE_HOLLOW,
+            confidence="medium",
+            reason="Fill ratio/thickness borderline - defaulting antagonist to hollow.",
+            fill_ratio=_round_metric(fill_ratio),
+            geometry_derived=True,
+            metrics=metrics,
+        )
+    
+    # Unknown artifact type - needs review
     return StructureResolution(
         structure=STRUCTURE_REVIEW,
         confidence="low",
