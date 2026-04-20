@@ -6,6 +6,9 @@ from pathlib import Path
 import json
 import sys
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Tuple
+import logging
 
 import numpy as np
 
@@ -509,3 +512,50 @@ def generate_thumbnail_svg(stored_path: Path, size: int = 84) -> str:
         )
 
     return _raster_to_svg(best_mask, best_shade_map, output_size=size, viewbox_size=render_size, background=background)
+
+
+def classify_uploaded_files_parallel(
+    files: List[Tuple[Path, str]],
+    max_workers: int = 4,
+) -> List[ClassificationRow]:
+    """
+    Classify multiple STL files in parallel.
+    
+    Args:
+        files: List of (stored_path, original_filename) tuples
+        max_workers: Maximum number of parallel workers
+    
+    Returns:
+        List of ClassificationRow results
+    """
+    results: List[ClassificationRow] = []
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all classification tasks
+        future_to_file = {
+            executor.submit(classify_saved_upload, stored_path, filename): (stored_path, filename)
+            for stored_path, filename in files
+        }
+        
+        # Collect results as they complete
+        for future in as_completed(future_to_file):
+            stored_path, filename = future_to_file[future]
+            try:
+                result = future.result()
+                results.append(result)
+                logging.debug(f"Classified {filename} successfully")
+            except Exception as exc:
+                logging.error(f"Failed to classify {filename}: {exc}")
+                # Add error row instead of failing entire batch
+                results.append(ClassificationRow(
+                    file_name=filename,
+                    case_id=None,
+                    model_type=None,
+                    preset=None,
+                    confidence="low",
+                    status="Needs Review",
+                    review_required=True,
+                    review_reason=f"Classification failed: {exc}",
+                ))
+    
+    return results

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 from uuid import uuid4
+from typing import List
 
 from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
@@ -34,6 +35,7 @@ from ..schemas import (
 from ..services.planning_preview import build_batch_preview, build_row_preview
 from ..services.classification import (
     classify_saved_upload,
+    classify_uploaded_files_parallel,
     dedupe_filename,
     derive_status,
     file_content_hash,
@@ -79,24 +81,23 @@ async def classify_uploads(
 
         duplicate_hashes = find_duplicate_hashes(settings, [content_hash for _, _, content_hash, _ in pending_uploads])
 
+        # Save all files first
+        file_tuples: List[Tuple[Path, str]] = []
         for upload, original_filename, content_hash, payload in pending_uploads:
             stored_filename = dedupe_filename(original_filename, seen_names)
             stored_path = session_dir / stored_filename
             stored_path.write_bytes(payload)
+            file_tuples.append((stored_path, original_filename))
+            uploaded_hashes.add(content_hash)
+            await upload.close()
 
-            try:
-                row = classify_saved_upload(stored_path, original_filename)
-                if content_hash in duplicate_hashes or content_hash in uploaded_hashes:
-                    row.status = "Duplicate"
-                else:
-                    row.status = derive_status(row.confidence, row.model_type, row.preset)
-            except ValueError as exc:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"{original_filename}: {exc}",
-                ) from exc
-            finally:
-                await upload.close()
+        # Classify in parallel
+        rows = classify_uploaded_files_parallel(file_tuples, max_workers=4)
+        
+        # Mark duplicates
+        for i, row in enumerate(rows):
+            if duplicate_hashes and file_tuples[i][1] in [h for h in duplicate_hashes]:
+                row.status = "Duplicate"
 
             rows.append(row)
             persisted_rows.append(serialize_row_for_storage(row, stored_path, content_hash))
