@@ -46,6 +46,7 @@ PHASE0_MODEL_TYPES = (
     "Die",
     "Tooth",
     "Splint",
+    "Antagonist",
 )
 
 THUMBNAIL_SVG_VERSION = "thumb-v3"
@@ -77,16 +78,29 @@ def infer_phase0_model_type(file_name: str, artifact, structure=None) -> str | N
         return "Die"
     if artifact.artifact_type == ARTIFACT_TOOTH:
         return "Tooth"
+    if artifact.artifact_type == ARTIFACT_ANTAGONIST:
+        # Default antagonist to hollow (most common for bite guards)
+        if structure and structure.structure == STRUCTURE_SOLID:
+            return "Antagonist - Solid"
+        return "Antagonist - Hollow"  # Default
     if structure and structure.structure == STRUCTURE_HOLLOW:
         return "Ortho - Hollow"
     if structure and structure.structure == STRUCTURE_SOLID:
         return "Ortho - Solid"
-    if artifact.workflow == WORKFLOW_ORTHO_IMPLANT or artifact.artifact_type in {ARTIFACT_MODEL, ARTIFACT_ANTAGONIST, ARTIFACT_MODEL_BASE}:
+    # Fallback for unsectioned models: default to solid (most common)
+    if artifact.artifact_type == ARTIFACT_MODEL and "unsectioned" in file_name.lower():
+        return "Ortho - Solid"
+    if artifact.workflow == WORKFLOW_ORTHO_IMPLANT or artifact.artifact_type in {ARTIFACT_MODEL, ARTIFACT_MODEL_BASE}:
         return None
     return None
 
 
 def default_preset(model_type: str | None) -> str | None:
+    if model_type is None:
+        return None
+    # Map antagonist types to preset
+    if model_type.startswith("Antagonist"):
+        return model_type
     if model_type not in PHASE0_MODEL_TYPES:
         return None
     return model_type
