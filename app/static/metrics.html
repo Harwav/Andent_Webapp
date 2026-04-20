@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Andent Web - Metrics Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .metrics-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .metrics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        .metric-card {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #333;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+        .metric-target {
+            font-size: 12px;
+            color: #999;
+        }
+        .metric-good {
+            color: #28a745;
+        }
+        .metric-warning {
+            color: #ffc107;
+        }
+        .metric-bad {
+            color: #dc3545;
+        }
+        .confidence-bars {
+            display: flex;
+            height: 40px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .confidence-high { background: #28a745; }
+        .confidence-medium { background: #ffc107; }
+        .confidence-low { background: #dc3545; }
+        .latency-table {
+            width: 100%;
+            margin-top: 20px;
+        }
+        .latency-table th, .latency-table td {
+            padding: 10px;
+            text-align: left;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="metrics-container">
+        <a href="/" class="back-link">← Back to Queue</a>
+        
+        <div class="metrics-header">
+            <h1>Classification Metrics</h1>
+            <button id="refresh-btn" class="primary-button">Refresh</button>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value" id="straight-through-value">--</div>
+                <div class="metric-label">Straight-Through Rate</div>
+                <div class="metric-target">Target: ≥95%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="human-review-value">--</div>
+                <div class="metric-label">Human Review Rate</div>
+                <div class="metric-target">Target: ≤2%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="total-value">--</div>
+                <div class="metric-label">Total Classifications</div>
+            </div>
+        </div>
+
+        <div class="metric-card" style="margin-top: 20px;">
+            <div class="metric-label">Confidence Distribution</div>
+            <div class="confidence-bars" id="confidence-bars">
+                <div class="confidence-high" id="bar-high" style="width: 0%"></div>
+                <div class="confidence-medium" id="bar-medium" style="width: 0%"></div>
+                <div class="confidence-low" id="bar-low" style="width: 0%"></div>
+            </div>
+            <div style="display: flex; justify-content: space-around; font-size: 12px;">
+                <span id="high-count">High: 0</span>
+                <span id="medium-count">Medium: 0</span>
+                <span id="low-count">Low: 0</span>
+            </div>
+        </div>
+
+        <table class="latency-table">
+            <thead>
+                <tr>
+                    <th>Percentile</th>
+                    <th>Latency (seconds)</th>
+                    <th>Target</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>p50</td>
+                    <td id="p50-value">--</td>
+                    <td>--</td>
+                </tr>
+                <tr>
+                    <td>p95</td>
+                    <td id="p95-value">--</td>
+                    <td>&lt;30s</td>
+                </tr>
+                <tr>
+                    <td>p99</td>
+                    <td id="p99-value">--</td>
+                    <td>--</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="margin-top: 20px; font-size: 12px; color: #999;">
+            Last updated: <span id="timestamp">--</span>
+        </div>
+    </div>
+
+    <script>
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/api/metrics/');
+                const data = await response.json();
+                updateMetrics(data);
+            } catch (error) {
+                console.error('Failed to fetch metrics:', error);
+            }
+        }
+
+        function updateMetrics(data) {
+            // Straight-through rate
+            const stRate = data.straight_through_rate;
+            const stElement = document.getElementById('straight-through-value');
+            stElement.textContent = stRate.toFixed(1) + '%';
+            stElement.className = 'metric-value ' + (stRate >= 95 ? 'metric-good' : stRate >= 80 ? 'metric-warning' : 'metric-bad');
+
+            // Human review rate
+            const hrRate = data.human_review_rate;
+            const hrElement = document.getElementById('human-review-value');
+            hrElement.textContent = hrRate.toFixed(1) + '%';
+            hrElement.className = 'metric-value ' + (hrRate <= 2 ? 'metric-good' : hrRate <= 5 ? 'metric-warning' : 'metric-bad');
+
+            // Total
+            document.getElementById('total-value').textContent = data.total_classifications;
+
+            // Confidence distribution
+            const dist = data.confidence_distribution;
+            const total = dist.high + dist.medium + dist.low;
+            if (total > 0) {
+                document.getElementById('bar-high').style.width = (dist.high / total * 100) + '%';
+                document.getElementById('bar-medium').style.width = (dist.medium / total * 100) + '%';
+                document.getElementById('bar-low').style.width = (dist.low / total * 100) + '%';
+            }
+            document.getElementById('high-count').textContent = 'High: ' + dist.high;
+            document.getElementById('medium-count').textContent = 'Medium: ' + dist.medium;
+            document.getElementById('low-count').textContent = 'Low: ' + dist.low;
+
+            // Latency percentiles
+            const latency = data.latency_percentiles;
+            document.getElementById('p50-value').textContent = latency.p50.toFixed(2);
+            const p95Element = document.getElementById('p95-value');
+            p95Element.textContent = latency.p95.toFixed(2);
+            p95Element.className = latency.p95 <= 30 ? 'metric-good' : 'metric-bad';
+            document.getElementById('p99-value').textContent = latency.p99.toFixed(2);
+
+            // Timestamp
+            document.getElementById('timestamp').textContent = data.timestamp;
+        }
+
+        // Initial fetch
+        fetchMetrics();
+
+        // Refresh button
+        document.getElementById('refresh-btn').addEventListener('click', fetchMetrics);
+
+        // Auto-refresh every 30 seconds
+        setInterval(fetchMetrics, 30000);
+    </script>
+</body>
+</html>

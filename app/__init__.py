@@ -1,0 +1,1 @@
+"""Standalone Andent web application."""
