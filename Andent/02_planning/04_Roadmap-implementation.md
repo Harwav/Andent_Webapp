@@ -17,7 +17,7 @@ This roadmap defines the phased implementation for Andent Web Auto Prep. The sco
 | Phase | Name | Status | Progress |
 |-------|------|--------|----------|
 | Phase 0 | Classification Intake | ✅ COMPLETE | 100% |
-| Phase 1 | PreFormServer Handoff | 🔄 In Progress | ~40% |
+| Phase 1 | PreFormServer Handoff + Print Queue | 🔄 In Progress | ~40% |
 | Phase 2 | Enhanced Queue Features | 🔲 Planned | 0% |
 | Phase 3 | Validation & Metrics | 🔲 Planned | 0% |
 | Phase 4 | Production Hardening | 🔲 Planned | 0% |
@@ -63,68 +63,74 @@ This roadmap defines the phased implementation for Andent Web Auto Prep. The sco
 
 ---
 
-## Phase 1: PreFormServer Handoff 🔄 IN PROGRESS
+## Phase 1: PreFormServer Handoff + Print Queue Tab 🔄 IN PROGRESS
 
 ### Goal
 
-Replace simulated handoff with real PreFormServer API integration, add durable override persistence.
+Complete PreFormServer integration with automated batching, real handoff, and new Print Queue tab for job monitoring.
 
-### Scope
+### Phase 1 Scope (Finalized)
 
-| Feature | Description | Effort | Priority |
-|---------|-------------|--------|----------|
-| PreFormServer API contract | Define what data PreFormServer expects | 1 day | P0 |
-| `preform_client.py` | API wrapper for PreFormServer calls | 1 day | P0 |
-| Real handoff endpoint | Replace simulated send-to-print | 1 day | P0 |
-| Connection error handling | Handle PreFormServer failures gracefully | 1 day | P1 |
-| Status sync | Update row status from PreFormServer response | 1 day | P1 |
-| Durable overrides | Persist Model Type/Preset edits across sessions | 1-2 days | P1 |
+| Feature | Description | Effort | Priority | Dependencies |
+|---------|-------------|--------|----------|--------------|
+| **Batching Logic** | Group Ready rows by preset, auto-generate job names | 1 day | P0 | None |
+| **Preset Configuration Update** | Ortho/Hollow/Die lay flat; Tooth auto-supports; All use Precision Model Resin 100µm | 0.5 day | P0 | Batching |
+| **Real Handoff Endpoint** | Replace simulated send-to-print with PreFormServer API calls | 1 day | P0 | Preset config |
+| **FormlabsWebClient** | New client for Formlabs Web API authentication and queries | 1 day | P0 | None |
+| **Print Queue Database Schema** | Add print_jobs table, link to upload rows | 0.5 day | P0 | Schema design |
+| **Print Queue Tab UI** | New tab with job cards, screenshots, status badges | 1.5 days | P0 | Database |
+| **Status Polling Service** | Backend polls Formlabs API every 5s, frontend polls backend | 1 day | P0 | WebClient |
+| **Screenshot Display** | Fetch and display job screenshots (click to zoom) | 0.5 day | P1 | Status polling |
+| **Connection Error Handling** | Handle PreFormServer/Formlabs API failures gracefully | 0.5 day | P1 | Handoff + WebClient |
+| **Durable Overrides** | Persist Model Type/Preset edits across sessions | 0.5 day | P2 | Database |
 
-### Achieved So Far
+**Total Estimated: 8 days**
 
-| Feature | Status | Commit |
-|---------|--------|--------|
-| HeadlessPipeline extracted from ProcessingController | ✅ | fdabf3c |
-| PipelineEventHandler added | ✅ | 6fbc170 |
-| WebEventHandler + run_prep_job() wired | ✅ | 41c58a9 |
-| Bulk update/delete API endpoints | ✅ | b69f85a |
-| UI polish pass | ✅ | b69f85a |
-| 11 E2E gap tests for session persistence | ✅ | 757705b |
-| preform_client.py scaffolded | ✅ | b69f85a |
+### Phase 1 Files to Modify/Create
 
-### Remaining for Phase 1 Completion
+| File | Purpose | Lines Est. |
+|------|---------|------------|
+| `app/services/preform_client.py` | PreFormServer local API client | ~200 |
+| `app/services/formlabs_web_client.py` | Formlabs Web API client (new) | ~150 |
+| `app/services/print_queue_service.py` | Batching + job management (new) | ~300 |
+| `app/routers/uploads.py` | Real handoff endpoint | +100 |
+| `app/routers/print_queue.py` | Print queue API endpoints (new) | ~200 |
+| `app/database.py` | Add print_jobs table schema | +80 |
+| `app/schemas.py` | Print job schemas | +50 |
+| `app/config.py` | Add Formlabs API env vars | +20 |
+| `app/static/index.html` | Print Queue tab UI | +100 |
+| `app/static/app.js` | Print Queue frontend logic | +400 |
+| `app/static/styles.css` | Print Queue styling | +200 |
 
-- Real PreFormServer API handoff (replace simulated send-to-print)
-- Connection error handling with user feedback
-- Status sync from PreFormServer response
-- Durable override persistence across sessions
+### Phase 1 Test Plan
 
-### Files to Modify/Create
+| Test | Description | Priority |
+|------|-------------|----------|
+| `test_batching_logic` | Cases grouped correctly by preset | P0 |
+| `test_job_name_generation` | YYMMDD-001 format works | P0 |
+| `test_preform_client_create_scene` | Scene creation via PreFormServer | P0 |
+| `test_preform_client_import_model` | STL import to scene | P0 |
+| `test_preform_client_send_to_printer` | Handoff to printer group | P0 |
+| `test_formlabs_web_client_auth` | API token authentication | P0 |
+| `test_formlabs_web_client_list_jobs` | Fetch print jobs from API | P0 |
+| `test_print_queue_persistence` | Jobs saved to database | P0 |
+| `test_status_polling` | Backend polls Formlabs API | P0 |
+| `test_screenshot_fetch` | Screenshot retrieval and display | P1 |
+| `test_connection_error_handling` | Graceful failure on API errors | P1 |
+| `test_durable_override` | Override persistence across sessions | P2 |
 
-- `andent_web/app/services/preform_client.py` (new)
-- `andent_web/app/routers/uploads.py` (modify)
-- `andent_web/app/schemas.py` (add handoff schemas)
-- `andent_web/app/database.py` (durable storage)
+### Phase 1 Exit Criteria
 
-### Test Plan
-
-| Test | Description |
-|------|-------------|
-| `test_preform_client_connection` | Verify PreFormServer connection |
-| `test_preform_client_handoff` | Test handoff request/response |
-| `test_handoff_endpoint` | Integration test for send-to-print |
-| `test_connection_failure` | Error handling test |
-| `test_durable_override` | Override persistence test |
-
-### Exit Criteria
-
-- PreFormServer API client works
-- Real handoff succeeds (PreFormServer accepts job)
-- Row status reflects PreFormServer response
-- Connection errors handled with user feedback
-- Overrides persist after browser refresh/server restart
-
-### Estimated: 5-7 days
+- [ ] Batching logic groups Ready cases by preset (one case ≠ multiple batches)
+- [ ] Job names auto-generated (YYMMDD-001 format)
+- [ ] Presets configured: Ortho/Hollow/Die = lay flat; Tooth = auto-supports; All = Precision Model Resin 100µm
+- [ ] PreFormServer handoff creates scene, imports STLs, configures preset, sends to printer
+- [ ] Print Queue tab displays jobs with screenshots, names, cases, status
+- [ ] Formlabs Web API client authenticates and fetches job data
+- [ ] Backend polls Formlabs API every 5s for status updates
+- [ ] Status values shown: Queued, Printing, Failed, Paused, Completed
+- [ ] Connection errors handled with user-friendly messages
+- [ ] All P0 tests passing
 
 ---
 
@@ -274,9 +280,9 @@ The following were removed from Andent Web scope after architecture clarificatio
 |---------|-------|
 | Orient & pack | PreFormServer |
 | Support generation | PreFormServer |
-| Job queue management | PreFormServer |
+| Job queue management | PreFormServer + Formlabs Dashboard |
 | Printer dispatch | PreFormServer |
-| Print status tracking | PreFormServer |
+| Print status tracking | Formlabs Web API |
 | Printer-group routing | PreFormServer |
 
 ---
@@ -286,36 +292,38 @@ The following were removed from Andent Web scope after architecture clarificatio
 | Phase | Days | Cumulative |
 |-------|------|------------|
 | Phase 0 (done) | — | 0 |
-| Phase 1 | 5-7 | 5-7 days |
-| Phase 2 | 5-6 | 10-13 days |
-| Phase 3 | 3-4 | 13-17 days |
-| Phase 4 | 3-4 | 16-21 days |
+| Phase 1 | 8 | 8 days |
+| Phase 2 | 5-6 | 13-14 days |
+| Phase 3 | 3-4 | 16-18 days |
+| Phase 4 | 3-4 | 19-22 days |
 
-**Total: ~16-21 days from now to production-ready**
+**Total: ~19-22 days from now to production-ready**
 
 ---
 
 ## Next Action
 
-**Phase 1: PreFormServer Handoff**
+**Phase 1: PreFormServer Handoff + Print Queue Tab**
 
-1. Define PreFormServer API contract
-2. Implement `preform_client.py`
-3. Replace simulated send-to-print
-4. Add durable override storage
-5. Test-driven implementation
+1. Update preset configuration (Ortho/Hollow/Die = lay flat; Tooth = auto-supports)
+2. Implement batching logic in `print_queue_service.py`
+3. Update `preform_client.py` with correct preset mappings
+4. Create `formlabs_web_client.py` for cloud API
+5. Add `print_jobs` table to database schema
+6. Create Print Queue tab UI components
+7. Implement status polling service
+8. Add screenshot display with zoom modal
+9. Test end-to-end handoff flow
 
 ---
 
 ## Open Gaps — Deferred to Phase 3
 
-These items were flagged as residual risks in the PRD. They are not Phase 1 blockers but must be defined before Phase 3 ships.
-
 | Gap | Status |
 |-----|--------|
-| Upload-to-queue latency target | Not yet defined |
-| Printer dispatch success-rate target | Not yet defined |
-| Mixed-model-type upload handling rules | Not yet defined |
+| Upload-to-queue latency target | Defined: <30s per file |
+| Printer dispatch success-rate target | To be defined |
+| Mixed-model-type upload handling rules | Handled by preset-based batching |
 
 ---
 
@@ -326,13 +334,13 @@ These items were flagged as residual risks in the PRD. They are not Phase 1 bloc
 | 2026-04-18 | Created roadmap with revised phases |
 | 2026-04-18 | Removed PreFormServer scope from Andent Web |
 | 2026-04-18 | Marked Phase 0 complete |
-| 2026-04-20 | Phase 1 marked In Progress (~40%); partial achievements documented |
-| 2026-04-20 | Added Open Gaps section (deferred to Phase 3) |
+| 2026-04-20 | Phase 1 requirements finalized with Print Queue tab, Formlabs Web API integration, batching logic, and preset configuration |
 
 ---
 
 ## References
 
 - Architecture: `Andent/02_planning/architecture-andent-web.md`
+- PreFormServer Handoff: `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
 - Requirements PRD: `Andent/01_requirements/prd-andent-web-auto-prep.md`
 - Planning PRD: `Andent/02_planning/prd-andent-web-auto-prep.md`

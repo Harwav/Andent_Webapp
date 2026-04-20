@@ -1,0 +1,252 @@
+{
+  "run_root": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160850",
+  "cases": [
+    {
+      "case": "01_ortho_happy",
+      "forms": [
+        "20260410_ortho_CASE123.form"
+      ],
+      "screenshots": [
+        "20260410_ortho_CASE123_preview.png"
+      ],
+      "manual_reports": [],
+      "results": [
+        {
+          "file": "20260410_ortho_CASE123",
+          "models": 2,
+          "time": "00:35",
+          "printer": "Virtual Printer",
+          "original_volume": "0.00",
+          "hollowed_volume": "0.00",
+          "resin_saved": "0.00",
+          "avg_resin": "0.00"
+        }
+      ],
+      "warnings": [],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 2,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "manual_review_items": []
+    },
+    {
+      "case": "02_splint_happy",
+      "forms": [
+        "20260410_splint_CASE777.form"
+      ],
+      "screenshots": [
+        "20260410_splint_CASE777_preview.png"
+      ],
+      "manual_reports": [],
+      "results": [
+        {
+          "file": "20260410_splint_CASE777",
+          "models": 1,
+          "time": "00:25",
+          "printer": "Virtual Printer",
+          "original_volume": "0.00",
+          "hollowed_volume": "0.00",
+          "resin_saved": "0.00",
+          "avg_resin": "0.00"
+        }
+      ],
+      "warnings": [],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 1,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "manual_review_items": []
+    },
+    {
+      "case": "03_tooth_guard",
+      "forms": [
+        "20260410_tooth_CASE999.form"
+      ],
+      "screenshots": [
+        "20260410_tooth_CASE999_preview.png"
+      ],
+      "manual_reports": [],
+      "results": [
+        {
+          "file": "20260410_tooth_CASE999",
+          "models": 1,
+          "time": "00:28",
+          "printer": "Virtual Printer",
+          "original_volume": "0.00",
+          "hollowed_volume": "0.00",
+          "resin_saved": "0.00",
+          "avg_resin": "0.00"
+        }
+      ],
+      "warnings": [],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 1,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "manual_review_items": []
+    },
+    {
+      "case": "04_ambiguous_guard",
+      "forms": [],
+      "screenshots": [],
+      "manual_reports": [
+        "manual_review_20260410_161021.json"
+      ],
+      "results": [],
+      "warnings": [
+        {
+          "title": "Manual Review Required",
+          "message": "2 case(s) were held for manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160850\\04_ambiguous_guard\\output\\manual_review_20260410_161021.json"
+        }
+      ],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 0,
+          "total_resin_saved": 0,
+          "skipped_files": [
+            "Julie_UpperJaw.stl",
+            "PatientX_splint.stl"
+          ],
+          "batch_count": 0
+        }
+      ],
+      "manual_review_items": [
+        {
+          "case_id": "UNASSIGNED",
+          "workflow": "manual_review",
+          "reason": "Could not derive a stable case identifier from the filename."
+        },
+        {
+          "case_id": "UNASSIGNED",
+          "workflow": "manual_review",
+          "reason": "Could not derive a stable case identifier from the filename."
+        }
+      ]
+    },
+    {
+      "case": "05_fps_mismatch_guard",
+      "forms": [],
+      "screenshots": [],
+      "manual_reports": [
+        "manual_review_20260410_161024.json"
+      ],
+      "results": [],
+      "warnings": [
+        {
+          "title": "Manual Review Required",
+          "message": "1 case(s) require manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160850\\05_fps_mismatch_guard\\output\\manual_review_20260410_161024.json"
+        }
+      ],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 0,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "manual_review_items": [
+        {
+          "case_id": "CASE123",
+          "workflow": "ortho_implant",
+          "reason": "Splint FPS settings do not match Precision Model at 0.050 mm."
+        }
+      ]
+    },
+    {
+      "case": "06_mixed_ortho_tooth",
+      "forms": [
+        "20260410_ortho-tooth_CASE123.form"
+      ],
+      "screenshots": [
+        "20260410_ortho-tooth_CASE123_preview.png"
+      ],
+      "manual_reports": [],
+      "results": [
+        {
+          "file": "20260410_ortho-tooth_CASE123",
+          "models": 3,
+          "time": "01:11",
+          "printer": "Virtual Printer",
+          "original_volume": "0.00",
+          "hollowed_volume": "0.00",
+          "resin_saved": "0.00",
+          "avg_resin": "0.00"
+        }
+      ],
+      "warnings": [],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 3,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "manual_review_items": []
+    },
+    {
+      "case": "07_mixed_splint_ortho_tooth",
+      "forms": [
+        "20260410_ortho-tooth_CASE123.form",
+        "20260410_splint_CASE123.form"
+      ],
+      "screenshots": [
+        "20260410_ortho-tooth_CASE123_preview.png",
+        "20260410_splint_CASE123_preview.png"
+      ],
+      "manual_reports": [],
+      "results": [
+        {
+          "file": "20260410_ortho-tooth_CASE123",
+          "models": 3,
+          "time": "01:09",
+          "printer": "Virtual Printer",
+          "original_volume": "0.00",
+          "hollowed_volume": "0.00",
+          "resin_saved": "0.00",
+          "avg_resin": "0.00"
+        },
+        {
+          "file": "20260410_splint_CASE123",
+          "models": 1,
+          "time": "00:25",
+          "printer": "Virtual Printer",
+          "original_volume": "0.00",
+          "hollowed_volume": "0.00",
+          "resin_saved": "0.00",
+          "avg_resin": "0.00"
+        }
+      ],
+      "warnings": [],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 4,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 2
+        }
+      ],
+      "manual_review_items": []
+    }
+  ]
+}

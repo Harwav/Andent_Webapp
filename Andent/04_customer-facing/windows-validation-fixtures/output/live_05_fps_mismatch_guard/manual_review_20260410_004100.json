@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-04-10T00:41:00.640760",
+  "items": [
+    {
+      "case_id": "CASE123",
+      "workflow": "ortho_implant",
+      "reason": "FPS scene setting 'layer_thickness_mm' is 0.16, but workflow requires 0.05.",
+      "file_paths": [
+        "d:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\05_fps_mismatch_guard\\20260409_CASE123_Antag.stl",
+        "d:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\05_fps_mismatch_guard\\20260409_CASE123_UnsectionedModel_UpperJaw.stl"
+      ]
+    }
+  ]
+}

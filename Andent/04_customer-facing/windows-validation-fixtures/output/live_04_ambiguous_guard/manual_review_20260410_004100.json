@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-04-10T00:41:00.424480",
+  "items": [
+    {
+      "case_id": "UNASSIGNED",
+      "workflow": "manual_review",
+      "reason": "Could not derive a stable case identifier from the filename.",
+      "file_paths": [
+        "d:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\04_ambiguous_guard\\Julie_UpperJaw.stl"
+      ]
+    },
+    {
+      "case_id": "UNASSIGNED",
+      "workflow": "manual_review",
+      "reason": "Could not derive a stable case identifier from the filename.",
+      "file_paths": [
+        "d:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\04_ambiguous_guard\\PatientX_splint.stl"
+      ]
+    }
+  ]
+}

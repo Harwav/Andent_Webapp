@@ -1,0 +1,145 @@
+{
+  "target_folder": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Test Data 2",
+  "started_at": "2026-04-10T22:31:22.589022",
+  "ended_at": "2026-04-10T22:36:56.298776",
+  "duration_seconds": 333.71,
+  "api_payload": {
+    "layer_thickness_mm": 0.05,
+    "machine_type": "FORM-4-0",
+    "material_code": "FLPMBE01",
+    "print_setting": "DEFAULT"
+  },
+  "print_settings": {
+    "printer_name": "Form 4B",
+    "material_name": "Precision Model V1",
+    "resolution_str": "0.050 mm (Default settings)",
+    "material_code": "FLPMBE01",
+    "layer_thickness_mm": 0.05,
+    "machine_type": "FORM-4-0"
+  },
+  "output_folder": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Test Data 2",
+  "gui_results": [
+    {
+      "file": "20260410_ortho-tooth_10936643+10936926.form",
+      "models": 6,
+      "time": "02:00",
+      "printer": "Saved Output",
+      "original_volume": "0.00",
+      "hollowed_volume": "0.00",
+      "resin_saved": "0.00",
+      "avg_resin": "0.00"
+    },
+    {
+      "file": "20260410_ortho-tooth_8424903+8424921.form",
+      "models": 6,
+      "time": "01:36",
+      "printer": "Saved Output",
+      "original_volume": "0.00",
+      "hollowed_volume": "0.00",
+      "resin_saved": "0.00",
+      "avg_resin": "0.00"
+    },
+    {
+      "file": "20260410_ortho-tooth_8425357.form",
+      "models": 3,
+      "time": "00:38",
+      "printer": "Saved Output",
+      "original_volume": "0.00",
+      "hollowed_volume": "0.00",
+      "resin_saved": "0.00",
+      "avg_resin": "0.00"
+    }
+  ],
+  "gui_warnings": [],
+  "gui_errors": [],
+  "gui_finished": [
+    [
+      15,
+      0.0,
+      [],
+      3
+    ]
+  ],
+  "validation_dialog_calls": 0,
+  "manual_review_report_path": null,
+  "manual_review_items": [],
+  "new_or_updated_outputs": [
+    {
+      "name": "20260410_ortho-tooth_10936643+10936926.form",
+      "path": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Test Data 2\\20260410_ortho-tooth_10936643+10936926.form",
+      "modified_at": "2026-04-10T22:34:38.794668",
+      "size_bytes": 11394606
+    },
+    {
+      "name": "20260410_ortho-tooth_10936643+10936926_preview.png",
+      "path": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Test Data 2\\20260410_ortho-tooth_10936643+10936926_preview.png",
+      "modified_at": "2026-04-10T22:34:40.666685",
+      "size_bytes": 243669
+    },
+    {
+      "name": "20260410_ortho-tooth_8424903+8424921.form",
+      "path": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Test Data 2\\20260410_ortho-tooth_8424903+8424921.form",
+      "modified_at": "2026-04-10T22:36:16.341875",
+      "size_bytes": 7793810
+    },
+    {
+      "name": "20260410_ortho-tooth_8424903+8424921_preview.png",
+      "path": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Test Data 2\\20260410_ortho-tooth_8424903+8424921_preview.png",
+      "modified_at": "2026-04-10T22:36:17.341353",
+      "size_bytes": 210844
+    },
+    {
+      "name": "20260410_ortho-tooth_8425357.form",
+      "path": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Test Data 2\\20260410_ortho-tooth_8425357.form",
+      "modified_at": "2026-04-10T22:36:55.422358",
+      "size_bytes": 3912687
+    },
+    {
+      "name": "20260410_ortho-tooth_8425357_preview.png",
+      "path": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Test Data 2\\20260410_ortho-tooth_8425357_preview.png",
+      "modified_at": "2026-04-10T22:36:56.153619",
+      "size_bytes": 183105
+    }
+  ],
+  "stage_sequence": [
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Prepare",
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Prepare",
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Prepare"
+  ],
+  "recent_status_updates": [
+    "Saving '20260410_ortho-tooth_10936643+10936926.form'...",
+    "Saving '20260410_ortho-tooth_10936643+10936926_preview.png'...",
+    "Validating batch 2/3...",
+    "Analyzing volumes for Batch #2...",
+    "Analyzing volumes for 6 new models...",
+    "Processing Batch #2/3 (6 models)...",
+    "Batch importing 6 files...",
+    "Performing auto-layout...",
+    "Generating tooth supports...",
+    "Relayout after supports...",
+    "Validating scene...",
+    "Saving '20260410_ortho-tooth_8424903+8424921.form'...",
+    "Saving '20260410_ortho-tooth_8424903+8424921_preview.png'...",
+    "Validating batch 3/3...",
+    "Analyzing volumes for Batch #3...",
+    "Analyzing volumes for 3 new models...",
+    "Processing Batch #3/3 (3 models)...",
+    "Batch importing 3 files...",
+    "Performing auto-layout...",
+    "Generating tooth supports...",
+    "Relayout after supports...",
+    "Validating scene...",
+    "Saving '20260410_ortho-tooth_8425357.form'...",
+    "Saving '20260410_ortho-tooth_8425357_preview.png'...",
+    "Finalizing reports..."
+  ]
+}

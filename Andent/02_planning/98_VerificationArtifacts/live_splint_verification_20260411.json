@@ -1,0 +1,64 @@
+{
+  "queue_folder": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\02_splint_happy",
+  "output_folder": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\live_splint_verification_20260411",
+  "duration_seconds": 10.644,
+  "api_payload": {
+    "layer_thickness_mm": 0.05,
+    "machine_type": "FORM-4-0",
+    "material_code": "FLPMBE01",
+    "print_setting": "DEFAULT"
+  },
+  "manifest": {
+    "printer_name": "Form 4B",
+    "material_name": "Precision Model V1",
+    "resolution_str": "0.050 mm (Default settings)",
+    "material_code": "FLPMBE01",
+    "layer_thickness_mm": 0.05,
+    "machine_type": "FORM-4-0"
+  },
+  "results": [
+    {
+      "file": "20260411_splint_CASE777.form",
+      "models": 1,
+      "time": "00:09",
+      "printer": "Saved Output",
+      "original_volume": "0.00",
+      "hollowed_volume": "0.00",
+      "resin_saved": "0.00",
+      "avg_resin": "0.00"
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "finished": [
+    [
+      1,
+      0.0,
+      [],
+      1
+    ]
+  ],
+  "validation_dialog_calls": 0,
+  "manual_review_items": [],
+  "new_outputs": [
+    {
+      "name": "20260411_splint_CASE777.form",
+      "path": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\live_splint_verification_20260411\\20260411_splint_CASE777.form",
+      "size_bytes": 3828685,
+      "modified_at": "2026-04-11T13:26:07.981887"
+    },
+    {
+      "name": "20260411_splint_CASE777_preview.png",
+      "path": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\live_splint_verification_20260411\\20260411_splint_CASE777_preview.png",
+      "size_bytes": 235840,
+      "modified_at": "2026-04-11T13:26:08.216138"
+    }
+  ],
+  "stages": [
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Arrange",
+    "Prepare"
+  ]
+}

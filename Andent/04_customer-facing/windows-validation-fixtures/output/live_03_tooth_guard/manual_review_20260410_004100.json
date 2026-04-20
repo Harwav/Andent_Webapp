@@ -1,0 +1,13 @@
+{
+  "generated_at": "2026-04-10T00:41:00.214964",
+  "items": [
+    {
+      "case_id": "CASE999",
+      "workflow": "manual_review",
+      "reason": "Tooth-model cases are held for manual review until the lower 7-8 mm support-touchpoint rule is verified against the Local API.",
+      "file_paths": [
+        "d:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\03_tooth_guard\\20260409_CASE999_Tooth_46.stl"
+      ]
+    }
+  ]
+}

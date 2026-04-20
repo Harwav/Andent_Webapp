@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-04-10T01:16:39.230366",
+  "items": [
+    {
+      "case_id": "10936643",
+      "workflow": "manual_review",
+      "reason": "Tooth-model cases are held for manual review until the lower 7-8 mm support-touchpoint rule is verified against the Local API.",
+      "file_paths": [
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_10936643_SCDL_10936643_DDA3_Antag.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_10936643_SCDL_10936643_DDA3_Tooth_27.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_10936643_SCDL_10936643_DDA3_UnsectionedModel_UpperJaw.stl"
+      ]
+    },
+    {
+      "case_id": "10936926",
+      "workflow": "manual_review",
+      "reason": "Tooth-model cases are held for manual review until the lower 7-8 mm support-touchpoint rule is verified against the Local API.",
+      "file_paths": [
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_10936926__SCDL__DD__A2_Antag.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_10936926__SCDL__DD__A2_Tooth_45.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_10936926__SCDL__DD__A2_UnsectionedModel_LowerJaw.stl"
+      ]
+    },
+    {
+      "case_id": "8424565",
+      "workflow": "manual_review",
+      "reason": "Tooth-model cases are held for manual review until the lower 7-8 mm support-touchpoint rule is verified against the Local API.",
+      "file_paths": [
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424565_Geelong_Lee_UT_A3_Antag.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424565_Geelong_Lee_UT_A3_Tooth_46.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424565_Geelong_Lee_UT_A3_UnsectionedModel_LowerJaw.stl"
+      ]
+    },
+    {
+      "case_id": "8424709",
+      "workflow": "manual_review",
+      "reason": "Tooth-model cases are held for manual review until the lower 7-8 mm support-touchpoint rule is verified against the Local API.",
+      "file_paths": [
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424709_Raymond_Marita_pfm_Antag.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424709_Raymond_Marita_pfm_Tooth_14.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424709_Raymond_Marita_pfm_UnsectionedModel_UpperJaw.stl"
+      ]
+    },
+    {
+      "case_id": "8424903",
+      "workflow": "manual_review",
+      "reason": "Tooth-model cases are held for manual review until the lower 7-8 mm support-touchpoint rule is verified against the Local API.",
+      "file_paths": [
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424903_Dentists_Efstratia_UT_C2_Antag.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424903_Dentists_Efstratia_UT_C2_Tooth_37.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424903_Dentists_Efstratia_UT_C2_UnsectionedModel_LowerJaw.stl"
+      ]
+    },
+    {
+      "case_id": "8424921",
+      "workflow": "manual_review",
+      "reason": "Tooth-model cases are held for manual review until the lower 7-8 mm support-touchpoint rule is verified against the Local API.",
+      "file_paths": [
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424921_Googong_Lynette_M_Antag.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424921_Googong_Lynette_M_Tooth_25.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8424921_Googong_Lynette_M_UnsectionedModel_UpperJaw.stl"
+      ]
+    },
+    {
+      "case_id": "8425357",
+      "workflow": "manual_review",
+      "reason": "Tooth-model cases are held for manual review until the lower 7-8 mm support-touchpoint rule is verified against the Local API.",
+      "file_paths": [
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8425357__Kaleen_Shium_Antag.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8425357__Kaleen_Shium_Tooth_47.stl",
+        "D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data\\20260408_8425357__Kaleen_Shium_UnsectionedModel_LowerJaw.stl"
+      ]
+    }
+  ]
+}

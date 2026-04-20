@@ -1,0 +1,136 @@
+{
+  "source_folder": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints",
+  "selected_files": [
+    "8424410_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+    "8424418_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+    "8424423_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl"
+  ],
+  "output_folder": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\output_live_3files_20260411",
+  "duration_seconds": 192.207,
+  "api_payload": {
+    "layer_thickness_mm": 0.05,
+    "machine_type": "FORM-4-0",
+    "material_code": "FLPMBE01",
+    "print_setting": "DEFAULT"
+  },
+  "manifest": {
+    "printer_name": "Form 4B",
+    "material_name": "Precision Model V1",
+    "resolution_str": "0.050 mm (Default settings)",
+    "material_code": "FLPMBE01",
+    "layer_thickness_mm": 0.05,
+    "machine_type": "FORM-4-0"
+  },
+  "results": [],
+  "errors": [],
+  "warnings": [
+    [
+      "Manual Review Required",
+      "6 case(s) require manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\output_live_3files_20260411\\manual_review_20260411_133357.json"
+    ]
+  ],
+  "finished": [
+    [
+      0,
+      0.0,
+      [],
+      6
+    ]
+  ],
+  "validation_dialog_calls": 0,
+  "manual_review_items": [
+    {
+      "case_id": "8424410,8424418,8424423,8424442,8424444,8424460",
+      "reason": "Splint auto-orient API response did not meet the required tilted orientation profile. Model #1 stayed too flat.",
+      "workflow": "splint",
+      "file_paths": [
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424410_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424418_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424423_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424442_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424444_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424460_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl"
+      ]
+    },
+    {
+      "case_id": "8424465,8424473,8424493,8424532,8424534,8424541",
+      "reason": "Splint auto-orient API response did not meet the required tilted orientation profile. Model #1 stayed too flat.",
+      "workflow": "splint",
+      "file_paths": [
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424465_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424473_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424493_2026-04-02_01635-642-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424532_2026-04-02_01635-642-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424534_2026-04-02_01635-642-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424541_2026-04-02_01635-642-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl"
+      ]
+    },
+    {
+      "case_id": "8424495,8424555,8424588,8424677",
+      "reason": "Splint auto-orient API response did not meet the required tilted orientation profile. Model #1 stayed too flat.",
+      "workflow": "splint",
+      "file_paths": [
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424495_2026-04-02_01635-642-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424555_2026-04-02_01635-642-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424588_2026-04-02_01635-642-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424677_2026-04-02_01650-1275-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl"
+      ]
+    },
+    {
+      "case_id": "8424605,8424624,8424626",
+      "reason": "Splint auto-orient API response did not meet the required tilted orientation profile. Model #1 stayed too flat.",
+      "workflow": "splint",
+      "file_paths": [
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424605_2026-04-02_01647-1191-37-36-35-34-33-32-31-41-42-43-44-45-46-47-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424624_2026-04-02_01650-1275-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424626_2026-04-02_01650-1275-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl"
+      ]
+    },
+    {
+      "case_id": "8424631,8424682,8424686",
+      "reason": "Splint auto-orient API response did not meet the required tilted orientation profile. Model #1 stayed too flat.",
+      "workflow": "splint",
+      "file_paths": [
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424631_2026-04-02_01650-1275-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424682_2026-04-02_01650-1275-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424686_2026-04-02_01650-1275-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl"
+      ]
+    },
+    {
+      "case_id": "8424762,8424771",
+      "reason": "Splint auto-orient API response did not meet the required tilted orientation profile. Model #1 stayed too flat.",
+      "workflow": "splint",
+      "file_paths": [
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424762_2026-04-02_01650-1275-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\8424771_2026-04-02_01650-1275-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl"
+      ]
+    }
+  ],
+  "new_outputs": [],
+  "stages": [
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Arrange",
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Arrange",
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Arrange",
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Arrange",
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Arrange",
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Arrange"
+  ]
+}

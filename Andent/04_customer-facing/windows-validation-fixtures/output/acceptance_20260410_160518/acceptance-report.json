@@ -1,0 +1,329 @@
+{
+  "run_root": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518",
+  "cases": [
+    {
+      "case": "01_ortho_happy",
+      "folder": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\01_ortho_happy",
+      "output_dir": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\01_ortho_happy\\output",
+      "forms": [],
+      "screenshots": [],
+      "manual_reports": [
+        "manual_review_20260410_160522.json"
+      ],
+      "results": [],
+      "warnings": [
+        {
+          "title": "Manual Review Required",
+          "message": "1 case(s) require manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\01_ortho_happy\\output\\manual_review_20260410_160522.json"
+        }
+      ],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 0,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "status_tail": [
+        "Finalizing reports..."
+      ],
+      "manual_review_items": [
+        {
+          "case_id": "CASE123",
+          "workflow": "ortho_implant",
+          "reason": "Splint printer/material selection does not expose Precision Model at 0.050 mm for Form 4B.",
+          "file_paths": [
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\01_ortho_happy\\20260409_CASE123_Antag.stl",
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\01_ortho_happy\\20260409_CASE123_UnsectionedModel_UpperJaw.stl"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "02_splint_happy",
+      "folder": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\02_splint_happy",
+      "output_dir": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\02_splint_happy\\output",
+      "forms": [
+        "20260410_splint_CASE777.form"
+      ],
+      "screenshots": [
+        "20260410_splint_CASE777_preview.png"
+      ],
+      "manual_reports": [],
+      "results": [
+        {
+          "file": "20260410_splint_CASE777",
+          "models": 1,
+          "time": "00:33",
+          "printer": "Virtual Printer",
+          "original_volume": "0.00",
+          "hollowed_volume": "0.00",
+          "resin_saved": "0.00",
+          "avg_resin": "0.00"
+        }
+      ],
+      "warnings": [],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 1,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "status_tail": [
+        "STAGE:Arrange",
+        "Auto-orienting splint...",
+        "Performing dental layout...",
+        "Generating splint supports...",
+        "Validating scene...",
+        "STAGE:Prepare",
+        "Saving '20260410_splint_CASE777.form'...",
+        "Saving '20260410_splint_CASE777_preview.png'...",
+        "STAGE:Print",
+        "Simulating print of '20260410_splint_CASE777' on 'Virtual Printer'...",
+        "Successfully simulated job on Virtual Printer.",
+        "Finalizing reports..."
+      ],
+      "manual_review_items": []
+    },
+    {
+      "case": "03_tooth_guard",
+      "folder": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\03_tooth_guard",
+      "output_dir": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\03_tooth_guard\\output",
+      "forms": [],
+      "screenshots": [],
+      "manual_reports": [
+        "manual_review_20260410_160559.json"
+      ],
+      "results": [],
+      "warnings": [
+        {
+          "title": "Manual Review Required",
+          "message": "1 case(s) require manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\03_tooth_guard\\output\\manual_review_20260410_160559.json"
+        }
+      ],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 0,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "status_tail": [
+        "Finalizing reports..."
+      ],
+      "manual_review_items": [
+        {
+          "case_id": "CASE999",
+          "workflow": "tooth_model",
+          "reason": "Splint printer/material selection does not expose Precision Model at 0.050 mm for Form 4B.",
+          "file_paths": [
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\03_tooth_guard\\20260409_CASE999_Tooth_46.stl"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "04_ambiguous_guard",
+      "folder": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\04_ambiguous_guard",
+      "output_dir": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\04_ambiguous_guard\\output",
+      "forms": [],
+      "screenshots": [],
+      "manual_reports": [
+        "manual_review_20260410_160559.json"
+      ],
+      "results": [],
+      "warnings": [
+        {
+          "title": "Manual Review Required",
+          "message": "2 case(s) were held for manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\04_ambiguous_guard\\output\\manual_review_20260410_160559.json"
+        }
+      ],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 0,
+          "total_resin_saved": 0,
+          "skipped_files": [
+            "Julie_UpperJaw.stl",
+            "PatientX_splint.stl"
+          ],
+          "batch_count": 0
+        }
+      ],
+      "status_tail": [],
+      "manual_review_items": [
+        {
+          "case_id": "UNASSIGNED",
+          "workflow": "manual_review",
+          "reason": "Could not derive a stable case identifier from the filename.",
+          "file_paths": [
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\04_ambiguous_guard\\Julie_UpperJaw.stl"
+          ]
+        },
+        {
+          "case_id": "UNASSIGNED",
+          "workflow": "manual_review",
+          "reason": "Could not derive a stable case identifier from the filename.",
+          "file_paths": [
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\04_ambiguous_guard\\PatientX_splint.stl"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "05_fps_mismatch_guard",
+      "folder": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\05_fps_mismatch_guard",
+      "output_dir": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\05_fps_mismatch_guard\\output",
+      "forms": [],
+      "screenshots": [],
+      "manual_reports": [
+        "manual_review_20260410_160603.json"
+      ],
+      "results": [],
+      "warnings": [
+        {
+          "title": "Manual Review Required",
+          "message": "1 case(s) require manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\05_fps_mismatch_guard\\output\\manual_review_20260410_160603.json"
+        }
+      ],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 0,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "status_tail": [
+        "Finalizing reports..."
+      ],
+      "manual_review_items": [
+        {
+          "case_id": "CASE123",
+          "workflow": "ortho_implant",
+          "reason": "Splint printer/material selection does not expose Precision Model at 0.050 mm for Form 4B.",
+          "file_paths": [
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\05_fps_mismatch_guard\\20260409_CASE123_Antag.stl",
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\05_fps_mismatch_guard\\20260409_CASE123_UnsectionedModel_UpperJaw.stl"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "06_mixed_ortho_tooth",
+      "folder": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_ortho_tooth_input",
+      "output_dir": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\06_mixed_ortho_tooth\\output",
+      "forms": [],
+      "screenshots": [],
+      "manual_reports": [
+        "manual_review_20260410_160606.json"
+      ],
+      "results": [],
+      "warnings": [
+        {
+          "title": "Manual Review Required",
+          "message": "1 case(s) require manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\06_mixed_ortho_tooth\\output\\manual_review_20260410_160606.json"
+        }
+      ],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 0,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 1
+        }
+      ],
+      "status_tail": [
+        "Finalizing reports..."
+      ],
+      "manual_review_items": [
+        {
+          "case_id": "CASE123",
+          "workflow": "ortho_tooth",
+          "reason": "Splint printer/material selection does not expose Precision Model at 0.050 mm for Form 4B.",
+          "file_paths": [
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_ortho_tooth_input\\20260409_CASE123_Antag.stl",
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_ortho_tooth_input\\20260409_CASE123_Tooth_46.stl",
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_ortho_tooth_input\\20260409_CASE123_UnsectionedModel_UpperJaw.stl"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "07_mixed_splint_ortho_tooth",
+      "folder": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_splint_ortho_tooth_input",
+      "output_dir": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\07_mixed_splint_ortho_tooth\\output",
+      "forms": [
+        "20260410_splint_CASE123.form"
+      ],
+      "screenshots": [
+        "20260410_splint_CASE123_preview.png"
+      ],
+      "manual_reports": [
+        "manual_review_20260410_160610.json"
+      ],
+      "results": [
+        {
+          "file": "20260410_splint_CASE123",
+          "models": 1,
+          "time": "00:26",
+          "printer": "Virtual Printer",
+          "original_volume": "0.00",
+          "hollowed_volume": "0.00",
+          "resin_saved": "0.00",
+          "avg_resin": "0.00"
+        }
+      ],
+      "warnings": [
+        {
+          "title": "Manual Review Required",
+          "message": "1 case(s) require manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\07_mixed_splint_ortho_tooth\\output\\manual_review_20260410_160610.json"
+        }
+      ],
+      "errors": [],
+      "finished": [
+        {
+          "processed_count": 1,
+          "total_resin_saved": 0.0,
+          "skipped_files": [],
+          "batch_count": 2
+        }
+      ],
+      "status_tail": [
+        "STAGE:Arrange",
+        "Auto-orienting splint...",
+        "Performing dental layout...",
+        "Generating splint supports...",
+        "Validating scene...",
+        "STAGE:Prepare",
+        "Saving '20260410_splint_CASE123.form'...",
+        "Saving '20260410_splint_CASE123_preview.png'...",
+        "STAGE:Print",
+        "Simulating print of '20260410_splint_CASE123' on 'Virtual Printer'...",
+        "Successfully simulated job on Virtual Printer.",
+        "Finalizing reports..."
+      ],
+      "manual_review_items": [
+        {
+          "case_id": "CASE123",
+          "workflow": "ortho_tooth",
+          "reason": "Splint printer/material selection does not expose Precision Model at 0.050 mm for Form 4B.",
+          "file_paths": [
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_splint_ortho_tooth_input\\20260409_CASE123_Antag.stl",
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_splint_ortho_tooth_input\\20260409_CASE123_Tooth_46.stl",
+            "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_splint_ortho_tooth_input\\20260409_CASE123_UnsectionedModel_UpperJaw.stl"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "source_folder": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints",
+  "queue_folder": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\queue_selected3_20260411",
+  "selected_files": [
+    "8424410_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+    "8424418_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+    "8424423_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl"
+  ],
+  "output_folder": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\output_live_selected3_20260411",
+  "duration_seconds": 19.815,
+  "api_payload": {
+    "layer_thickness_mm": 0.05,
+    "machine_type": "FORM-4-0",
+    "material_code": "FLPMBE01",
+    "print_setting": "DEFAULT"
+  },
+  "manifest": {
+    "printer_name": "Form 4B",
+    "material_name": "Precision Model V1",
+    "resolution_str": "0.050 mm (Default settings)",
+    "material_code": "FLPMBE01",
+    "layer_thickness_mm": 0.05,
+    "machine_type": "FORM-4-0"
+  },
+  "results": [],
+  "errors": [],
+  "warnings": [
+    [
+      "Manual Review Required",
+      "1 case(s) require manual review.\n\nReview report:\nD:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\output_live_selected3_20260411\\manual_review_20260411_133503.json"
+    ]
+  ],
+  "finished": [
+    [
+      0,
+      0.0,
+      [],
+      1
+    ]
+  ],
+  "validation_dialog_calls": 0,
+  "manual_review_items": [
+    {
+      "case_id": "8424410,8424418,8424423",
+      "reason": "Splint auto-orient API response did not meet the required tilted orientation profile. Model #1 stayed too flat.",
+      "workflow": "splint",
+      "file_paths": [
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\queue_selected3_20260411\\8424410_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\queue_selected3_20260411\\8424418_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl",
+        "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\queue_selected3_20260411\\8424423_2026-04-02_97991-1357-18-17-16-15-14-13-12-11-21-22-23-24-25-26-27-bitesplint_cad.stl"
+      ]
+    }
+  ],
+  "new_outputs": [
+    {
+      "name": "manual_review_20260411_133503.json",
+      "path": "D:\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Splints\\output_live_selected3_20260411\\manual_review_20260411_133503.json",
+      "size_bytes": 887,
+      "modified_at": "2026-04-11T13:35:03.182561"
+    }
+  ],
+  "stages": [
+    "Import",
+    "Hollow",
+    "Arrange",
+    "Arrange"
+  ]
+}

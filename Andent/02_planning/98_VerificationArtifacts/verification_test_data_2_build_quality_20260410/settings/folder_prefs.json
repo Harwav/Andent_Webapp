@@ -1,0 +1,59 @@
+{
+  "used": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\02_planning\\verification_test_data_2_build_quality_20260410\\used",
+  "output": "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\02_planning\\verification_test_data_2_build_quality_20260410\\output",
+  "printer_name": "",
+  "material_name": "",
+  "resolution_str": "",
+  "use_fps": false,
+  "fps_path": "",
+  "workflow_mode": "andent_v2",
+  "andent_v2_auto_dispatch_real_printers": false,
+  "delete_temp_scenes": true,
+  "override_printer_check": false,
+  "enable_virtual_printers": true,
+  "save_form_files": false,
+  "archive_processed_stls": true,
+  "last_stl_folder_path": "C:\\Users\\Marcus",
+  "sidebar_collapsed": false,
+  "sidebar_width": 220,
+  "sidebar_section_states": {
+    "hollowing": true,
+    "layout": false,
+    "general": false,
+    "folders": true
+  },
+  "recent_folders": [],
+  "favorite_folders": [],
+  "enable_smart_batching": false,
+  "api_params": {
+    "allow_overlapping_supports": false
+  },
+  "user_friendly_names": {
+    "max_batch_size": "Max Models Per Batch",
+    "cutoff_height_mm": "Cutoff Height (mm)",
+    "shell_thickness_mm": "Hollow Shell Thickness (mm)",
+    "wall_thickness_mm": "Internal Wall Thickness (mm)",
+    "drain_hole_radius_mm": "Drain Hole Radius (mm)",
+    "drain_hole_height_ratio": "Drain Hole Vertical Position",
+    "model_spacing_mm": "Space Between Models (mm)",
+    "build_platform_2_optimized": "Optimize for Build Platform 2",
+    "extrude_distance_mm": "Extrude Distance from Bottom (mm)",
+    "hollow": "Enable Hollowing",
+    "enable_honeycomb_infill": "Enable Honeycomb Infill When Hollowing",
+    "cutoff_below_gumline_mm": "Cutoff Below Gumline (mm)",
+    "drain_hole_suppression_distance_mm": "Minimum Distance Between Drain Holes (mm)",
+    "drain_hole_max_count": "Maximum Drain Holes Per Curve",
+    "enable_smooth_contour_extended_sides": "Enable Smooth Extended Sides",
+    "allow_overlapping_supports": "Allow Overlapping Supports",
+    "lock_rotation": "Lock Model Rotation During Layout"
+  },
+  "pending_update_version": null,
+  "pending_update_info": null,
+  "show_update_popup": true,
+  "print_validation": {
+    "enable_print_validation": true,
+    "validation_block_on_critical": true,
+    "remember_choice_per_session": true,
+    "last_user_choice": null
+  }
+}

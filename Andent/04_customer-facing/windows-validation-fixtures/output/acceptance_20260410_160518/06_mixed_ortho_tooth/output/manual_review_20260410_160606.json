@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-04-10T16:06:06.835368",
+  "items": [
+    {
+      "case_id": "CASE123",
+      "workflow": "ortho_tooth",
+      "reason": "Splint printer/material selection does not expose Precision Model at 0.050 mm for Form 4B.",
+      "file_paths": [
+        "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_ortho_tooth_input\\20260409_CASE123_Antag.stl",
+        "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_ortho_tooth_input\\20260409_CASE123_Tooth_46.stl",
+        "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\output\\acceptance_20260410_160518\\mixed_ortho_tooth_input\\20260409_CASE123_UnsectionedModel_UpperJaw.stl"
+      ]
+    }
+  ]
+}

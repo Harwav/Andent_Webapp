@@ -1,0 +1,16 @@
+stl_file_name,print_job_name,models,original_volume,hollowed_volume,resin_saved,avg_resin,processing_time,printer
+20260408_10936643_SCDL_10936643_DDA3_Antag.stl,20260413_ortho-tooth_10936643+10936926,1,9.46,9.79,-0.33,9.79,01:56,Virtual Form 4 (Simulated) #1
+20260408_10936643_SCDL_10936643_DDA3_Tooth_27.stl,20260413_ortho-tooth_10936643+10936926,1,0.95,0.98,-0.03,0.98,01:56,Virtual Form 4 (Simulated) #1
+20260408_10936643_SCDL_10936643_DDA3_UnsectionedModel_UpperJaw.stl,20260413_ortho-tooth_10936643+10936926,1,14.42,14.93,-0.51,14.93,01:56,Virtual Form 4 (Simulated) #1
+20260408_10936926__SCDL__DD__A2_Antag.stl,20260413_ortho-tooth_10936643+10936926,1,31.25,32.35,-1.10,32.35,01:56,Virtual Form 4 (Simulated) #1
+20260408_10936926__SCDL__DD__A2_Tooth_45.stl,20260413_ortho-tooth_10936643+10936926,1,0.72,0.75,-0.03,0.75,01:56,Virtual Form 4 (Simulated) #1
+20260408_10936926__SCDL__DD__A2_UnsectionedModel_LowerJaw.stl,20260413_ortho-tooth_10936643+10936926,1,28.01,29.00,-0.99,29.00,01:56,Virtual Form 4 (Simulated) #1
+20260408_8424903_Dentists_Efstratia_UT_C2_Antag.stl,20260413_ortho-tooth_8424903+8424921,1,14.77,14.18,0.58,14.18,01:10,Virtual Form 4 (Simulated) #2
+20260408_8424903_Dentists_Efstratia_UT_C2_Tooth_37.stl,20260413_ortho-tooth_8424903+8424921,1,0.81,0.77,0.03,0.77,01:10,Virtual Form 4 (Simulated) #2
+20260408_8424903_Dentists_Efstratia_UT_C2_UnsectionedModel_LowerJaw.stl,20260413_ortho-tooth_8424903+8424921,1,10.19,9.78,0.40,9.78,01:10,Virtual Form 4 (Simulated) #2
+20260408_8424921_Googong_Lynette_M_Antag.stl,20260413_ortho-tooth_8424903+8424921,1,10.05,9.66,0.40,9.66,01:10,Virtual Form 4 (Simulated) #2
+20260408_8424921_Googong_Lynette_M_Tooth_25.stl,20260413_ortho-tooth_8424903+8424921,1,0.54,0.52,0.02,0.52,01:10,Virtual Form 4 (Simulated) #2
+20260408_8424921_Googong_Lynette_M_UnsectionedModel_UpperJaw.stl,20260413_ortho-tooth_8424903+8424921,1,9.51,9.14,0.37,9.14,01:10,Virtual Form 4 (Simulated) #2
+20260408_8425357__Kaleen_Shium_Antag.stl,20260413_ortho-tooth_8425357,1,11.92,13.54,-1.62,13.54,00:36,Virtual Form 4 (Simulated) #3
+20260408_8425357__Kaleen_Shium_Tooth_47.stl,20260413_ortho-tooth_8425357,1,0.61,0.69,-0.08,0.69,00:36,Virtual Form 4 (Simulated) #3
+20260408_8425357__Kaleen_Shium_UnsectionedModel_LowerJaw.stl,20260413_ortho-tooth_8425357,1,10.73,12.19,-1.46,12.19,00:36,Virtual Form 4 (Simulated) #3

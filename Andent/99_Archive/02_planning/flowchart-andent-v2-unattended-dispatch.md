@@ -1,0 +1,91 @@
+# Andent V2 Unattended Dispatch Flowchart
+
+This flowchart visualizes the current Andent V2 planning flow described in:
+- `Andent/02_planning/prd-andent-v2-unattended-dispatch.md`
+- `Andent/02_planning/test-spec-andent-v2-unattended-dispatch.md`
+
+```mermaid
+flowchart TD
+    A["Start Andent V2"] --> B["Add folder to queue"]
+    B --> C["Scan STL files and derive case IDs"]
+    C --> D["Classify artifacts by workflow family"]
+
+    D --> E{"Classification ambiguous?"}
+    E -- Yes --> X1["Route case to manual review"]
+    E -- No --> F["Group files by case"]
+
+    F --> G{"Case contains Splint plus Ortho/Tooth?"}
+    G -- Yes --> G1["Split same case into two workflow outputs"]
+    G1 --> G2["Build Splint form"]
+    G1 --> G3["Build Ortho/Tooth form"]
+
+    G -- No --> H{"Case contains Ortho plus Tooth?"}
+    H -- Yes --> H1["Keep same case in one shared Ortho/Tooth form"]
+    H -- No --> I{"Only one workflow family in this case?"}
+    I -- Yes --> I1["Build one workflow-specific form"]
+    I -- No --> X1
+
+    H1 --> J["Apply workflow rules"]
+    I1 --> J
+    G2 --> J2["Apply Splint rules"]
+    G3 --> J3["Apply Ortho/Tooth rules"]
+
+    J --> K["Pack compatible cases onto builds"]
+    J2 --> K2["Pack Splint builds"]
+    J3 --> K3["Pack Ortho/Tooth builds"]
+
+    K --> L{"Case or build fits without invalid split?"}
+    K2 --> L2{"Splint build fits?"}
+    K3 --> L3{"Ortho/Tooth build fits?"}
+
+    L -- No --> X2["Route cannot-fit case or build to manual review"]
+    L2 -- No --> X2
+    L3 -- No --> X2
+
+    L -- Yes --> M["Prepare scene"]
+    L2 -- Yes --> M2["Prepare Splint scene"]
+    L3 -- Yes --> M3["Prepare Ortho/Tooth scene"]
+
+    M --> N{"Workflow type?"}
+    N -- Ortho --> O1["Ortho rules: flat, hollow, arrange, Precision Model, 50 micron"]
+    N -- Tooth --> O2["Tooth rules: auto supports, best-effort lower-region targeting, Precision Model, 50 micron"]
+    N -- Splint --> O3["Splint rules: tooth profiles up, 15 deg tilt, auto supports, arrange, Dental LT Clear V2, 100 micron"]
+
+    M2 --> O3
+    M3 --> N2{"Contains Tooth?"}
+    N2 -- Yes --> O2
+    N2 -- No --> O1
+
+    O1 --> P["Run generation and export pipeline"]
+    O2 --> P2{"Support generation succeeded?"}
+    O3 --> P
+
+    P2 -- No --> X3["Route support failure to manual review"]
+    P2 -- Yes --> P
+
+    P --> Q{"Scene, render, and export succeeded?"}
+    Q -- No --> X4["Route processing failure to manual review"]
+    Q -- Yes --> R["Save form file"]
+
+    R --> S["Save screenshot beside form file"]
+    S --> T["Name outputs as YYYYMMDD_workflow_caseIds"]
+    T --> U{"Real printer auto-dispatch enabled?"}
+
+    U -- No --> V["Auto-dispatch to virtual printer"]
+    U -- Yes --> W["Auto-dispatch to real printer"]
+
+    V --> Y["Complete"]
+    W --> Y
+
+    X1 --> Z["Exception queue"]
+    X2 --> Z
+    X3 --> Z
+    X4 --> Z
+```
+
+## Notes
+- Mixed `Ortho + Tooth` stays in one `.form`.
+- Mixed `Splint + Ortho/Tooth` splits into separate workflow-specific `.form` files for the same case.
+- Virtual printer auto-dispatch is the default V2 success path.
+- Real printer auto-dispatch happens only when explicitly enabled.
+- Manual review is reserved for ambiguity, cannot-fit cases, support failures, and processing/export failures.

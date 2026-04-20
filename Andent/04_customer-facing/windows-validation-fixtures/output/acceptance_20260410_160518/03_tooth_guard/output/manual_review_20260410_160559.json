@@ -1,0 +1,13 @@
+{
+  "generated_at": "2026-04-10T16:05:59.531762",
+  "items": [
+    {
+      "case_id": "CASE999",
+      "workflow": "tooth_model",
+      "reason": "Splint printer/material selection does not expose Precision Model at 0.050 mm for Form 4B.",
+      "file_paths": [
+        "D:\\Marcus\\Desktop\\FormFlow_Dent\\FormFlow_Dent\\Andent\\04_customer-facing\\windows-validation-fixtures\\03_tooth_guard\\20260409_CASE999_Tooth_46.stl"
+      ]
+    }
+  ]
+}
