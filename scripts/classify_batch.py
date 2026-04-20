@@ -222,8 +222,9 @@ def generate_report(stl_files: List[Path], output_csv: Path) -> Dict[str, Any]:
     
     # Calculate statistics
     total_files = len(results)
-    auto_classified = sum(1 for r in results if not r['review_required'])
-    needs_review = sum(1 for r in results if r['review_required'])
+    # Count by status field, not review_required (which has a bug for None model_type)
+    auto_classified = sum(1 for r in results if r['status'] == 'Ready')
+    needs_review = sum(1 for r in results if r['status'] in ('Needs Review', 'Check'))
     auto_rate = (auto_classified / total_files * 100) if total_files > 0 else 0
     
     # Timing stats

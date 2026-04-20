@@ -158,7 +158,7 @@ def classify_saved_upload(stored_path: Path, original_filename: str) -> Classifi
     )
     model_type = infer_phase0_model_type(original_filename, artifact, structure)
     preset = default_preset(model_type)
-    review_required = bool(artifact.review_required or artifact.review_reason)
+    review_required = bool(artifact.review_required or artifact.review_reason or model_type is None)
     confidence = derive_confidence(
         model_type,
         artifact.confidence,
