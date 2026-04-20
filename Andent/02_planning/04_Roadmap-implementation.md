@@ -48,6 +48,7 @@ This roadmap defines the phased implementation for Andent Web Auto Prep. The sco
 | Bulk send-to-print (simulated) | ✅ | POST `/api/uploads/rows/send-to-print` |
 | Allow duplicate action | ✅ | POST `/api/uploads/rows/allow-duplicate` |
 | Row removal | ✅ | DELETE `/api/uploads/rows/{id}` |
+| **Performance optimization** | ✅ | **>95% auto-classification, <20s/file** |
 
 ### Exit Criteria Met
 
