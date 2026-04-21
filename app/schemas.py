@@ -87,6 +87,46 @@ class BatchPlanPreviewResponse(BaseModel):
     cannot_fit_count: int
 
 
+class FilePrepSpec(BaseModel):
+    row_id: int
+    case_id: str
+    file_name: str
+    file_path: str
+    preset_name: str
+    compatibility_key: str
+    xy_footprint_estimate: float
+    support_inflation_factor: float
+
+
+class BuildManifestImportGroup(BaseModel):
+    preset_name: str
+    preform_hint: str | None = None
+    row_ids: list[int] = Field(default_factory=list)
+
+
+class CasePackProfile(BaseModel):
+    case_id: str
+    compatibility_key: str
+    preset_groups: dict[str, list[int]] = Field(default_factory=dict)
+    total_xy_footprint: float
+    difficulty_score: float
+    file_count: int
+
+
+class BuildCandidate(BaseModel):
+    compatibility_key: str
+    case_ids: list[str] = Field(default_factory=list)
+    used_xy_budget: float = 0.0
+    remaining_xy_budget: float = 0.0
+
+
+class BuildManifest(BaseModel):
+    compatibility_key: str
+    case_ids: list[str] = Field(default_factory=list)
+    preset_names: list[str] = Field(default_factory=list)
+    import_groups: list[BuildManifestImportGroup] = Field(default_factory=list)
+
+
 PrintJobStatus = Literal["Queued", "Printing", "Failed", "Paused", "Completed"]
 
 

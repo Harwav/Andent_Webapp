@@ -1,17 +1,37 @@
-"""Phase 1: Task 2 - Batching Logic Tests (TDD)
+"""Phase 1: Task 3 - Compatibility-aware build planning tests (TDD)."""
 
-Tests for grouping Ready cases by preset and generating job names.
-"""
+from __future__ import annotations
 
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import pytest
-from app.schemas import ClassificationRow
-from app.services.print_queue_service import batch_cases_by_preset, generate_job_name
+from app.schemas import ClassificationRow, DimensionSummary
+from app.services.build_planning import plan_build_manifests
+from app.services.preset_catalog import PRESET_CATALOG, PresetProfile
+from app.services.print_queue_service import generate_job_name
+
+
+def _row(
+    row_id: int,
+    case_id: str | None,
+    preset: str | None,
+    *,
+    status: str = "Ready",
+    x: float = 40.0,
+    y: float = 30.0,
+) -> ClassificationRow:
+    return ClassificationRow(
+        row_id=row_id,
+        file_name=f"row-{row_id}.stl",
+        case_id=case_id,
+        preset=preset,
+        confidence="high",
+        status=status,
+        dimensions=DimensionSummary(x_mm=x, y_mm=y, z_mm=10.0),
+    )
 
 
 def test_generate_job_name_format():
@@ -35,144 +55,72 @@ def test_generate_job_name_triple_digit():
     assert job_name == "260421-123"
 
 
-def test_batch_cases_by_preset_empty():
-    """Empty list should return empty dict."""
-    result = batch_cases_by_preset([])
-    assert result == {}
-
-
-def test_batch_cases_by_preset_single():
-    """Single case should return one batch."""
-    row = ClassificationRow(
-        row_id=1,
-        file_name="test.stl",
-        preset="Ortho Solid - Flat, No Supports",
-        confidence="high",
-        status="Ready",
+def test_plan_build_manifests_splits_incompatible_compatibility_groups(monkeypatch):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Experimental Preset",
+        PresetProfile(
+            preset_name="Experimental Preset",
+            printer="Form 4BL",
+            resin="Precision Model Resin",
+            layer_height_microns=50,
+            requires_supports=False,
+            preform_hint="experimental_v1",
+        ),
     )
-    result = batch_cases_by_preset([row])
-    assert len(result) == 1
-    assert "Ortho Solid - Flat, No Supports" in result
-    assert result["Ortho Solid - Flat, No Supports"] == [row]
 
-
-def test_batch_cases_by_preset_multiple_same():
-    """Multiple cases with same preset should group together."""
     rows = [
-        ClassificationRow(
-            row_id=1,
-            file_name="test1.stl",
-            preset="Ortho Solid - Flat, No Supports",
-            confidence="high",
-            status="Ready",
-        ),
-        ClassificationRow(
-            row_id=2,
-            file_name="test2.stl",
-            preset="Ortho Solid - Flat, No Supports",
-            confidence="high",
-            status="Ready",
-        ),
+        _row(1, "CASE-ORTHO", "Ortho Solid - Flat, No Supports"),
+        _row(2, "CASE-EXPERIMENT", "Experimental Preset"),
     ]
-    result = batch_cases_by_preset(rows)
-    assert len(result) == 1
-    assert len(result["Ortho Solid - Flat, No Supports"]) == 2
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 2
+    assert {tuple(manifest.case_ids) for manifest in manifests} == {
+        ("CASE-ORTHO",),
+        ("CASE-EXPERIMENT",),
+    }
 
 
-def test_batch_cases_by_preset_multiple_different():
-    """Cases with different presets should be in separate batches."""
+def test_plan_build_manifests_ignores_rows_missing_ready_case_or_preset():
     rows = [
-        ClassificationRow(
-            row_id=1,
-            file_name="test1.stl",
-            preset="Ortho Solid - Flat, No Supports",
-            confidence="high",
-            status="Ready",
-        ),
-        ClassificationRow(
-            row_id=2,
-            file_name="test2.stl",
-            preset="Tooth - With Supports",
-            confidence="high",
-            status="Ready",
-        ),
-        ClassificationRow(
-            row_id=3,
-            file_name="test3.stl",
-            preset="Die - Flat, No Supports",
-            confidence="high",
-            status="Ready",
-        ),
+        _row(1, "CASE-READY", "Ortho Solid - Flat, No Supports"),
+        _row(2, "CASE-CHECK", "Tooth - With Supports", status="Check"),
+        _row(3, None, "Die - Flat, No Supports"),
+        _row(4, "CASE-NOPRESET", None),
     ]
-    result = batch_cases_by_preset(rows)
-    assert len(result) == 3
-    assert "Ortho Solid - Flat, No Supports" in result
-    assert "Tooth - With Supports" in result
-    assert "Die - Flat, No Supports" in result
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].case_ids == ["CASE-READY"]
+    assert manifests[0].preset_names == ["Ortho Solid - Flat, No Supports"]
 
 
-def test_batch_cases_by_preset_none_excluded():
-    """Cases with None preset should be excluded."""
+def test_plan_build_manifests_groups_imports_by_preset_with_preform_hints():
     rows = [
-        ClassificationRow(
-            row_id=1,
-            file_name="test1.stl",
-            preset="Ortho Solid - Flat, No Supports",
-            confidence="high",
-            status="Ready",
-        ),
-        ClassificationRow(
-            row_id=2,
-            file_name="test2.stl",
-            preset=None,
-            confidence="low",
-            status="Needs Review",
-        ),
+        _row(1, "CASE-1", "Tooth - With Supports"),
+        _row(2, "CASE-1", "Tooth - With Supports", x=20.0, y=20.0),
+        _row(3, "CASE-2", "Die - Flat, No Supports"),
     ]
-    result = batch_cases_by_preset(rows)
-    assert len(result) == 1
-    assert None not in result
 
+    manifests = plan_build_manifests(rows)
 
-def test_batch_cases_by_preset_only_ready_rows():
-    """Only Ready rows should be included in batches."""
-    rows = [
-        ClassificationRow(
-            row_id=1,
-            file_name="test1.stl",
-            preset="Ortho Solid - Flat, No Supports",
-            confidence="high",
-            status="Ready",
-        ),
-        ClassificationRow(
-            row_id=2,
-            file_name="test2.stl",
-            preset="Ortho Solid - Flat, No Supports",
-            confidence="medium",
-            status="Check",
-        ),
+    assert len(manifests) == 1
+    assert manifests[0].preset_names == [
+        "Die - Flat, No Supports",
+        "Tooth - With Supports",
     ]
-    result = batch_cases_by_preset(rows)
-    assert len(result) == 1
-    assert result["Ortho Solid - Flat, No Supports"] == [rows[0]]
-
-
-def test_batch_cases_by_preset_duplicate_rows_deduped():
-    """Duplicate rows should not be added twice to the same batch."""
-    row = ClassificationRow(
-        row_id=1,
-        file_name="test1.stl",
-        preset="Ortho Solid - Flat, No Supports",
-        confidence="high",
-        status="Ready",
-    )
-    duplicate = ClassificationRow(
-        row_id=1,
-        file_name="test1.stl",
-        preset="Ortho Solid - Flat, No Supports",
-        confidence="high",
-        status="Ready",
-    )
-    result = batch_cases_by_preset([row, duplicate])
-    assert len(result) == 1
-    assert result["Ortho Solid - Flat, No Supports"] == [row]
+    assert [group.model_dump() for group in manifests[0].import_groups] == [
+        {
+            "preset_name": "Die - Flat, No Supports",
+            "preform_hint": "die_v1",
+            "row_ids": [3],
+        },
+        {
+            "preset_name": "Tooth - With Supports",
+            "preform_hint": "tooth_v1",
+            "row_ids": [1, 2],
+        },
+    ]
