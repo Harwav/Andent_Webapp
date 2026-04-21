@@ -9,7 +9,7 @@ from typing import Iterable
 
 from .config import Settings
 from .schemas import ClassificationRow, DimensionSummary, PrintJob
-from .services.classification import derive_status, generate_thumbnail_svg, is_current_thumbnail_svg
+from .services.classification import default_preset, derive_status, generate_thumbnail_svg, is_current_thumbnail_svg
 
 
 SCHEMA_STATEMENTS: tuple[str, ...] = (
@@ -79,6 +79,17 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     )
     """,
 )
+
+
+def _normalize_manual_preset(model_type: str | None, preset: str | None) -> str | None:
+    if preset is None:
+        return default_preset(model_type) if model_type else None
+
+    normalized_from_model_label = default_preset(preset)
+    if normalized_from_model_label is not None:
+        return normalized_from_model_label
+
+    return preset
 
 INDEX_STATEMENTS: tuple[str, ...] = (
     """
@@ -593,6 +604,7 @@ def update_upload_row(
         if existing["status"] in {"Submitted", "Printed"}:
             raise ValueError("Submitted rows are read-only.")
 
+        preset = _normalize_manual_preset(model_type, preset)
         status = existing["status"]
         if status not in {"Duplicate", "Submitted", "Printed"}:
             status = derive_status(existing["confidence"], model_type, preset, manual_override=True)
@@ -701,10 +713,8 @@ def bulk_update_upload_rows(
                 continue
 
             next_model_type = model_type if model_type is not None else row["model_type"]
-            if model_type is not None and preset is None:
-                next_preset = model_type
-            else:
-                next_preset = preset if preset is not None else row["preset"]
+            raw_preset = preset if preset is not None else row["preset"]
+            next_preset = _normalize_manual_preset(next_model_type, raw_preset)
             next_status = row["status"]
             if next_status not in {"Duplicate", "Submitted", "Printed"}:
                 next_status = derive_status(row["confidence"], next_model_type, next_preset, manual_override=True)
