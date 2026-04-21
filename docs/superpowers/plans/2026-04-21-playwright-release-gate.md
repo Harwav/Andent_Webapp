@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a release-blocking Playwright suite that simulates operator behavior in the browser, verifies real handoff to local PreFormServer, and blocks release on the four approved scenarios.
+**Goal:** Build a release-blocking Playwright suite that simulates operator behavior in the browser, verifies real build-manifest handoff to local PreFormServer, and blocks release on the four approved scenarios.
 
-**Architecture:** The implementation keeps the existing FastAPI app as the product under test and adds a separate Playwright workspace under `tests/release_gate/`. A thin TypeScript runtime layer will start two app instances, while small Python helper scripts will verify SQLite handoff records and direct PreFormServer scene existence without adding extra Node dependencies beyond Playwright itself.
+**Architecture:** The implementation keeps the existing FastAPI app as the product under test and adds a separate Playwright workspace under `tests/release_gate/`. A thin TypeScript runtime layer will start two app instances, while small Python helper scripts will verify SQLite handoff records, persisted build-manifest metadata, and direct PreFormServer scene existence without adding extra Node dependencies beyond Playwright itself.
 
 **Tech Stack:** FastAPI, Python 3.9+, SQLite, Playwright, TypeScript, Node.js, pytest
 
@@ -12,31 +12,27 @@
 
 ## Resume Status
 
-Last updated: 2026-04-21
+Last updated: 2026-04-21 after commit `c5a9168`
 
 Execution workspace:
-- Worktree: `C:\Users\Marcus\Documents\Andent_Webapp\.worktrees\playwright-release-gate`
-- Branch: `playwright-release-gate`
+- Current checkout: `D:\Marcus\Desktop\Andent_Webapp`
+- Branch: `main`
 
 Completed so far:
-- Task 1 is complete.
-  - Commits: `bca7813`, `87cee39`
-  - Final accepted state uses a smoke-test script that points at the real Task 1 smoke spec, asserts a JS-driven `Queue loaded.` signal, and keeps `reuseExistingServer: false`.
+- The design was updated and pushed in `c5a9168` to reflect the implemented Form 4BL build-manifest handoff contract.
+- No Playwright release-gate implementation files are present in the current checkout.
 
 In progress:
-- Task 2 implementation is complete but review is still pending.
-  - Implementation commit: `f9fcc76`
-  - Implementer note: the raw `pytest tests/test_release_gate_preset_normalization.py -v` command was blocked in this environment by unrelated global pytest plugin autoload (`mcp_eval` on Python 3.13).
-  - Verified command in the worktree: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/test_release_gate_preset_normalization.py -v`
-  - Verified result: `2 passed`
+- Plan realignment is in progress because the previous resume note referenced a missing worktree and commits not reachable from this repository.
 
 Next exact step:
-1. Run Task 2 spec-compliance review against commit `f9fcc76`.
-2. If spec passes, run Task 2 code-quality review.
-3. If both pass, mark Task 2 complete and start Task 3.
+1. Treat the old worktree state as unavailable unless it is recovered externally.
+2. Rebuild from Task 1 in this checkout or a fresh worktree created from current `main`.
+3. Keep the first release gate limited to the four approved scenarios while folding build-manifest proof into the happy paths.
 
 Current worktree note:
-- `node_modules/` is present and untracked in the worktree from Task 1 setup.
+- Current `main` contains the Form 4BL build-manifest implementation and updated design.
+- The release-gate implementation must assert persisted `print_jobs` manifest fields: `case_ids`, `preset_names_json`, `compatibility_key`, and `manifest_json`.
 
 ---
 
@@ -82,7 +78,7 @@ Current worktree note:
 ### New Python verification files
 
 - Create: `tests/release_gate/helpers/python/release_gate_verify.py`
-  - CLI and functions for PreForm health, SQLite print-job lookup, and scene verification.
+  - CLI and functions for PreForm health, SQLite print-job lookup, persisted manifest lookup, and scene verification.
 - Create: `tests/test_release_gate_verify.py`
   - pytest coverage for the helper module.
 - Create: `tests/test_release_gate_preset_normalization.py`
@@ -600,7 +596,7 @@ from release_gate.helpers.python.release_gate_verify import (
 )
 
 
-def test_latest_print_job_returns_scene_and_print_ids(tmp_path):
+def test_latest_print_job_returns_manifest_handoff_evidence(tmp_path):
     db_path = tmp_path / "andent_web.db"
     connection = sqlite3.connect(db_path)
     connection.execute(
@@ -612,7 +608,10 @@ def test_latest_print_job_returns_scene_and_print_ids(tmp_path):
             print_job_id TEXT,
             status TEXT NOT NULL,
             preset TEXT NOT NULL,
+            preset_names_json TEXT,
+            compatibility_key TEXT,
             case_ids TEXT,
+            manifest_json TEXT,
             created_at TEXT,
             updated_at TEXT,
             screenshot_url TEXT,
@@ -626,8 +625,20 @@ def test_latest_print_job_returns_scene_and_print_ids(tmp_path):
     )
     connection.execute(
         '''
-        INSERT INTO print_jobs (job_name, scene_id, print_job_id, status, preset, case_ids, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO print_jobs (
+            job_name,
+            scene_id,
+            print_job_id,
+            status,
+            preset,
+            preset_names_json,
+            compatibility_key,
+            case_ids,
+            manifest_json,
+            created_at,
+            updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''',
         (
             "260421-001",
@@ -635,7 +646,37 @@ def test_latest_print_job_returns_scene_and_print_ids(tmp_path):
             "print-123",
             "Queued",
             "Ortho Solid - Flat, No Supports",
+            json.dumps(["Ortho Solid - Flat, No Supports"]),
+            "form-4bl|precision-model-resin|100",
             json.dumps(["CASE123"]),
+            json.dumps({
+                "case_ids": ["CASE123"],
+                "preset_names": ["Ortho Solid - Flat, No Supports"],
+                "compatibility_key": "form-4bl|precision-model-resin|100",
+                "import_groups": [
+                    {
+                        "preset_name": "Ortho Solid - Flat, No Supports",
+                        "preform_hint": "ortho_solid_v1",
+                        "row_ids": [1],
+                        "files": [
+                            {
+                                "row_id": 1,
+                                "case_id": "CASE123",
+                                "file_name": "20260409_CASE123_UnsectionedModel_UpperJaw.stl",
+                                "file_path": "data/uploads/session/20260409_CASE123_UnsectionedModel_UpperJaw.stl",
+                                "preset_name": "Ortho Solid - Flat, No Supports",
+                                "preform_hint": "ortho_solid_v1",
+                                "compatibility_key": "form-4bl|precision-model-resin|100",
+                                "xy_footprint_estimate": 100.0,
+                                "support_inflation_factor": 1.0,
+                                "order": 0,
+                            }
+                        ],
+                    }
+                ],
+                "planning_status": "planned",
+                "non_plannable_reason": None,
+            }),
             "2026-04-21T00:00:00Z",
             "2026-04-21T00:00:00Z",
         ),
@@ -648,6 +689,10 @@ def test_latest_print_job_returns_scene_and_print_ids(tmp_path):
     assert job["scene_id"] == "scene-123"
     assert job["print_job_id"] == "print-123"
     assert job["case_ids"] == ["CASE123"]
+    assert job["preset_names"] == ["Ortho Solid - Flat, No Supports"]
+    assert job["compatibility_key"] == "form-4bl|precision-model-resin|100"
+    assert job["manifest_json"]["planning_status"] == "planned"
+    assert job["manifest_json"]["import_groups"][0]["files"][0]["preform_hint"] == "ortho_solid_v1"
 
 
 def test_parse_health_response_accepts_preform_version_payload():
@@ -697,13 +742,18 @@ def latest_print_job(database_path: Path) -> dict:
         raise LookupError("No print job rows found.")
 
     case_ids = json.loads(row["case_ids"]) if row["case_ids"] else []
+    preset_names = json.loads(row["preset_names_json"]) if row["preset_names_json"] else []
+    manifest_json = json.loads(row["manifest_json"]) if row["manifest_json"] else None
     return {
         "job_name": row["job_name"],
         "scene_id": row["scene_id"],
         "print_job_id": row["print_job_id"],
         "status": row["status"],
         "preset": row["preset"],
+        "preset_names": preset_names,
+        "compatibility_key": row["compatibility_key"],
         "case_ids": case_ids,
+        "manifest_json": manifest_json,
     }
 
 
@@ -967,6 +1017,17 @@ test('straight-through same-case multi-file handoff reaches live PreForm', async
 
   const job = await latestPrintJob(liveApp.databasePath);
   expect(job.case_ids).toContain('CASE123');
+  expect(job.preset_names).toContain('Ortho Solid - Flat, No Supports');
+  expect(job.compatibility_key).toBeTruthy();
+  expect(job.manifest_json.case_ids).toContain('CASE123');
+  expect(job.manifest_json.planning_status).toBe('planned');
+  expect(job.manifest_json.import_groups.length).toBeGreaterThan(0);
+  const manifestFiles = job.manifest_json.import_groups.flatMap((group: any) => group.files);
+  expect(manifestFiles.map((file: any) => file.file_name)).toEqual(expect.arrayContaining([
+    '20260409_CASE123_UnsectionedModel_UpperJaw.stl',
+    '20260409_CASE123_UnsectionedModel_LowerJaw.stl',
+  ]));
+  expect(manifestFiles.every((file: any) => Boolean(file.preform_hint))).toBe(true);
 
   const scene = await sceneStatus(liveApp.preformUrl, job.scene_id);
   expect(scene.scene_id).toBe(job.scene_id);
@@ -1043,7 +1104,7 @@ Expected:
 @"
 Add the straight-through release-gate scenario
 
-Constraint: The first release blocker must prove a same-case multi-file browser submission all the way to live PreForm scene creation
+Constraint: The first release blocker must prove a same-case multi-file browser submission all the way to persisted build-manifest evidence and live PreForm scene creation
 Confidence: medium
 Scope-risk: moderate
 Directive: Keep scenario helpers small and focused so later scenarios reuse them instead of duplicating browser steps
@@ -1080,6 +1141,12 @@ test('manual model and preset edits still hand off to live PreForm', async ({ pa
   const job = await latestPrintJob(liveApp.databasePath);
   expect(job.case_ids).toContain('CASE555');
   expect(job.preset).toBe('Splint - Flat, No Supports');
+  expect(job.preset_names).toContain('Splint - Flat, No Supports');
+  expect(job.manifest_json.case_ids).toContain('CASE555');
+  const splintGroup = job.manifest_json.import_groups.find((group: any) => group.preset_name === 'Splint - Flat, No Supports');
+  expect(splintGroup).toBeTruthy();
+  expect(splintGroup?.preform_hint).toBe('splint_v1');
+  expect(splintGroup?.files[0].preform_hint).toBe('splint_v1');
 
   const scene = await sceneStatus(liveApp.preformUrl, job.scene_id);
   expect(scene.scene_id).toBe(job.scene_id);
@@ -1131,7 +1198,7 @@ Expected:
 @"
 Add the manual-edit release-gate scenario
 
-Constraint: Release gating must prove that operator edits still persist correctly and remain compatible with live PreForm handoff
+Constraint: Release gating must prove that operator edits still persist as build-manifest preset evidence and remain compatible with live PreForm handoff
 Confidence: medium
 Scope-risk: moderate
 Directive: Keep the manual-edit path explicit: model change first, then preset override, then submission
@@ -1275,6 +1342,31 @@ reporter: [
 ],
 ```
 
+Add a manifest-summary helper near the top of `tests/release_gate/release_gate.spec.ts`:
+
+```ts
+function manifestSummary(job: any): Record<string, unknown> {
+  const importGroups = job.manifest_json?.import_groups ?? [];
+  const fileCount = importGroups.reduce((total: number, group: any) => total + (group.files?.length ?? 0), 0);
+  return {
+    job_name: job.job_name,
+    scene_id: job.scene_id,
+    print_job_id: job.print_job_id,
+    case_ids: job.case_ids,
+    preset_names: job.preset_names,
+    compatibility_key: job.compatibility_key,
+    import_group_count: importGroups.length,
+    file_count: fileCount,
+  };
+}
+```
+
+In each happy-path scenario, immediately after manifest assertions pass, add:
+
+```ts
+console.log(`[release-gate-manifest] ${JSON.stringify(manifestSummary(job))}`);
+```
+
 Create `scripts/release_gate/run_release_gate.mjs`:
 
 ```js
@@ -1336,6 +1428,7 @@ Expected:
 [release-gate] manual model and preset edits still hand off to live PreForm: passed
 [release-gate] ambiguous case stays blocked in Active and cannot be sent: passed
 [release-gate] dead-port PreForm configuration surfaces a clean send failure: passed
+[release-gate-manifest] {"job_name":"260421-001","scene_id":"...","print_job_id":"...","case_ids":["CASE123"],"preset_names":["Ortho Solid - Flat, No Supports"],"compatibility_key":"form-4bl|precision-model-resin|100","import_group_count":1,"file_count":2}
 ```
 
 - [ ] **Step 5: Commit**
@@ -1369,16 +1462,18 @@ The approved spec requires:
 5. Ambiguous-case guard blocked in `Active`.
 6. Dead-port offline failure path.
 7. Direct PreForm verification for happy paths.
-8. Compact reporting with screenshots on failure.
+8. Persisted build-manifest verification for happy paths, including case IDs, preset names, compatibility key, import groups, file records, and PreForm preset hints.
+9. Compact reporting with manifest summaries and screenshots on failure.
 
 Plan coverage:
 
 1. Task 1 adds the Playwright workspace.
 2. Task 2 fixes preset persistence needed for manual-edit compatibility.
 3. Task 3 adds deterministic fixtures and browser hooks.
-4. Task 4 adds Python verification helpers for SQLite and PreForm.
+4. Task 4 adds Python verification helpers for SQLite print-job manifest evidence and PreForm.
 5. Task 5 adds the dual-app runtime and PreForm health gate.
-6. Tasks 6 through 9 implement the four scenarios and reporting.
+6. Tasks 6 and 7 assert persisted manifest evidence inside the two happy paths.
+7. Tasks 6 through 9 implement the four scenarios and reporting.
 
 No approved design requirement is left without a task.
 
