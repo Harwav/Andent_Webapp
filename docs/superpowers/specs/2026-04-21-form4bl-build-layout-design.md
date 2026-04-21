@@ -1,12 +1,14 @@
 # Form 4BL Build Layout Design
 
 Date: 2026-04-21
-Status: Drafted and reviewed for implementation planning
+Status: Implemented and repository-verified on 2026-04-21
 Scope: Compatibility-aware mixed-preset build planning for Form 4BL handoff
 
 ## Summary
 
 This design changes Andent Web from preset-only batching to compatibility-aware build planning for Form 4BL jobs.
+
+Implementation note (2026-04-21): this design is now implemented in `app/services/preset_catalog.py`, `app/services/build_planning.py`, `app/services/print_queue_service.py`, and `app/services/planning_preview.py`. Repository verification passed with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q` (`187 passed`). Live PreFormServer/Formlabs acceptance validation remains a separate launch gate.
 
 The planner must:
 

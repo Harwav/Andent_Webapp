@@ -10,7 +10,8 @@ Technical planning documents for the Andent Web Auto Prep system.
 ├── 00_AGENTS.md                          # Navigation guide for AI agents
 ├── 01_PRD-andent-web.md                  # Product Requirements Document
 ├── 02_Architecture-andent-web.md         # System architecture & design
-├── 03_Algorithm-classification.md        # Classification algorithm spec
+├── 02.01_Algorithm-classification.md     # Classification algorithm spec
+├── 02.02_Architecture-PreFormServer-handoff.md # PreFormServer handoff design
 ├── 04_Roadmap-implementation.md          # Implementation timeline
 ├── 05_TestSpec-andent-web.md             # Test specifications
 ├── 06_Future/                            # V2+ future improvements
@@ -29,7 +30,8 @@ Technical planning documents for the Andent Web Auto Prep system.
 |--------------|-------|------|
 | **Understand requirements** | 01 — PRD | [`01_PRD-andent-web.md`](01_PRD-andent-web.md) |
 | **Understand system design** | 02 — Architecture | [`02_Architecture-andent-web.md`](02_Architecture-andent-web.md) |
-| **Understand classification logic** | 03 — Algorithm | [`03_Algorithm-classification.md`](03_Algorithm-classification.md) ⭐ |
+| **Understand classification logic** | 02.01 — Algorithm | [`02.01_Algorithm-classification.md`](02.01_Algorithm-classification.md) |
+| **Understand PreFormServer handoff** | 02.02 — Handoff | [`02.02_Architecture-PreFormServer-handoff.md`](02.02_Architecture-PreFormServer-handoff.md) |
 | **See implementation timeline** | 04 — Roadmap | [`04_Roadmap-implementation.md`](04_Roadmap-implementation.md) |
 | **Understand test coverage** | 05 — Test Spec | [`05_TestSpec-andent-web.md`](05_TestSpec-andent-web.md) |
 | **See future improvements** | 06 — Future | [`06_Future/`](06_Future/) |
@@ -55,18 +57,19 @@ Code (core/, app/)
 
 | # | Document | Status | Last Updated | Purpose |
 |---|----------|--------|--------------|---------|
-| 00 | README / AGENTS | ✅ Active | 2026-04-20 | Navigation |
-| 01 | PRD | ✅ Active | 2026-04-18 | Requirements |
-| 02 | Architecture | ✅ Active | 2026-04-18 | System design |
-| 03 | Algorithm | ✅ Active | 2026-04-20 | Classification spec |
-| 04 | Roadmap | ✅ Active | 2026-04-20 | Timeline |
-| 05 | Test Spec | ✅ Active | 2026-04-18 | Validation |
+| 00 | README / AGENTS | ✅ Active | 2026-04-21 | Navigation |
+| 01 | PRD | ✅ Active | 2026-04-21 | Requirements |
+| 02 | Architecture | ✅ Active | 2026-04-21 | System design |
+| 02.01 | Algorithm | ✅ Active | 2026-04-21 | Classification spec |
+| 02.02 | PreFormServer Handoff | ✅ Active | 2026-04-21 | Build manifest handoff design |
+| 04 | Roadmap | ✅ Active | 2026-04-21 | Timeline |
+| 05 | Test Spec | ✅ Active | 2026-04-21 | Validation |
 | 06 | Future (V2) | 🔮 Planned | — | Splint/build quality improvements |
 | 98 | Artifacts | 📊 Data | — | Verification logs & test data |
 
 ## Classification Documentation
 
-**Status**: ✅ Fully documented in [`03_Algorithm-classification.md`](03_Algorithm-classification.md)
+**Status**: ✅ Fully documented in [`02.01_Algorithm-classification.md`](02.01_Algorithm-classification.md)
 
 | Component | Code Location | Document Section |
 |-----------|---------------|------------------|
@@ -94,7 +97,7 @@ See **[00_AGENTS.md](00_AGENTS.md)** for:
 | `00_` | Navigation/Index | `00_README.md`, `00_AGENTS.md` |
 | `01_` | PRD (Requirements) | `01_PRD-andent-web.md` |
 | `02_` | Architecture | `02_Architecture-andent-web.md` |
-| `03_` | Algorithm | `03_Algorithm-classification.md` |
+| `02.01_` | Algorithm | `02.01_Algorithm-classification.md` |
 | `04_` | Roadmap | `04_Roadmap-implementation.md` |
 | `05_` | Test Spec | `05_TestSpec-andent-web.md` |
 | `06_` | Future/V2 | `06_Future/` folder |

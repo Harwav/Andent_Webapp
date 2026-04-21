@@ -12,7 +12,8 @@ Technical planning documents for Andent Web — requirements, architecture, algo
 ├── 00_AGENTS.md                          # This file — navigation guide for agents
 ├── 01_PRD-andent-web.md                  # Product Requirements Document (Phase 0+)
 ├── 02_Architecture-andent-web.md         # System architecture and component design
-├── 03_Algorithm-classification.md        # Classification algorithm specification
+├── 02.01_Algorithm-classification.md     # Classification algorithm specification
+├── 02.02_Architecture-PreFormServer-handoff.md # PreFormServer handoff design
 ├── 04_Roadmap-implementation.md          # Phased implementation plan
 ├── 05_TestSpec-andent-web.md             # Test specifications and acceptance criteria
 ├── 06_Future/                            # V2+ future improvements
@@ -48,10 +49,10 @@ Code (core/, app/)
 | What model types exist? | `01_PRD-andent-web.md` | "In Scope" → Phase-1 Model Type values |
 | What are the accuracy targets? | `01_PRD-andent-web.md` | "Testable Acceptance Criteria" |
 | How does the system architecture work? | `02_Architecture-andent-web.md` | Section 2 "Architecture Diagram" |
-| What are the classification thresholds? | `03_Algorithm-classification.md` | Section 3.3.2 "Structure Detection Thresholds" |
-| How does the system decide solid vs hollow? | `03_Algorithm-classification.md` | Section 3.3 "Structure Resolution" |
-| Which keywords trigger which model type? | `03_Algorithm-classification.md` | Section 3.2 "Artifact Classification" |
-| What confidence levels exist? | `03_Algorithm-classification.md` | Section 3.5 "Confidence Derivation" |
+| What are the classification thresholds? | `02.01_Algorithm-classification.md` | Section 3.3.2 "Structure Detection Thresholds" |
+| How does the system decide solid vs hollow? | `02.01_Algorithm-classification.md` | Section 3.3 "Structure Resolution" |
+| Which keywords trigger which model type? | `02.01_Algorithm-classification.md` | Section 3.2 "Artifact Classification" |
+| What confidence levels exist? | `02.01_Algorithm-classification.md` | Section 3.5 "Confidence Derivation" |
 | When does a case need human review? | `01_PRD-andent-web.md` | "Decision Boundaries" |
 | What are the test coverage requirements? | `05_TestSpec-andent-web.md` | "Classification And Decision Boundaries" |
 | What's the current implementation phase? | `04_Roadmap-implementation.md` | "Progress Summary" |
@@ -97,7 +98,7 @@ Code (core/, app/)
 
 **Doc references**: Use relative paths with anchors
 ```markdown
-See [Section 3.3](03_Algorithm-classification.md#33-structure-resolution)
+See [Section 3.3](02.01_Algorithm-classification.md#33-structure-resolution)
 ```
 
 ## UNIQUE STYLES

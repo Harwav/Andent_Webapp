@@ -1,7 +1,7 @@
 # Phase 1 Implementation Plan: PreFormServer Handoff + Print Queue
 
 > **Created:** 2026-04-20
-> **Status:** Ready for Implementation
+> **Status:** Implemented in repository; superseded by compatibility-aware Form 4BL build-manifest handoff
 > **Duration:** 8 days
 > **Dependencies:** Phase 0 Complete
 
@@ -9,7 +9,9 @@
 
 ## Overview
 
-This plan details the implementation of Phase 1: PreFormServer integration with automated batching and the new Print Queue tab for job monitoring.
+This plan details the original implementation of Phase 1: PreFormServer integration with automated batching and the new Print Queue tab for job monitoring.
+
+Current repository note (2026-04-21): Phase 1 is implemented, but the batching section below is historical. The current send-to-print path uses compatibility-aware Form 4BL `BuildManifest` planning from `app/services/build_planning.py`, not preset-only grouping. Compatible mixed presets can share one build when they resolve to the same printer/resin/layer-height family, and PreFormServer import preserves each file's preset hint.
 
 ---
 
@@ -75,7 +77,7 @@ This plan details the implementation of Phase 1: PreFormServer integration with 
 ---
 
 ### Task 2: Implement Batching Logic (1 day)
-**Goal:** Group Ready cases by preset, generate job names
+**Goal:** Group Ready cases into compatibility-aware Form 4BL build manifests, generate job names
 
 **Files to Create/Modify:**
 - `app/services/print_queue_service.py` (new)
@@ -83,17 +85,19 @@ This plan details the implementation of Phase 1: PreFormServer integration with 
 
 **Key Functions:**
 ```python
-def batch_cases_by_preset(rows: List[ClassificationRow]) -> Dict[str, List[ClassificationRow]]
+def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]
 def generate_job_name(date: datetime, batch_number: int) -> str
 ```
 
 **Rules:**
-- Group by preset only (not model type)
+- Group by compatible printer/resin/layer-height family derived from preset metadata
+- Allow compatible mixed presets in one build
 - One case cannot span multiple batches
 - Job name format: YYMMDD-001 (auto-increment)
 
 **Acceptance Criteria:**
-- [ ] Batching groups cases correctly
+- [x] Build manifests group compatible cases correctly
+- [x] Cases are never split across manifests
 - [ ] Job names auto-generate with correct format
 - [ ] Edge cases handled (duplicate prevention)
 
@@ -108,11 +112,12 @@ def generate_job_name(date: datetime, batch_number: int) -> str
 
 **Flow:**
 1. Validate selected rows (Ready status)
-2. Group by preset (Task 2)
+2. Build compatibility-aware Form 4BL manifests (Task 2)
 3. For each batch:
    - Create scene via PreFormServer
-   - Import all STL files
-   - Configure preset (support settings)
+   - Import all STL files by manifest preset group
+   - Preserve each file's PreForm preset hint
+   - Run auto-layout and validation
    - Send to printer group
 4. Update row status to "Submitted"
 5. Create print job record
@@ -358,10 +363,12 @@ FORMLABS_API_URL=https://api.formlabs.com/v1
 ## Acceptance Criteria Summary
 
 ### Must Have (P0)
-- [ ] Batching groups Ready cases by preset
+- [x] Build planning groups Ready cases by compatible Form 4BL printer/resin/layer-height
+- [x] Cases are kept intact across builds
+- [x] Compatible mixed presets can share one build
 - [ ] Job names auto-generated (YYMMDD-001)
 - [ ] Presets configured correctly (Tooth = supports, others = flat)
-- [ ] PreFormServer handoff creates scene, imports STLs, sends to printer
+- [x] PreFormServer handoff creates scene, imports STLs, runs layout/validation, sends to printer
 - [ ] Print Queue tab displays jobs with screenshots
 - [ ] Formlabs Web API client authenticates and fetches jobs
 - [ ] Backend polls Formlabs API every 5s
@@ -394,7 +401,7 @@ FORMLABS_API_URL=https://api.formlabs.com/v1
 
 - Architecture: `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
 - Roadmap: `Andent/02_planning/04_Roadmap-implementation.md`
-- PRD: `Andent/01_requirements/prd-andent-web.md`
+- PRD: `Andent/02_planning/01_PRD-andent-web.md`
 
 ---
 
@@ -403,3 +410,4 @@ FORMLABS_API_URL=https://api.formlabs.com/v1
 | Date | Change |
 |------|--------|
 | 2026-04-20 | Created Phase 1 implementation plan |
+| 2026-04-21 | Marked historical plan as implemented/superseded by Form 4BL build-manifest handoff |

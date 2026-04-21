@@ -19,7 +19,7 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Phase | Name | Status | Repository State | Verification State |
 |-------|------|--------|------------------|--------------------|
 | Phase 0 | Classification Intake | COMPLETE | Delivered | Mostly covered |
-| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE (repo) | Major surfaces implemented | Automated verification green; live validation pending |
+| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE (repo) | Major surfaces plus Form 4BL build manifests implemented | Automated verification green; live validation pending |
 | Phase 2 | Enhanced Queue Features | PARTIALLY IMPLEMENTED | Several UX features already landed | Uneven coverage |
 | Phase 3 | Validation & Metrics | PARTIALLY IMPLEMENTED | Metrics/API scaffolding exists | Not wired to live workflow proof |
 | Phase 4 | Production Hardening | PARTIALLY IMPLEMENTED | Health/network basics exist | Production hardening incomplete |
@@ -37,7 +37,8 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Human review limited to low-confidence model type matches | Done |
 | Human review limited to ambiguous or missing case IDs | Done |
 | Human-reviewed outliers remain `<=2%` | Partial |
-| Standard die/tooth cases are not blocked by the old MVP safety gate | Partial |
+| Standard die/tooth cases are not blocked by the old MVP safety gate | Done |
+| Compatible mixed presets share Form 4BL builds without splitting cases | Done |
 | Andent Web sends prepared jobs to PreFormServer | Done |
 
 Source of truth: see the line-by-line checklist in `Andent/02_planning/01_PRD-andent-web.md`.
@@ -93,6 +94,7 @@ This phase is no longer just planned work. The repository already contains:
 
 - batching logic and job naming
 - `PreFormClient` and `FormlabsWebClient`
+- preset catalog and compatibility-aware Form 4BL build manifests
 - `print_jobs` schema and CRUD helpers
 - real handoff routing from `/api/uploads/rows/send-to-print`
 - Print Queue API/UI, status sync, and screenshot caching
@@ -106,7 +108,7 @@ What still blocks full launch sign-off is external validation quality:
 
 | Feature | Description | Effort | Priority | Dependencies |
 |---------|-------------|--------|----------|--------------|
-| **Batching Logic** | Group Ready rows by preset, auto-generate job names | 1 day | P0 | None |
+| **Build Planning Logic** | Group Ready rows into whole-case Form 4BL manifests by compatible printer/resin/layer-height, auto-generate job names | 1 day | P0 | None |
 | **Preset Configuration Update** | Ortho/Hollow/Die lay flat; Tooth auto-supports; All use Precision Model Resin 100µm | 0.5 day | P0 | Batching |
 | **Real Handoff Endpoint** | Replace simulated send-to-print with PreFormServer API calls | 1 day | P0 | Preset config |
 | **FormlabsWebClient** | New client for Formlabs Web API authentication and queries | 1 day | P0 | None |
@@ -139,7 +141,8 @@ What still blocks full launch sign-off is external validation quality:
 
 | Test | Description | Priority |
 |------|-------------|----------|
-| `test_batching_logic` | Cases grouped correctly by preset | P0 |
+| `test_build_planning` | Cases stay intact, compatible presets mix, incompatible presets do not mix | P0 |
+| `test_batching_logic` | Compatibility-aware grouping remains deterministic | P0 |
 | `test_job_name_generation` | YYMMDD-001 format works | P0 |
 | `test_preform_client_create_scene` | Scene creation via PreFormServer | P0 |
 | `test_preform_client_import_model` | STL import to scene | P0 |
@@ -156,16 +159,16 @@ What still blocks full launch sign-off is external validation quality:
 
 | Criterion | Current Status | Notes |
 |-----------|----------------|-------|
-| Batching logic groups Ready cases by preset | Implemented and tested | `tests/test_batching.py` |
+| Build planning groups Ready cases by Form 4BL compatibility while preserving case cohesion | Implemented and tested | `tests/test_build_planning.py`, `tests/test_batching.py` |
 | Job names auto-generated (YYMMDD-001 format) | Implemented and tested | `tests/test_batching.py` |
 | Presets configured: Ortho/Hollow/Die = lay flat; Tooth = auto-supports; All = Precision Model Resin 100µm | Implemented and repository-verified | UI preset is now translated to a PreFormServer preset hint |
-| PreFormServer handoff creates scene, imports STLs, configures preset, sends to printer | Implemented and repository-verified | Includes preset hint propagation and row-level printer routing |
+| PreFormServer handoff creates scene, imports STLs, configures presets, validates layout, sends to printer | Implemented and repository-verified | Includes per-file preset hint propagation, row-level printer routing, auto-layout validation, and whole-case rollback |
 | Print Queue tab displays jobs with screenshots, names, cases, status | Implemented and tested | `tests/test_print_queue.py`, `tests/test_print_queue_polling.py` |
 | Formlabs Web API client authenticates and fetches job data | Implemented and tested | `tests/test_formlabs_web_client.py` |
 | Backend polls Formlabs API every 5s for status updates | Partially complete | Current design uses frontend 5s polling plus backend cache-on-request sync |
 | Status values shown: Queued, Printing, Failed, Paused, Completed | Implemented | Schema/UI support present |
 | Connection errors handled with user-friendly messages | Basic handling implemented | Broader recovery remains a stabilization task |
-| All P0 tests passing | Complete | Full suite currently passes in this environment |
+| All P0 tests passing | Complete | Full suite currently passes in this environment (`187 passed`) |
 
 ---
 
@@ -372,7 +375,7 @@ The following were removed from Andent Web scope after architecture clarificatio
 |-----|--------|
 | Upload-to-queue latency target | Defined: <30s per file |
 | Printer dispatch success-rate target | To be defined |
-| Mixed-model-type upload handling rules | Handled by preset-based batching |
+| Mixed-model-type upload handling rules | Compatible same-printer/resin/layer-height presets are handled by Form 4BL build manifests; incompatible case-level mixes route to review |
 
 ---
 
@@ -386,12 +389,13 @@ The following were removed from Andent Web scope after architecture clarificatio
 | 2026-04-20 | Phase 1 requirements finalized with Print Queue tab, Formlabs Web API integration, batching logic, and preset configuration |
 | 2026-04-21 | Updated roadmap to reflect implemented Phase 1/2/3/4 surfaces and remaining verification gaps |
 | 2026-04-21 | Updated after stabilization pass: clean full-suite verification, classify-route fix, preset/device propagation completed |
+| 2026-04-21 | Updated after Form 4BL build layout completion: build manifests, mixed-compatible preset grouping, and 187-test verification |
 
 ---
 
 ## References
 
-- Architecture: `Andent/02_planning/architecture-andent-web.md`
+- Architecture: `Andent/02_planning/02_Architecture-andent-web.md`
 - PreFormServer Handoff: `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
 - Requirements PRD: `Andent/01_requirements/prd-andent-web-auto-prep.md`
-- Planning PRD: `Andent/02_planning/prd-andent-web-auto-prep.md`
+- Planning PRD: `Andent/02_planning/01_PRD-andent-web.md`

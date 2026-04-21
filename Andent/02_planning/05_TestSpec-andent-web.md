@@ -136,10 +136,13 @@
 - Verify standard tooth and die jobs do not fail solely because of the retired MVP-era safety blocks.
 
 ### Planning And Packing
-- Verify `BuildPlan.build_job_name()` remains deterministic (`andent_planning.py:71`).
-- Verify same-case grouping remains intact through `plan_andent_builds()` (`andent_planning.py:200`).
-- Verify build-family grouping and split logic behave deterministically (`andent_planning.py:245`, `andent_planning.py:307`).
-- Verify cannot-fit cases route to review instead of partial processing (`andent_planning.py:286`).
+- Verify Form 4BL compatibility keys derive from preset metadata (`app/services/preset_catalog.py`).
+- Verify same-case grouping remains intact through `plan_build_manifests()` (`app/services/build_planning.py`).
+- Verify compatible mixed presets can share one build manifest.
+- Verify incompatible presets never share a build manifest and incompatible same-case mixes route to manual review.
+- Verify largest/hardest-first seeding and smallest-case filler behavior remain deterministic.
+- Verify missing dimensions, missing file paths, missing row IDs, and oversized cases route to non-plannable manifest output instead of partial processing.
+- Verify build-manifest preview uses the same planner as send-to-print (`app/services/planning_preview.py`).
 
 ### Headless Pipeline
 - Verify the extracted headless pipeline produces status events without any Tkinter dependency that currently exists in `processing_controller.py:62` and `processing_controller.py:241`.
@@ -162,6 +165,15 @@
   - file records
   - initial status event
 - Uploading a package with ambiguous case ID creates a review exception instead of dispatch.
+
+### Form 4BL Build Manifest Handoff
+- Compatible mixed presets share one PreFormServer scene when they resolve to the same printer/resin/layer-height family.
+- Each uploaded case appears in at most one build manifest.
+- PreFormServer import receives the per-file preset hint from the manifest import group.
+- Scene auto-layout and validation run before printer dispatch.
+- Validation failure retries by removing whole cases only.
+- A single seed case that fails validation is marked for manual review.
+- Print job records persist `preset_names`, `compatibility_key`, and manifest JSON for audit/debugging.
 
 ### Phase 0 Classification Table
 - Uploading STL files returns one row per file, even when files belong to the same case.
@@ -232,4 +244,4 @@
 ## Open Measurement Gaps
 - Upload-to-queue latency target is still undefined and must be fixed before launch sign-off.
 - Dispatch success-rate target is still undefined and must be fixed before launch sign-off.
-- Mixed-model-type upload behavior should be explicitly locked during implementation planning if phase-1 support is desired.
+- Mixed-compatible Form 4BL upload behavior is implemented and covered by automated tests; live PreFormServer validation is still required before launch sign-off.

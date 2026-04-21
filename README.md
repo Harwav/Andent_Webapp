@@ -4,13 +4,15 @@ Standalone Andent web application for browser-based dental workflow automation.
 
 ## Overview
 
-Andent Web provides a modern web interface for dental case intake and STL classification. It accepts STL uploads, automatically classifies model types (Ortho, Die, Tooth, Splint), and prepares cases for downstream processing.
+Andent Web provides a modern web interface for dental case intake, STL classification, and PreFormServer handoff. It accepts STL uploads, automatically classifies model types (Ortho, Die, Tooth, Splint), plans compatibility-aware Form 4BL builds, and preserves per-file preset hints for downstream processing.
 
-**Phase 0 Scope:**
+**Current Repository Scope:**
 - Browser-based STL upload
 - Per-file classification table
 - Session-scoped Model Type and Preset edits
 - Queue management and batch operations
+- Compatibility-aware Form 4BL build planning
+- PreFormServer handoff and print queue tracking
 
 ## Quick Start
 
@@ -69,8 +71,12 @@ Andent_Webapp/
 │   │   └── metrics.py         # Metrics dashboard
 │   ├── services/
 │   │   ├── classification.py  # STL classification logic
-│   │   ├── planning_preview.py # Case preview logic
-│   │   └── prep_pipeline.py   # Future prep execution (Phase 1+)
+│   │   ├── preset_catalog.py   # Preset compatibility metadata
+│   │   ├── build_planning.py   # Form 4BL build manifest planning
+│   │   ├── planning_preview.py # Build preview logic
+│   │   ├── preform_client.py   # PreFormServer local API client
+│   │   ├── print_queue_service.py # Print handoff and queue sync
+│   │   └── prep_pipeline.py    # Prep pipeline utilities
 │   └── static/                # Frontend assets
 ├── core/                      # Shared backend modules
 │   ├── andent_classification.py  # Case ID and artifact classification
@@ -97,12 +103,14 @@ Andent_Webapp/
 - `GET /api/uploads/queue` - List queue rows
 - `PATCH /api/uploads/rows/{row_id}` - Update classification
 - `POST /api/uploads/rows/bulk-update` - Bulk update classifications
-- `POST /api/uploads/rows/send-to-print` - Mark rows for print dispatch
+- `POST /api/uploads/rows/send-to-print` - Send ready rows to PreFormServer using build manifests
 - `POST /api/uploads/rows/bulk-delete` - Delete rows
 - `GET /api/uploads/rows/{row_id}/file` - Download STL file
 - `GET /api/uploads/rows/{row_id}/thumbnail.svg` - Get thumbnail SVG
 - `GET /api/uploads/rows/{row_id}/plan-preview` - Get case plan preview
 - `POST /api/uploads/rows/batch-plan-preview` - Batch plan preview
+- `GET /api/print-queue/jobs` - List tracked print jobs
+- `GET /api/print-queue/jobs/{job_id}/screenshot` - Fetch cached or remote job screenshot
 
 ### System
 
@@ -126,30 +134,28 @@ Environment variables:
 
 ```bash
 # Run tests from repository root
-pytest tests/
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q
 ```
 
 ## Roadmap
 
-### Phase 0 (Current)
+### Current Repository State
 - [x] STL upload and classification
 - [x] Manual model type/preset overrides
 - [x] Queue management
 - [x] Batch operations
-- [ ] Print dispatch integration (simulated)
-
-### Phase 1 (Planned)
-- [ ] Real PreFormServer handoff
-- [ ] Prep pipeline execution
-- [ ] Job status tracking
-- [ ] Printer dispatch automation
+- [x] Compatibility-aware Form 4BL build manifests
+- [x] Real PreFormServer handoff path
+- [x] Print Queue tab and job status polling
+- [ ] Live PreFormServer/Formlabs acceptance validation
 
 ## Development
 
 See `Andent/02_planning/` for product documentation:
-- [PRD](Andent/02_planning/prd-andent-web.md)
-- [Architecture](Andent/02_planning/architecture-andent-web.md)
-- [Implementation Roadmap](Andent/02_planning/implementation-roadmap.md)
+- [PRD](Andent/02_planning/01_PRD-andent-web.md)
+- [Architecture](Andent/02_planning/02_Architecture-andent-web.md)
+- [PreFormServer Handoff](Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md)
+- [Implementation Roadmap](Andent/02_planning/04_Roadmap-implementation.md)
 
 ## License
 

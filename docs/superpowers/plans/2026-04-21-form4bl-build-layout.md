@@ -10,6 +10,17 @@
 
 ---
 
+## Completion Status
+
+Status: implemented and repository-verified on 2026-04-21.
+
+Verification:
+
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_preset_catalog.py tests/test_build_planning.py tests/test_preform_client.py tests/test_preform_handoff.py tests/test_print_queue.py tests/test_planning_preview.py -q` -> `58 passed`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q` -> `187 passed`
+
+Remaining outside this implementation plan: browser visual inspection of the print queue card and live PreFormServer/Formlabs acceptance validation.
+
 ## File Structure
 
 ### New Files

@@ -15,8 +15,8 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 
 ### Current Repository Snapshot (2026-04-21)
 
-- Implemented: intake/classification queue, editable overrides, send-to-print handoff route, print job persistence, Print Queue tab, Formlabs polling, screenshot retrieval, and plan preview endpoints.
-- Verified in repository: the upload/classification route, handoff route, print-queue flows, and a clean full-suite pytest run (`150 passed, 3 skipped` with plugin autoload disabled in this environment).
+- Implemented: intake/classification queue, editable overrides, preset catalog, compatibility-aware Form 4BL build planning, send-to-print handoff route, print job persistence, Print Queue tab, Formlabs polling, screenshot retrieval, and plan preview endpoints.
+- Verified in repository: the upload/classification route, Form 4BL planner, handoff route, print-queue flows, and a clean full-suite pytest run (`187 passed` with plugin autoload disabled in this environment).
 - Still not proven from repository-only evidence: launch metrics against real workflow volume, and a live external-service run through PreFormServer/Formlabs hardware/cloud.
 
 ---
@@ -129,8 +129,9 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | STL Upload | Browser drag-drop upload to server | ✅ Phase 0 |
 | Classification | Detect model type + case ID from filename/geometry | ✅ Phase 0 |
 | Preset Assignment | Map model type to preset | ✅ Phase 0 |
+| Build Planning | Whole-case Form 4BL manifests grouped by compatible printer/resin/layer-height | Implemented and repository-verified |
 | Queue UI | Active/Processed tabs with editing | ✅ Phase 0 |
-| Plan Preview | Read-only predicted grouping and job name preview | Implemented |
+| Plan Preview | Read-only predicted grouping using the same build-manifest planner as handoff | Implemented |
 | Print Queue Display | Job list, screenshots, and status display via polling | Implemented (display only) |
 | Human Review | Override model type/preset for low-confidence cases | ✅ Phase 0 |
 | Send to PreFormServer | API call with prepared job data | Implemented and repository-verified |
@@ -171,8 +172,8 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | `/api/uploads/rows/{id}` | DELETE | Remove row from queue |
 | `/api/uploads/rows/{id}/file` | GET | Download STL file |
 | `/api/uploads/rows/{id}/thumbnail.svg` | GET | Get thumbnail preview |
-| `/api/uploads/rows/{id}/plan-preview` | GET | Get predicted grouping/job-name preview for a row |
-| `/api/uploads/rows/batch-plan-preview` | POST | Get predicted grouping/job-name preview for multiple rows |
+| `/api/uploads/rows/{id}/plan-preview` | GET | Get row-level preview metadata |
+| `/api/uploads/rows/batch-plan-preview` | POST | Get compatibility-aware Form 4BL build preview for multiple rows |
 | `/api/print-queue/jobs` | GET | List tracked print jobs with synced status |
 | `/api/print-queue/jobs/{job_id}/screenshot` | GET | Fetch or return cached job screenshot |
 | `/api/metrics/` | GET | Return metrics summary (not yet wired to live workflow events) |
@@ -217,7 +218,9 @@ andent_web/
 │   │   └── metrics.py           # Metrics API endpoints
 │   ├── services/
 │   │   ├── classification.py    # Classification logic
-│   │   ├── planning_preview.py  # Read-only plan preview
+│   │   ├── preset_catalog.py     # Preset metadata and compatibility keys
+│   │   ├── build_planning.py     # Whole-case Form 4BL build manifests
+│   │   ├── planning_preview.py  # Read-only build-manifest preview
 │   │   ├── preform_client.py    # PreFormServer client
 │   │   ├── formlabs_web_client.py # Formlabs Web API client
 │   │   ├── print_queue_service.py # Print job sync and screenshot caching
@@ -244,11 +247,12 @@ andent_web/
 | 2026-04-18 | Defined Andent Web scope: upload, classify, review, handoff only |
 | 2026-04-21 | Updated implementation snapshot, endpoint surface, and verification status to match the repository |
 | 2026-04-21 | Updated after stabilization pass: classify route fixed, handoff boundary completed, full automated suite green |
+| 2026-04-21 | Updated after Form 4BL build layout completion: compatibility-aware build manifests, mixed-preset queue display, and 187-test verification |
 
 ---
 
 ## References
 
-- PRD: `Andent/01_requirements/prd-andent-web-auto-prep.md`
-- Planning PRD: `Andent/02_planning/prd-andent-web-auto-prep.md`
-- Phase 0 Build: `Andent/02_planning/phase-0-build-today.md`
+- PRD: `Andent/02_planning/01_PRD-andent-web.md`
+- PreFormServer Handoff: `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
+- Roadmap: `Andent/02_planning/04_Roadmap-implementation.md`
