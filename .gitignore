@@ -21,6 +21,7 @@ test-results/
 # IDE
 .vscode/
 .idea/
+.worktrees/
 *.swp
 *.swo
 *~
