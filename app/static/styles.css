@@ -156,6 +156,136 @@ h2 {
     background: linear-gradient(180deg, #fff7f1 0%, #fff2ea 100%);
 }
 
+.setup-banner {
+    display: block;
+    border-color: rgba(175, 106, 0, 0.28);
+    background: linear-gradient(135deg, #fff8e8 0%, #fff2d8 100%);
+    color: var(--warn);
+    font-family: var(--font-ui);
+    font-weight: 700;
+}
+
+.setup-panel {
+    display: grid;
+    gap: 16px;
+    background:
+        radial-gradient(circle at top right, rgba(8, 100, 199, 0.08), transparent 30%),
+        linear-gradient(180deg, #ffffff 0%, #faf8f3 100%);
+}
+
+.setup-panel-header,
+.setup-actions,
+.wizard-header,
+.wizard-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.setup-summary {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.setup-meta-grid,
+.wizard-checklist {
+    display: grid;
+    gap: 12px;
+}
+
+.setup-meta-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.setup-meta-item,
+.wizard-checklist-item {
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.86);
+}
+
+.setup-meta-item span {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.setup-meta-item strong {
+    display: block;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.status-pill-neutral {
+    background: #f2efe8;
+    color: var(--ink);
+}
+
+.status-pill-ready {
+    background: var(--clear-soft);
+    color: var(--clear);
+}
+
+.status-pill-info {
+    background: var(--info-soft);
+    color: var(--info);
+}
+
+.status-pill-warn {
+    background: var(--warn-soft);
+    color: var(--warn);
+}
+
+.status-pill-danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.wizard-shell {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+}
+
+.wizard-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(17, 17, 16, 0.68);
+}
+
+.wizard-card {
+    position: relative;
+    z-index: 1;
+    width: min(760px, calc(100vw - 32px));
+    margin: 48px auto;
+    padding: 32px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    background:
+        radial-gradient(circle at top right, rgba(255, 90, 0, 0.12), transparent 32%),
+        linear-gradient(180deg, #ffffff 0%, #f8f5ee 100%);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.26);
+}
+
 .dropzone-title {
     margin: 0;
     font-family: var(--font-ui);

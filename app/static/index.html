@@ -24,8 +24,49 @@
             <h1>Active Queue</h1>
             <p class="lede">
                 Drop STL files or folders, review anything that needs attention, then move
-                ready items into the simulated print handoff without leaving the queue.
+                ready items into the managed PreFormServer handoff without leaving the queue.
             </p>
+        </section>
+
+        <section id="preform-banner" class="panel setup-banner hidden"></section>
+
+        <section id="preform-setup-panel" class="panel setup-panel">
+            <div class="setup-panel-header">
+                <div>
+                    <p class="eyebrow">PreFormServer</p>
+                    <h2>Setup Center</h2>
+                </div>
+                <span id="preform-readiness-pill" class="status-pill status-pill-neutral">Checking...</span>
+            </div>
+            <p id="preform-summary" class="setup-summary">
+                Checking managed PreFormServer readiness.
+            </p>
+            <div class="setup-meta-grid">
+                <div class="setup-meta-item">
+                    <span>Install Path</span>
+                    <strong id="preform-install-path">-</strong>
+                </div>
+                <div class="setup-meta-item">
+                    <span>Detected Version</span>
+                    <strong id="preform-version">-</strong>
+                </div>
+                <div class="setup-meta-item">
+                    <span>Supported Range</span>
+                    <strong id="preform-version-range">-</strong>
+                </div>
+                <div class="setup-meta-item">
+                    <span>Last Check</span>
+                    <strong id="preform-last-check">-</strong>
+                </div>
+            </div>
+            <div class="setup-actions">
+                <input id="preform-zip-input" type="file" accept=".zip" hidden>
+                <button id="preform-install-button" type="button" class="primary-button">Install or Replace ZIP</button>
+                <button id="preform-start-button" type="button" class="secondary-button">Start</button>
+                <button id="preform-stop-button" type="button" class="ghost-button">Stop</button>
+                <button id="preform-restart-button" type="button" class="secondary-button">Restart</button>
+                <button id="preform-recheck-button" type="button" class="ghost-button">Re-check</button>
+            </div>
         </section>
 
         <section class="panel uploader-panel">
@@ -163,6 +204,8 @@
             <p id="screenshot-caption" class="preview-caption"></p>
         </div>
     </div>
+
+    <div id="preform-wizard" class="wizard-shell hidden" aria-hidden="true"></div>
 
     <script src="/static/app.js"></script>
 </body>

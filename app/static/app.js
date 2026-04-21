@@ -6,6 +6,16 @@ const MODEL_TYPES = [
     "Splint",
 ];
 
+const DEFAULT_PRESET_BY_MODEL = {
+    "Ortho - Solid": "Ortho Solid - Flat, No Supports",
+    "Ortho - Hollow": "Ortho Hollow - Flat, No Supports",
+    Die: "Die - Flat, No Supports",
+    Tooth: "Tooth - With Supports",
+    Splint: "Splint - Flat, No Supports",
+};
+
+const PRESET_OPTIONS = Object.values(DEFAULT_PRESET_BY_MODEL);
+
 const ACTIVE_STATUSES = [
     "Queued",
     "Uploading",
@@ -49,6 +59,11 @@ const state = {
         page: 1,
         expandedCases: new Set(),
     },
+    preformSetup: {
+        status: null,
+        loading: false,
+        wizardDismissed: false,
+    },
 };
 
 const elements = {
@@ -68,6 +83,21 @@ const elements = {
     previewModal: document.getElementById("preview-modal"),
     previewTitle: document.getElementById("preview-title"),
     previewViewer: document.getElementById("preview-viewer"),
+    preformBanner: document.getElementById("preform-banner"),
+    preformInstallButton: document.getElementById("preform-install-button"),
+    preformInstallPath: document.getElementById("preform-install-path"),
+    preformLastCheck: document.getElementById("preform-last-check"),
+    preformReadinessPill: document.getElementById("preform-readiness-pill"),
+    preformRecheckButton: document.getElementById("preform-recheck-button"),
+    preformRestartButton: document.getElementById("preform-restart-button"),
+    preformSetupPanel: document.getElementById("preform-setup-panel"),
+    preformStartButton: document.getElementById("preform-start-button"),
+    preformStopButton: document.getElementById("preform-stop-button"),
+    preformSummary: document.getElementById("preform-summary"),
+    preformVersion: document.getElementById("preform-version"),
+    preformVersionRange: document.getElementById("preform-version-range"),
+    preformWizard: document.getElementById("preform-wizard"),
+    preformZipInput: document.getElementById("preform-zip-input"),
     processedBody: document.getElementById("processed-body"),
     processedCount: document.getElementById("processed-count"),
     processedPanel: document.getElementById("processed-panel"),
@@ -113,12 +143,189 @@ function setStatus(message, isError = false) {
     elements.statusText.classList.toggle("error-text", isError);
 }
 
+function getPreformSetupStatus() {
+    return state.preformSetup.status;
+}
+
+function canPrint() {
+    return getPreformSetupStatus()?.readiness === "ready";
+}
+
+function formatPreformRange(status) {
+    if (!status) {
+        return "-";
+    }
+    return status.expected_version_max
+        ? `${status.expected_version_min} to ${status.expected_version_max}`
+        : `${status.expected_version_min}+`;
+}
+
+function preformReadinessLabel(status) {
+    if (!status) {
+        return "Checking";
+    }
+    switch (status.readiness) {
+        case "ready":
+            return "Ready";
+        case "not_installed":
+            return "Not Installed";
+        case "installed_not_running":
+            return "Stopped";
+        case "incompatible_version":
+            return "Update Required";
+        default:
+            return "Needs Attention";
+    }
+}
+
+function preformReadinessTone(status) {
+    if (!status) {
+        return "neutral";
+    }
+    switch (status.readiness) {
+        case "ready":
+            return "ready";
+        case "incompatible_version":
+            return "warn";
+        case "not_installed":
+        case "installed_not_running":
+            return "info";
+        default:
+            return "danger";
+    }
+}
+
+function describePreformSetup(status) {
+    if (!status) {
+        return "Checking managed PreFormServer readiness.";
+    }
+    switch (status.readiness) {
+        case "ready":
+            return `Managed PreFormServer is healthy and ready for print handoff on the configured local port.`;
+        case "not_installed":
+            return "No managed PreFormServer install exists yet. Select a local ZIP package to install the canonical copy used by Andent Web.";
+        case "installed_not_running":
+            return status.last_error_message
+                ? `A managed install exists, but the local API is not reachable. ${status.last_error_message}`
+                : "A managed install exists, but the local API is not reachable. Start the managed service or replace it with a newer ZIP.";
+        case "incompatible_version":
+            return status.last_error_message
+                ? status.last_error_message
+                : "The managed PreFormServer version is outside the supported range. Replace it with a compatible ZIP before printing.";
+        default:
+            return status.last_error_message || "PreFormServer needs attention before print handoff can continue.";
+    }
+}
+
+function openPreformWizard() {
+    state.preformSetup.wizardDismissed = false;
+    renderPreformWizard();
+}
+
+function dismissPreformWizard() {
+    state.preformSetup.wizardDismissed = true;
+    renderPreformWizard();
+}
+
+async function fetchPreformSetupStatus() {
+    const response = await fetch("/api/preform-setup/status");
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.detail || "Could not load PreFormServer setup status.");
+    }
+    state.preformSetup.status = payload;
+}
+
+async function runPreformAction(url, options, successMessage) {
+    state.preformSetup.loading = true;
+    renderPreformSetup();
+    try {
+        const response = await fetch(url, options);
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.detail || payload.message || "PreFormServer action failed.");
+        }
+        state.preformSetup.status = payload.status;
+        setStatus(payload.message || successMessage);
+    } catch (error) {
+        setStatus(error.message, true);
+    } finally {
+        state.preformSetup.loading = false;
+        render();
+    }
+}
+
+function renderPreformSetup() {
+    const status = getPreformSetupStatus();
+    const tone = preformReadinessTone(status);
+    const label = preformReadinessLabel(status);
+    const summary = describePreformSetup(status);
+    const blocked = status && status.readiness !== "ready";
+
+    elements.preformReadinessPill.textContent = label;
+    elements.preformReadinessPill.className = `status-pill status-pill-${tone}`;
+    elements.preformSummary.textContent = summary;
+    elements.preformInstallPath.textContent = status?.install_path || "-";
+    elements.preformVersion.textContent = status?.detected_version || "-";
+    elements.preformVersionRange.textContent = formatPreformRange(status);
+    elements.preformLastCheck.textContent = formatDate(status?.last_health_check_at || "");
+    elements.preformBanner.classList.toggle("hidden", !blocked);
+    elements.preformBanner.textContent = blocked
+        ? `Print handoff is blocked until PreFormServer is ${label.toLowerCase()}.`
+        : "";
+
+    elements.preformStartButton.disabled = state.preformSetup.loading || !status || status.readiness === "ready";
+    elements.preformStopButton.disabled = state.preformSetup.loading || !status || status.readiness === "not_installed";
+    elements.preformRestartButton.disabled = state.preformSetup.loading || !status || status.readiness === "not_installed";
+    elements.preformRecheckButton.disabled = state.preformSetup.loading || !status;
+    elements.preformInstallButton.disabled = state.preformSetup.loading;
+    renderPreformWizard();
+}
+
+function renderPreformWizard() {
+    const status = getPreformSetupStatus();
+    const shouldShow = status && status.readiness !== "ready" && !state.preformSetup.wizardDismissed;
+    elements.preformWizard.classList.toggle("hidden", !shouldShow);
+    elements.preformWizard.setAttribute("aria-hidden", String(!shouldShow));
+    if (!shouldShow) {
+        elements.preformWizard.innerHTML = "";
+        return;
+    }
+
+    elements.preformWizard.innerHTML = `
+        <div class="wizard-backdrop" data-close-modal="wizard"></div>
+        <div class="wizard-card" role="dialog" aria-modal="true" aria-labelledby="preform-wizard-title">
+            <div class="wizard-header">
+                <div>
+                    <p class="eyebrow">PreFormServer Setup</p>
+                    <h2 id="preform-wizard-title">${preformReadinessLabel(status)}</h2>
+                </div>
+                <button type="button" class="ghost-button" data-wizard-dismiss="true">Continue Without Printing</button>
+            </div>
+            <p class="setup-summary">${describePreformSetup(status)}</p>
+            <div class="wizard-checklist">
+                <div class="wizard-checklist-item">Managed install path: ${status.install_path}</div>
+                <div class="wizard-checklist-item">Supported range: ${formatPreformRange(status)}</div>
+                <div class="wizard-checklist-item">Detected version: ${status.detected_version || "-"}</div>
+            </div>
+            <div class="wizard-actions">
+                <button type="button" class="primary-button" data-preform-install="true">Select ZIP Package</button>
+                <button type="button" class="secondary-button" data-preform-recheck="true">Re-check</button>
+            </div>
+        </div>
+    `;
+}
+
 function releasePickerGuard() {
     state.pickerOpen = false;
     if (state.pickerReleaseId) {
         window.clearTimeout(state.pickerReleaseId);
         state.pickerReleaseId = null;
     }
+}
+
+function getDefaultPreset(modelType) {
+    return DEFAULT_PRESET_BY_MODEL[modelType] || "";
 }
 
 function schedulePickerGuardRelease(delay = 200) {
@@ -150,10 +357,11 @@ function openPicker(input) {
 }
 
 function normalizeRow(row) {
+    const defaultPreset = getDefaultPreset(row.model_type);
     return {
         ...row,
         row_id: row.row_id,
-        preset_overridden: Boolean(row.preset && row.model_type && row.preset !== row.model_type),
+        preset_overridden: Boolean(row.preset && defaultPreset && row.preset !== defaultPreset),
         is_temp: false,
     };
 }
@@ -442,6 +650,7 @@ async function persistRow(row) {
 
 function createModelTypeSelect(row) {
     const select = document.createElement("select");
+    select.dataset.testid = "model-type-select";
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = "Select";
@@ -471,9 +680,13 @@ function createModelTypeSelect(row) {
     select.addEventListener("change", (event) => {
         row.model_type = event.target.value || null;
         if (!row.preset_overridden) {
-            row.preset = event.target.value || "";
+            row.preset = getDefaultPreset(row.model_type);
         }
-        row.preset_overridden = Boolean(row.preset && row.model_type && row.preset !== row.model_type);
+        row.preset_overridden = Boolean(
+            row.preset &&
+            row.model_type &&
+            row.preset !== getDefaultPreset(row.model_type)
+        );
         render();
         persistRow(row);
     });
@@ -482,6 +695,7 @@ function createModelTypeSelect(row) {
 
 function createPresetSelect(row) {
     const select = document.createElement("select");
+    select.dataset.testid = "preset-select";
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = "Select";
@@ -489,7 +703,7 @@ function createPresetSelect(row) {
     placeholder.selected = !row.preset;
     select.appendChild(placeholder);
 
-    MODEL_TYPES.forEach((optionValue) => {
+    PRESET_OPTIONS.forEach((optionValue) => {
         const option = document.createElement("option");
         option.value = optionValue;
         option.textContent = optionValue;
@@ -510,7 +724,11 @@ function createPresetSelect(row) {
     });
     select.addEventListener("change", (event) => {
         row.preset = event.target.value || "";
-        row.preset_overridden = Boolean(row.preset && row.model_type && row.preset !== row.model_type);
+        row.preset_overridden = Boolean(
+            row.preset &&
+            row.model_type &&
+            row.preset !== getDefaultPreset(row.model_type)
+        );
         render();
         persistRow(row);
     });
@@ -636,6 +854,12 @@ function renderActiveRows() {
 
     pageRows.forEach((row) => {
         const tr = document.createElement("tr");
+        if (!row.is_temp) {
+            tr.dataset.rowId = String(row.row_id ?? "");
+            tr.dataset.fileName = row.file_name;
+            tr.dataset.caseId = row.case_id || "";
+            tr.dataset.rowStatus = getRowStatus(row);
+        }
         if (isRowPendingDelete(row)) {
             tr.classList.add("row-pending-delete");
         }
@@ -643,6 +867,7 @@ function renderActiveRows() {
         const selectCell = document.createElement("td");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
+        checkbox.dataset.testid = "row-select";
         checkbox.checked = !row.is_temp && state.selectedIds.has(row.row_id);
         checkbox.disabled = !isEditableActiveRow(row);
         checkbox.addEventListener("change", (event) => toggleRowSelection(row, event.target.checked));
@@ -673,7 +898,9 @@ function renderActiveRows() {
         tr.appendChild(presetCell);
 
         const statusCell = document.createElement("td");
-        statusCell.appendChild(createChip(getRowStatus(row)));
+        const chip = createChip(getRowStatus(row));
+        chip.dataset.testid = "status-chip";
+        statusCell.appendChild(chip);
         tr.appendChild(statusCell);
 
         const dimensionsCell = document.createElement("td");
@@ -1094,9 +1321,17 @@ function renderBulkActions() {
     if (readyRows.length > 0) {
         const submitButton = document.createElement("button");
         submitButton.type = "button";
-        submitButton.className = "primary-button";
-        submitButton.textContent = `Send to Print (${readyRows.length})`;
+        submitButton.dataset.testid = "send-to-print-button";
+        submitButton.className = canPrint() ? "primary-button" : "secondary-button";
+        submitButton.textContent = canPrint()
+            ? `Send to Print (${readyRows.length})`
+            : `Setup Required (${readyRows.length})`;
         submitButton.addEventListener("click", async () => {
+            if (!canPrint()) {
+                openPreformWizard();
+                setStatus("Complete PreFormServer setup before sending rows to print.", true);
+                return;
+            }
             try {
                 const response = await fetch("/api/uploads/rows/send-to-print", {
                     method: "POST",
@@ -1182,6 +1417,7 @@ function renderTabs() {
 function render() {
     clampPages();
     syncSelection();
+    renderPreformSetup();
     renderTabs();
     renderLegend();
     renderBulkActions();
@@ -1207,6 +1443,9 @@ function render() {
         state.printQueue.page = page;
     });
     elements.queueActionButton.textContent = "Select Folder";
+    elements.printQueueEmpty.textContent = canPrint()
+        ? "No print jobs in queue."
+        : "Print queue unavailable until PreFormServer setup is ready.";
 }
 
 function createPendingRow(file) {
@@ -1640,6 +1879,56 @@ elements.screenshotModal.addEventListener("click", (event) => {
 
 elements.closeScreenshot.addEventListener("click", closeScreenshotModal);
 
+elements.preformInstallButton.addEventListener("click", () => {
+    openPicker(elements.preformZipInput);
+});
+
+elements.preformZipInput.addEventListener("change", async (event) => {
+    const [file] = Array.from(event.target.files || []);
+    event.target.value = "";
+    releasePickerGuard();
+    if (!file) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("package", file, file.name);
+    await runPreformAction("/api/preform-setup/install-from-zip", {
+        method: "POST",
+        body: formData,
+    }, "PreFormServer installed.");
+});
+
+elements.preformStartButton.addEventListener("click", async () => {
+    await runPreformAction("/api/preform-setup/start", { method: "POST" }, "PreFormServer start requested.");
+});
+
+elements.preformStopButton.addEventListener("click", async () => {
+    await runPreformAction("/api/preform-setup/stop", { method: "POST" }, "PreFormServer stop requested.");
+});
+
+elements.preformRestartButton.addEventListener("click", async () => {
+    await runPreformAction("/api/preform-setup/restart", { method: "POST" }, "PreFormServer restart requested.");
+});
+
+elements.preformRecheckButton.addEventListener("click", async () => {
+    await runPreformAction("/api/preform-setup/recheck", { method: "POST" }, "PreFormServer readiness refreshed.");
+});
+
+elements.preformWizard.addEventListener("click", (event) => {
+    if (event.target.dataset.closeModal === "wizard" || event.target.dataset.wizardDismiss === "true") {
+        dismissPreformWizard();
+        return;
+    }
+    if (event.target.dataset.preformInstall === "true") {
+        openPicker(elements.preformZipInput);
+        return;
+    }
+    if (event.target.dataset.preformRecheck === "true") {
+        runPreformAction("/api/preform-setup/recheck", { method: "POST" }, "PreFormServer readiness refreshed.");
+    }
+});
+
 
 // Queue polling - auto-refresh every 10 seconds
 window.pollingPaused = false;
@@ -1649,6 +1938,7 @@ window.setInterval(async () => {
     if (window.pollingPaused) return;
     try {
         await fetchQueue();
+        await fetchPreformSetupStatus();
         render();
         console.log("Queue auto-refreshed");
     } catch (error) {
@@ -1690,8 +1980,13 @@ async function bootstrap() {
     try {
         await fetchQueue();
         await fetchPrintQueue();
+        await fetchPreformSetupStatus();
         render();
-        setStatus("Queue loaded.");
+        if (canPrint()) {
+            setStatus("Queue loaded.");
+        } else {
+            setStatus("Queue loaded. Complete PreFormServer setup before printing.", true);
+        }
     } catch (error) {
         setStatus(error.message, true);
         render();

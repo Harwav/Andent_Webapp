@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from app.config import build_settings
 from app.database import get_upload_row_by_id, init_db, list_print_jobs, persist_upload_session
 from app.main import create_app
+from app.schemas import PreFormSetupStatus
 
 
 class StubPreFormClient:
@@ -62,6 +63,22 @@ def _seed_rows(settings, rows: list[dict]) -> list[int]:
     init_db(settings)
     persisted = persist_upload_session(settings, session_id, rows)
     return [row.row_id for row in persisted if row.row_id is not None]
+
+
+def _ready_setup_status(settings) -> PreFormSetupStatus:
+    return PreFormSetupStatus(
+        readiness="ready",
+        install_path=str(settings.preform_managed_dir),
+        managed_executable_path=str(settings.preform_managed_executable),
+        detected_version="3.57.2.624",
+        expected_version_min=settings.preform_min_supported_version,
+        expected_version_max=settings.preform_max_supported_version,
+        active_configured_source=True,
+        is_running=True,
+        last_health_check_at=datetime.now(timezone.utc).isoformat(),
+        last_error_code=None,
+        last_error_message=None,
+    )
 
 
 def _row_payload(
@@ -159,7 +176,10 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
     )
 
     stub_client = StubPreFormClient(settings.preform_server_url)
-    with patch("app.services.preform_client.PreFormClient", return_value=stub_client):
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
         response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
 
     assert response.status_code == 200
@@ -218,7 +238,10 @@ def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
     )
 
     stub_client = StubPreFormClient(settings.preform_server_url)
-    with patch("app.services.preform_client.PreFormClient", return_value=stub_client):
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
         response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
 
     assert response.status_code == 200
@@ -291,7 +314,10 @@ def test_send_to_print_rolls_back_last_case_when_validation_fails(tmp_path):
         {"valid": False, "errors": ["overlap"]},
         {"valid": True, "errors": []},
     ]
-    with patch("app.services.preform_client.PreFormClient", return_value=stub_client):
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
         response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
 
     assert response.status_code == 200
@@ -333,7 +359,10 @@ def test_send_to_print_routes_single_invalid_case_to_manual_review(tmp_path):
 
     stub_client = StubPreFormClient(settings.preform_server_url)
     stub_client.validation_results = [{"valid": False, "errors": ["overlap"]}]
-    with patch("app.services.preform_client.PreFormClient", return_value=stub_client):
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
         response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
 
     assert response.status_code == 200
@@ -367,7 +396,10 @@ def test_send_to_print_passes_preset_hint_and_selected_printer(tmp_path):
     )
 
     stub_client = StubPreFormClient(settings.preform_server_url)
-    with patch("app.services.preform_client.PreFormClient", return_value=stub_client):
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
         response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
 
     assert response.status_code == 200
@@ -399,7 +431,10 @@ def test_send_to_print_returns_502_when_preform_unavailable(tmp_path):
     mock_client.create_scene.side_effect = Exception("Connection refused")
     mock_client.close.return_value = None
 
-    with patch("app.services.preform_client.PreFormClient", return_value=mock_client):
+    with patch("app.services.preform_client.PreFormClient", return_value=mock_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
         response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
 
     assert response.status_code == 502

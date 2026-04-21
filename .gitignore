@@ -17,11 +17,14 @@ build/
 .coverage
 htmlcov/
 test-results/
+playwright-report/
+test-results/playwright/
 
 # IDE
 .vscode/
 .idea/
 .worktrees/
+node_modules/
 *.swp
 *.swo
 *~
