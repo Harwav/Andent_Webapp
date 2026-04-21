@@ -45,7 +45,7 @@ class StubPreFormClient:
             return self.validation_results.pop(0)
         return {"valid": True, "errors": []}
 
-    def send_to_printer(self, scene_id: str, device_id: str):
+    def send_to_printer(self, scene_id: str, device_id: str, job_name: str | None = None):
         self.print_jobs.append((scene_id, device_id))
         return {"print_id": f"print-{len(self.print_jobs)}"}
 
@@ -405,6 +405,37 @@ def test_send_to_print_passes_preset_hint_and_selected_printer(tmp_path):
     assert response.status_code == 200
     assert stub_client.imported_models == [("scene-1", str(case_file), "tooth_v1")]
     assert stub_client.print_jobs == [("scene-1", "printer_form4_001")]
+
+
+def test_send_to_print_defaults_to_form4bl_when_no_printer_selected(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "ortho-1.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE901",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-901",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    assert stub_client.print_jobs == [("scene-1", "Form 4")]
 
 
 def test_send_to_print_returns_502_when_preform_unavailable(tmp_path):

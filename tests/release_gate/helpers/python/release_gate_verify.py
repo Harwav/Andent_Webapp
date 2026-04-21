@@ -58,7 +58,13 @@ def fetch_scene(base_url: str, scene_id: str) -> dict[str, Any]:
         timeout=30,
     )
     response.raise_for_status()
-    return response.json()
+    payload = response.json()
+    if isinstance(payload, dict) and "scene_id" not in payload and "id" in payload:
+        payload = {
+            **payload,
+            "scene_id": payload["id"],
+        }
+    return payload
 
 
 def fetch_health(base_url: str) -> dict[str, object]:

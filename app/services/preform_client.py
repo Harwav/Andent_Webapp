@@ -17,6 +17,14 @@ from typing import Any, Dict, List
 import requests
 
 
+DEFAULT_SCENE_SETTINGS = {
+    "layer_thickness_mm": 0.1,
+    "machine_type": "FORM-4-0",
+    "material_code": "FLPMBE01",
+    "print_setting": "DEFAULT",
+}
+
+
 def retry_on_failure(max_retries: int = 3, backoff_factor: float = 2.0):
     """Decorator to retry API calls on failure with exponential backoff.
     
@@ -63,11 +71,11 @@ class PreFormClient:
     
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def create_scene(self, patient_id: str, case_name: str) -> Dict[str, Any]:
-        """Create a new dental scene for a patient case.
+        """Create a new dental scene using the current Local API contract.
         
         Args:
-            patient_id: Unique identifier for the patient
-            case_name: Name/description of the dental case
+            patient_id: Retained for compatibility with older callers.
+            case_name: Retained for compatibility with older callers.
             
         Returns:
             Dict containing scene_id and status from the server
@@ -76,10 +84,7 @@ class PreFormClient:
             Exception: If the API request fails
         """
         url = f"{self.base_url}/scene/"
-        payload = {
-            "patient_id": patient_id,
-            "case_name": case_name
-        }
+        payload = dict(DEFAULT_SCENE_SETTINGS)
         
         try:
             response = self.session.post(url, json=payload, timeout=30)
@@ -93,7 +98,14 @@ class PreFormClient:
         elif response.status_code != 200:
             raise Exception(f"Failed to create scene: {response.status_code} - {response.text}")
         
-        return response.json()
+        payload = response.json()
+        if isinstance(payload, dict) and "scene_id" not in payload and "id" in payload:
+            payload = {
+                **payload,
+                "scene_id": payload["id"],
+            }
+
+        return payload
     
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def import_model(self, scene_id: str, stl_path: str, preset: str | None = None) -> Dict[str, Any]:
@@ -113,10 +125,10 @@ class PreFormClient:
         url = f"{self.base_url}/scene/{scene_id}/import-model"
         
         try:
-            with open(stl_path, 'rb') as f:
-                files = {'model': f}
-                data = {'preset': preset} if preset else None
-                response = self.session.post(url, files=files, data=data, timeout=60)
+            payload = {'file': stl_path}
+            if preset:
+                payload['preset'] = preset
+            response = self.session.post(url, json=payload, timeout=60)
         except requests.RequestException as e:
             raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
         except FileNotFoundError:
@@ -149,17 +161,46 @@ class PreFormClient:
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def validate_scene(self, scene_id: str) -> Dict[str, Any]:
         """Validate a scene and return validity state and reported issues."""
-        url = f"{self.base_url}/scene/{scene_id}/validate/"
+        url = f"{self.base_url}/scene/{scene_id}/print-validation"
 
         response = self.session.get(url, timeout=30)
 
         if response.status_code != 200:
             raise Exception(f"Failed to validate scene: {response.status_code} - {response.text}")
 
-        return response.json()
+        payload = response.json()
+        if isinstance(payload, dict) and "valid" in payload and "errors" in payload:
+            return payload
+
+        per_model_results = (
+            payload.get("per_model_results", {})
+            if isinstance(payload, dict)
+            else {}
+        )
+        errors: list[str] = []
+        for model_id, result in per_model_results.items():
+            if not isinstance(result, dict):
+                continue
+            if result.get("undersupported"):
+                errors.append(f"{model_id}: undersupported")
+            unsupported_minima = result.get("unsupported_minima", 0)
+            if isinstance(unsupported_minima, (int, float)) and unsupported_minima:
+                errors.append(f"{model_id}: unsupported minima {unsupported_minima}")
+            cups = result.get("cups", 0)
+            if isinstance(cups, (int, float)) and cups:
+                errors.append(f"{model_id}: cups {cups}")
+            if result.get("has_seamline"):
+                errors.append(f"{model_id}: seamline detected")
+
+        return {"valid": len(errors) == 0, "errors": errors}
     
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
-    def send_to_printer(self, scene_id: str, device_id: str) -> Dict[str, Any]:
+    def send_to_printer(
+        self,
+        scene_id: str,
+        device_id: str,
+        job_name: str | None = None,
+    ) -> Dict[str, Any]:
         """Send a scene to a printer for production.
         
         Args:
@@ -172,10 +213,10 @@ class PreFormClient:
         Raises:
             Exception: If the API request fails
         """
-        url = f"{self.base_url}/print/"
+        url = f"{self.base_url}/scene/{scene_id}/print/"
         payload = {
-            "scene_id": scene_id,
-            "device_id": device_id
+            "job_name": job_name or scene_id,
+            "printer": device_id,
         }
         
         try:
@@ -192,7 +233,13 @@ class PreFormClient:
         elif response.status_code != 200:
             raise Exception(f"Failed to send to printer: {response.status_code} - {response.text}")
         
-        return response.json()
+        payload = response.json()
+        if isinstance(payload, dict) and "print_id" not in payload and "job_id" in payload:
+            payload = {
+                **payload,
+                "print_id": payload["job_id"],
+            }
+        return payload
     
     def list_devices(self) -> List[Dict[str, Any]]:
         """List all available printer devices.
