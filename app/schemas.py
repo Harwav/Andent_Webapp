@@ -145,18 +145,17 @@ PrintJobStatus = Literal["Queued", "Printing", "Failed", "Paused", "Completed"]
 
 
 class PrintJob(BaseModel):
-    """Print job schema for the print queue.
-    
-    Represents a print job submitted to PreFormServer and tracked
-    via the Formlabs Web API.
-    """
+    """Print job schema for the print queue."""
     id: int | None = None
-    job_name: str = Field(pattern=r"^\d{6}-\d{3}$")  # YYMMDD-001 format
-    scene_id: str | None = None  # From PreFormServer
-    print_job_id: str | None = None  # From Formlabs API
+    job_name: str = Field(pattern=r"^\d{6}-\d{3}$")
+    scene_id: str | None = None
+    print_job_id: str | None = None
     status: PrintJobStatus = "Queued"
     preset: str
+    preset_names: list[str] = Field(default_factory=list)
+    compatibility_key: str | None = None
     case_ids: list[str] = Field(default_factory=list)
+    manifest_json: dict[str, Any] | None = None
     created_at: str | None = None
     updated_at: str | None = None
     screenshot_url: str | None = None

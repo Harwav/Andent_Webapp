@@ -61,6 +61,36 @@ def test_print_job_schema_validates_correctly():
     assert job.job_name == "260421-001"
 
 
+def test_print_job_schema_supports_mixed_preset_names():
+    from app.schemas import PrintJob
+
+    job = PrintJob(
+        job_name="260421-001",
+        preset="Mixed Compatible Presets",
+        preset_names=["Ortho Solid - Flat, No Supports", "Tooth - With Supports"],
+    )
+
+    assert job.preset_names == [
+        "Ortho Solid - Flat, No Supports",
+        "Tooth - With Supports",
+    ]
+
+
+def test_print_jobs_table_has_preset_names_and_manifest_json(tmp_path):
+    from app.database import connect, init_db
+
+    settings = _test_settings(tmp_path)
+    init_db(settings)
+
+    with connect(settings) as connection:
+        columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(print_jobs)").fetchall()
+        }
+
+    assert {"preset_names_json", "manifest_json", "compatibility_key"}.issubset(columns)
+
+
 def test_print_job_crud_round_trip(tmp_path: Path):
     from app.database import (
         create_print_job,
@@ -81,12 +111,24 @@ def test_print_job_crud_round_trip(tmp_path: Path):
             job_name="260421-001",
             scene_id="scene-123",
             preset="Ortho Solid - Flat, No Supports",
+            preset_names=["Ortho Solid - Flat, No Supports", "Tooth - With Supports"],
+            compatibility_key="form4b:tough2000:50",
             case_ids=["CASE001", "CASE002"],
+            manifest_json={
+                "compatibility_key": "form4b:tough2000:50",
+                "preset_names": ["Ortho Solid - Flat, No Supports", "Tooth - With Supports"],
+            },
         ),
     )
 
     assert created.id is not None
     assert created.case_ids == ["CASE001", "CASE002"]
+    assert created.preset_names == ["Ortho Solid - Flat, No Supports", "Tooth - With Supports"]
+    assert created.compatibility_key == "form4b:tough2000:50"
+    assert created.manifest_json == {
+        "compatibility_key": "form4b:tough2000:50",
+        "preset_names": ["Ortho Solid - Flat, No Supports", "Tooth - With Supports"],
+    }
 
     by_id = get_print_job_by_id(settings, created.id)
     by_name = get_print_job_by_name(settings, "260421-001")
@@ -98,6 +140,12 @@ def test_print_job_crud_round_trip(tmp_path: Path):
     assert by_id.job_name == created.job_name
     assert by_name.scene_id == "scene-123"
     assert by_id.case_ids == ["CASE001", "CASE002"]
+    assert by_id.preset_names == ["Ortho Solid - Flat, No Supports", "Tooth - With Supports"]
+    assert by_name.compatibility_key == "form4b:tough2000:50"
+    assert jobs[0].manifest_json == {
+        "compatibility_key": "form4b:tough2000:50",
+        "preset_names": ["Ortho Solid - Flat, No Supports", "Tooth - With Supports"],
+    }
 
     updated = update_print_job(
         settings,
