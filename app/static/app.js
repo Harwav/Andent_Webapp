@@ -6,6 +6,16 @@ const MODEL_TYPES = [
     "Splint",
 ];
 
+const DEFAULT_PRESET_BY_MODEL = {
+    "Ortho - Solid": "Ortho Solid - Flat, No Supports",
+    "Ortho - Hollow": "Ortho Hollow - Flat, No Supports",
+    "Die": "Die - Flat, No Supports",
+    "Tooth": "Tooth - With Supports",
+    "Splint": "Splint - Flat, No Supports",
+};
+
+const PRESET_OPTIONS = Object.values(DEFAULT_PRESET_BY_MODEL);
+
 const ACTIVE_STATUSES = [
     "Queued",
     "Uploading",
@@ -150,12 +160,17 @@ function openPicker(input) {
 }
 
 function normalizeRow(row) {
+    const defaultPreset = getDefaultPreset(row.model_type);
     return {
         ...row,
         row_id: row.row_id,
-        preset_overridden: Boolean(row.preset && row.model_type && row.preset !== row.model_type),
+        preset_overridden: Boolean(row.preset && defaultPreset && row.preset !== defaultPreset),
         is_temp: false,
     };
+}
+
+function getDefaultPreset(modelType) {
+    return DEFAULT_PRESET_BY_MODEL[modelType] || "";
 }
 
 function compareActiveRows(left, right) {
@@ -442,6 +457,7 @@ async function persistRow(row) {
 
 function createModelTypeSelect(row) {
     const select = document.createElement("select");
+    select.dataset.testid = "model-type-select";
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = "Select";
@@ -471,9 +487,9 @@ function createModelTypeSelect(row) {
     select.addEventListener("change", (event) => {
         row.model_type = event.target.value || null;
         if (!row.preset_overridden) {
-            row.preset = event.target.value || "";
+            row.preset = getDefaultPreset(row.model_type);
         }
-        row.preset_overridden = Boolean(row.preset && row.model_type && row.preset !== row.model_type);
+        row.preset_overridden = Boolean(row.preset && row.model_type && row.preset !== getDefaultPreset(row.model_type));
         render();
         persistRow(row);
     });
@@ -482,6 +498,7 @@ function createModelTypeSelect(row) {
 
 function createPresetSelect(row) {
     const select = document.createElement("select");
+    select.dataset.testid = "preset-select";
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = "Select";
@@ -489,7 +506,7 @@ function createPresetSelect(row) {
     placeholder.selected = !row.preset;
     select.appendChild(placeholder);
 
-    MODEL_TYPES.forEach((optionValue) => {
+    PRESET_OPTIONS.forEach((optionValue) => {
         const option = document.createElement("option");
         option.value = optionValue;
         option.textContent = optionValue;
@@ -510,7 +527,7 @@ function createPresetSelect(row) {
     });
     select.addEventListener("change", (event) => {
         row.preset = event.target.value || "";
-        row.preset_overridden = Boolean(row.preset && row.model_type && row.preset !== row.model_type);
+        row.preset_overridden = Boolean(row.preset && row.model_type && row.preset !== getDefaultPreset(row.model_type));
         render();
         persistRow(row);
     });
@@ -636,6 +653,12 @@ function renderActiveRows() {
 
     pageRows.forEach((row) => {
         const tr = document.createElement("tr");
+        tr.dataset.rowId = String(row.row_id ?? "");
+        if (!row.is_temp) {
+            tr.dataset.fileName = row.file_name;
+        }
+        tr.dataset.caseId = row.case_id || "";
+        tr.dataset.rowStatus = getRowStatus(row);
         if (isRowPendingDelete(row)) {
             tr.classList.add("row-pending-delete");
         }
@@ -643,6 +666,7 @@ function renderActiveRows() {
         const selectCell = document.createElement("td");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
+        checkbox.dataset.testid = "row-select";
         checkbox.checked = !row.is_temp && state.selectedIds.has(row.row_id);
         checkbox.disabled = !isEditableActiveRow(row);
         checkbox.addEventListener("change", (event) => toggleRowSelection(row, event.target.checked));
@@ -673,7 +697,9 @@ function renderActiveRows() {
         tr.appendChild(presetCell);
 
         const statusCell = document.createElement("td");
-        statusCell.appendChild(createChip(getRowStatus(row)));
+        const statusChip = createChip(getRowStatus(row));
+        statusChip.dataset.testid = "status-chip";
+        statusCell.appendChild(statusChip);
         tr.appendChild(statusCell);
 
         const dimensionsCell = document.createElement("td");
@@ -1039,7 +1065,7 @@ function renderBulkActions() {
     presetPlaceholder.textContent = "Bulk Preset";
     presetPlaceholder.selected = !state.bulkPresetValue;
     presetSelect.appendChild(presetPlaceholder);
-    MODEL_TYPES.forEach((optionValue) => {
+    PRESET_OPTIONS.forEach((optionValue) => {
         const option = document.createElement("option");
         option.value = optionValue;
         option.textContent = optionValue;
@@ -1095,6 +1121,7 @@ function renderBulkActions() {
         const submitButton = document.createElement("button");
         submitButton.type = "button";
         submitButton.className = "primary-button";
+        submitButton.dataset.testid = "send-to-print-button";
         submitButton.textContent = `Send to Print (${readyRows.length})`;
         submitButton.addEventListener("click", async () => {
             try {

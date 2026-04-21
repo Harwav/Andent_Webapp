@@ -15,6 +15,11 @@ export default defineConfig({
   },
   webServer: {
     command: 'python -m uvicorn app.main:app --host 127.0.0.1 --port 8090',
+    env: {
+      ...process.env,
+      ANDENT_WEB_DATA_DIR: 'test-results/playwright-app-data',
+      ANDENT_WEB_DATABASE_PATH: 'test-results/playwright-app-data/andent_web.db',
+    },
     url: 'http://127.0.0.1:8090/health',
     reuseExistingServer: false,
     timeout: 60_000,
