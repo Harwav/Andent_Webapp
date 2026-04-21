@@ -38,6 +38,7 @@ class ClassificationRow(BaseModel):
     person: str | None = None
     thumbnail_url: str | None = None
     file_url: str | None = None
+    file_path: str | None = None
 
 
 class UploadClassificationResponse(BaseModel):
@@ -96,18 +97,21 @@ class FilePrepSpec(BaseModel):
     compatibility_key: str
     xy_footprint_estimate: float
     support_inflation_factor: float
+    order: int = 0
+    preform_hint: str | None = None
 
 
 class BuildManifestImportGroup(BaseModel):
     preset_name: str
     preform_hint: str | None = None
     row_ids: list[int] = Field(default_factory=list)
+    files: list[FilePrepSpec] = Field(default_factory=list)
 
 
 class CasePackProfile(BaseModel):
     case_id: str
     compatibility_key: str
-    preset_groups: dict[str, list[int]] = Field(default_factory=dict)
+    file_specs: list[FilePrepSpec] = Field(default_factory=list)
     total_xy_footprint: float
     difficulty_score: float
     file_count: int

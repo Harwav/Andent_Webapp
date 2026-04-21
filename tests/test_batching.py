@@ -22,6 +22,7 @@ def _row(
     status: str = "Ready",
     x: float = 40.0,
     y: float = 30.0,
+    file_path: str | None = None,
 ) -> ClassificationRow:
     return ClassificationRow(
         row_id=row_id,
@@ -31,6 +32,7 @@ def _row(
         confidence="high",
         status=status,
         dimensions=DimensionSummary(x_mm=x, y_mm=y, z_mm=10.0),
+        file_path=file_path,
     )
 
 
@@ -100,9 +102,26 @@ def test_plan_build_manifests_ignores_rows_missing_ready_case_or_preset():
 
 def test_plan_build_manifests_groups_imports_by_preset_with_preform_hints():
     rows = [
-        _row(1, "CASE-1", "Tooth - With Supports"),
-        _row(2, "CASE-1", "Tooth - With Supports", x=20.0, y=20.0),
-        _row(3, "CASE-2", "Die - Flat, No Supports"),
+        _row(
+            1,
+            "CASE-1",
+            "Tooth - With Supports",
+            file_path="C:/cases/case-1/tooth-1.stl",
+        ),
+        _row(
+            2,
+            "CASE-1",
+            "Tooth - With Supports",
+            x=20.0,
+            y=20.0,
+            file_path="C:/cases/case-1/tooth-2.stl",
+        ),
+        _row(
+            3,
+            "CASE-2",
+            "Die - Flat, No Supports",
+            file_path="C:/cases/case-2/die.stl",
+        ),
     ]
 
     manifests = plan_build_manifests(rows)
@@ -117,10 +136,67 @@ def test_plan_build_manifests_groups_imports_by_preset_with_preform_hints():
             "preset_name": "Die - Flat, No Supports",
             "preform_hint": "die_v1",
             "row_ids": [3],
+            "files": [
+                {
+                    "row_id": 3,
+                    "case_id": "CASE-2",
+                    "file_name": "row-3.stl",
+                    "file_path": "C:/cases/case-2/die.stl",
+                    "preset_name": "Die - Flat, No Supports",
+                    "compatibility_key": "form-4bl|precision-model-resin|100",
+                    "xy_footprint_estimate": 1200.0,
+                    "support_inflation_factor": 1.0,
+                    "order": 0,
+                    "preform_hint": "die_v1",
+                }
+            ],
         },
         {
             "preset_name": "Tooth - With Supports",
             "preform_hint": "tooth_v1",
             "row_ids": [1, 2],
+            "files": [
+                {
+                    "row_id": 1,
+                    "case_id": "CASE-1",
+                    "file_name": "row-1.stl",
+                    "file_path": "C:/cases/case-1/tooth-1.stl",
+                    "preset_name": "Tooth - With Supports",
+                    "compatibility_key": "form-4bl|precision-model-resin|100",
+                    "xy_footprint_estimate": 1200.0,
+                    "support_inflation_factor": 1.18,
+                    "order": 1,
+                    "preform_hint": "tooth_v1",
+                },
+                {
+                    "row_id": 2,
+                    "case_id": "CASE-1",
+                    "file_name": "row-2.stl",
+                    "file_path": "C:/cases/case-1/tooth-2.stl",
+                    "preset_name": "Tooth - With Supports",
+                    "compatibility_key": "form-4bl|precision-model-resin|100",
+                    "xy_footprint_estimate": 400.0,
+                    "support_inflation_factor": 1.18,
+                    "order": 2,
+                    "preform_hint": "tooth_v1",
+                },
+            ],
         },
+    ]
+
+
+def test_plan_build_manifests_skips_unknown_presets_without_aborting_valid_cases():
+    rows = [
+        _row(1, "CASE-VALID", "Ortho Solid - Flat, No Supports"),
+        _row(2, "CASE-UNKNOWN", "Unknown Preset"),
+        _row(3, "CASE-VALID-2", "Die - Flat, No Supports"),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].case_ids == ["CASE-VALID", "CASE-VALID-2"]
+    assert manifests[0].preset_names == [
+        "Die - Flat, No Supports",
+        "Ortho Solid - Flat, No Supports",
     ]
