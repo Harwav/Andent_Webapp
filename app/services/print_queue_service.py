@@ -20,7 +20,7 @@ from .formlabs_web_client import FormlabsWebClient
 
 if TYPE_CHECKING:
     from ..config import Settings
-    from ..schemas import BuildManifest, ClassificationRow, PrintJob
+    from ..schemas import BuildManifest, ClassificationRow, FilePrepSpec, PrintJob
 
 
 _job_cache: dict | None = None
@@ -214,6 +214,43 @@ def _manifest_rows(
     return rows
 
 
+def _ordered_manifest_file_specs(manifest: "BuildManifest") -> list["FilePrepSpec"]:
+    file_specs = [
+        file_spec
+        for group in manifest.import_groups
+        for file_spec in group.files
+    ]
+    return sorted(file_specs, key=lambda spec: (spec.order, spec.row_id, spec.file_name))
+
+
+def _manifest_case_ids_by_file_order(manifest: "BuildManifest") -> list[str]:
+    case_ids: list[str] = []
+    seen: set[str] = set()
+
+    for file_spec in _ordered_manifest_file_specs(manifest):
+        if file_spec.case_id in seen:
+            continue
+        seen.add(file_spec.case_id)
+        case_ids.append(file_spec.case_id)
+
+    for case_id in manifest.case_ids:
+        if case_id in seen:
+            continue
+        seen.add(case_id)
+        case_ids.append(case_id)
+
+    return case_ids
+
+
+def _last_added_case_id(manifest: "BuildManifest") -> str | None:
+    ordered_files = _ordered_manifest_file_specs(manifest)
+    if ordered_files:
+        return ordered_files[-1].case_id
+    if manifest.case_ids:
+        return manifest.case_ids[-1]
+    return None
+
+
 def _subset_manifest(
     manifest: "BuildManifest",
     case_ids: list[str],
@@ -270,76 +307,71 @@ def process_print_manifest(
         for row in rows
         if row.row_id is not None
     }
-    active_case_ids = list(manifest.case_ids)
+    active_case_ids = _manifest_case_ids_by_file_order(manifest)
     if not active_case_ids:
         raise ValueError("Build manifest does not contain any cases.")
+    active_rows = _manifest_rows(manifest, row_lookup)
+    if not active_rows:
+        raise ValueError("No valid STL files found for manifest")
 
     client = PreFormClient(settings.preform_server_url)
 
     try:
-        while active_case_ids:
-            active_manifest = _subset_manifest(manifest, active_case_ids)
-            active_rows = _manifest_rows(active_manifest, row_lookup)
-            if not active_rows:
-                raise ValueError("No valid STL files found for manifest")
+        patient_id = active_case_ids[0]
+        scene_result = client.create_scene(patient_id, job_name)
+        scene_id = scene_result.get("scene_id")
 
-            patient_id = active_case_ids[0]
-            scene_result = client.create_scene(patient_id, job_name)
-            scene_id = scene_result.get("scene_id")
+        if not scene_id:
+            raise Exception("Failed to create scene: no scene_id returned")
 
-            if not scene_id:
-                raise Exception("Failed to create scene: no scene_id returned")
+        imported_any = False
+        for file_spec in _ordered_manifest_file_specs(manifest):
+            stl_path = Path(file_spec.file_path)
+            if not stl_path.exists():
+                raise ValueError(f"STL file not found for manifest: {file_spec.file_path}")
+            client.import_model(scene_id, str(stl_path), preset=file_spec.preform_hint)
+            imported_any = True
 
-            imported_any = False
-            for group in active_manifest.import_groups:
-                for file_spec in group.files:
-                    stl_path = Path(file_spec.file_path)
-                    if not stl_path.exists():
-                        raise ValueError(f"STL file not found for manifest: {file_spec.file_path}")
-                    client.import_model(scene_id, str(stl_path), preset=file_spec.preform_hint)
-                    imported_any = True
+        if not imported_any:
+            raise ValueError("No valid STL files found for manifest")
 
-            if not imported_any:
-                raise ValueError("No valid STL files found for manifest")
+        client.auto_layout(scene_id)
+        validation_result = client.validate_scene(scene_id)
+        if validation_result.get("valid", False):
+            print_result = client.send_to_printer(scene_id, _resolve_device_id(active_rows))
+            return {
+                "job_name": job_name,
+                "scene_id": scene_id,
+                "print_job_id": print_result.get("print_id"),
+                "preset": _manifest_preset_summary(manifest),
+                "preset_names": manifest.preset_names,
+                "compatibility_key": manifest.compatibility_key,
+                "case_ids": active_case_ids,
+                "manifest": manifest,
+                "manifest_json": manifest.model_dump(),
+                "status": "Queued",
+                "row_count": len(active_rows),
+                "review_required": False,
+                "validation_passed": True,
+            }
 
-            client.auto_layout(scene_id)
-            validation_result = client.validate_scene(scene_id)
-            if validation_result.get("valid", False):
-                print_result = client.send_to_printer(scene_id, _resolve_device_id(active_rows))
-                return {
-                    "job_name": job_name,
-                    "scene_id": scene_id,
-                    "print_job_id": print_result.get("print_id"),
-                    "preset": _manifest_preset_summary(active_manifest),
-                    "preset_names": active_manifest.preset_names,
-                    "compatibility_key": active_manifest.compatibility_key,
-                    "case_ids": active_manifest.case_ids,
-                    "manifest": active_manifest,
-                    "manifest_json": active_manifest.model_dump(),
-                    "status": "Queued",
-                    "row_count": len(active_rows),
-                    "review_required": False,
-                }
-
-            validation_errors = _validation_errors(validation_result)
-            if len(active_case_ids) == 1:
-                return {
-                    "job_name": job_name,
-                    "scene_id": scene_id,
-                    "print_job_id": None,
-                    "preset": _manifest_preset_summary(active_manifest),
-                    "preset_names": active_manifest.preset_names,
-                    "compatibility_key": active_manifest.compatibility_key,
-                    "case_ids": active_manifest.case_ids,
-                    "manifest": active_manifest,
-                    "manifest_json": active_manifest.model_dump(),
-                    "status": "Needs Review",
-                    "row_count": len(active_rows),
-                    "review_required": True,
-                    "error_message": ", ".join(validation_errors) or "scene_validation_failed",
-                }
-
-            active_case_ids = active_case_ids[:-1]
+        validation_errors = _validation_errors(validation_result)
+        return {
+            "job_name": job_name,
+            "scene_id": scene_id,
+            "print_job_id": None,
+            "preset": _manifest_preset_summary(manifest),
+            "preset_names": manifest.preset_names,
+            "compatibility_key": manifest.compatibility_key,
+            "case_ids": active_case_ids,
+            "manifest": manifest,
+            "manifest_json": manifest.model_dump(),
+            "status": "Needs Review",
+            "row_count": len(active_rows),
+            "review_required": True,
+            "validation_passed": False,
+            "error_message": ", ".join(validation_errors) or "scene_validation_failed",
+        }
     finally:
         client.close()
 
@@ -425,7 +457,32 @@ def send_ready_rows_to_print(
                         )
                     continue
 
-                result = process_print_manifest(settings, manifest, manifest_rows, batch_number)
+                active_manifest = manifest
+                while True:
+                    active_rows = _manifest_rows(active_manifest, rows_by_id)
+                    result = process_print_manifest(
+                        settings,
+                        active_manifest,
+                        active_rows,
+                        batch_number,
+                    )
+                    active_case_ids = _manifest_case_ids_by_file_order(active_manifest)
+                    if result.get("validation_passed", True) or len(active_case_ids) == 1:
+                        break
+
+                    rollback_case_id = _last_added_case_id(active_manifest)
+                    if rollback_case_id is None:
+                        break
+
+                    retry_case_ids = [
+                        case_id
+                        for case_id in active_case_ids
+                        if case_id != rollback_case_id
+                    ]
+                    if not retry_case_ids:
+                        break
+                    active_manifest = _subset_manifest(active_manifest, retry_case_ids)
+
                 accepted_manifest = result["manifest"]
                 accepted_rows = _manifest_rows(accepted_manifest, rows_by_id)
 

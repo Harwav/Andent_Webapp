@@ -151,6 +151,62 @@ class TestFullPrintHandoffFlow:
             assert result["scene_id"] == "scene-123"
             assert result["print_job_id"] == "print-123"
 
+    def test_process_print_manifest_does_not_retry_failed_validation(self, tmp_path):
+        """One manifest attempt creates one scene even when validation fails."""
+        from app.config import build_settings
+        from app.schemas import ClassificationRow, DimensionSummary
+        from app.services.build_planning import plan_build_manifests
+        from app.services.print_queue_service import process_print_manifest
+
+        settings = build_settings()
+        first_file = tmp_path / "tooth.stl"
+        second_file = tmp_path / "ortho.stl"
+        for file_path in (first_file, second_file):
+            file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+
+        rows = [
+            ClassificationRow(
+                row_id=1,
+                file_name=first_file.name,
+                preset="Tooth - With Supports",
+                case_id="CASE-TOOTH",
+                model_type="Tooth",
+                confidence="high",
+                status="Ready",
+                dimensions=DimensionSummary(x_mm=150.0, y_mm=100.0, z_mm=10.0),
+                file_path=str(first_file),
+            ),
+            ClassificationRow(
+                row_id=2,
+                file_name=second_file.name,
+                preset="Ortho Solid - Flat, No Supports",
+                case_id="CASE-ORTHO",
+                confidence="high",
+                status="Ready",
+                dimensions=DimensionSummary(x_mm=60.0, y_mm=50.0, z_mm=10.0),
+                file_path=str(second_file),
+            ),
+        ]
+        manifest = plan_build_manifests(rows)[0]
+
+        with patch('app.services.preform_client.PreFormClient') as MockClient:
+            mock_instance = Mock()
+            mock_instance.create_scene.return_value = {"scene_id": "scene-123"}
+            mock_instance.import_model.return_value = {"model_id": "model-123"}
+            mock_instance.auto_layout.return_value = {"status": "ok"}
+            mock_instance.validate_scene.return_value = {"valid": False, "errors": ["overlap"]}
+            MockClient.return_value = mock_instance
+
+            result = process_print_manifest(settings, manifest, rows, 1)
+
+            assert mock_instance.create_scene.call_count == 1
+            assert mock_instance.import_model.call_count == 2
+            assert mock_instance.auto_layout.call_count == 1
+            assert mock_instance.validate_scene.call_count == 1
+            assert mock_instance.send_to_printer.call_count == 0
+            assert result["validation_passed"] is False
+            assert result["case_ids"] == ["CASE-TOOTH", "CASE-ORTHO"]
+
     def test_poll_for_status_updates(self):
         """Poll for status updates from Formlabs API.
         

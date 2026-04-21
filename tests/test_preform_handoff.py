@@ -257,31 +257,31 @@ def test_send_to_print_rolls_back_last_case_when_validation_fails(tmp_path):
         [
             _row_payload(
                 case_files[0],
-                case_id="CASE-A",
-                preset="Ortho Solid - Flat, No Supports",
+                case_id="CASE-TOOTH",
+                preset="Tooth - With Supports",
                 status="Ready",
-                content_hash="hash-a",
+                content_hash="hash-tooth",
+                model_type="Tooth",
                 dimension_x_mm=150.0,
                 dimension_y_mm=100.0,
             ),
             _row_payload(
                 case_files[1],
-                case_id="CASE-B",
+                case_id="CASE-ORTHO",
                 preset="Ortho Solid - Flat, No Supports",
                 status="Ready",
-                content_hash="hash-b",
-                dimension_x_mm=140.0,
-                dimension_y_mm=100.0,
+                content_hash="hash-ortho",
+                dimension_x_mm=60.0,
+                dimension_y_mm=50.0,
             ),
             _row_payload(
                 case_files[2],
-                case_id="CASE-C",
-                preset="Tooth - With Supports",
+                case_id="CASE-LATE",
+                preset="Ortho Solid - Flat, No Supports",
                 status="Ready",
-                content_hash="hash-c",
-                model_type="Tooth",
-                dimension_x_mm=40.0,
-                dimension_y_mm=25.0,
+                content_hash="hash-late",
+                dimension_x_mm=140.0,
+                dimension_y_mm=100.0,
             ),
         ],
     )
@@ -299,6 +299,12 @@ def test_send_to_print_rolls_back_last_case_when_validation_fails(tmp_path):
     assert row_statuses["case-a.stl"] == "Submitted"
     assert row_statuses["case-b.stl"] == "Ready"
     assert row_statuses["case-c.stl"] == "Submitted"
+    assert len(stub_client.created_scenes) == 3
+    assert stub_client.imported_models[:3] == [
+        ("scene-1", str(case_files[0]), "tooth_v1"),
+        ("scene-1", str(case_files[1]), "ortho_solid_v1"),
+        ("scene-2", str(case_files[0]), "tooth_v1"),
+    ]
     assert len(list_print_jobs(settings)) == 2
 
 
