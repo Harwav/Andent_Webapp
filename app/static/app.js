@@ -759,6 +759,24 @@ function createJobStatusChip(status) {
     return span;
 }
 
+function createJobDetailItem(label, value) {
+    const item = document.createElement("div");
+    item.className = "job-detail-item";
+
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "job-detail-label";
+    labelSpan.textContent = label;
+    item.appendChild(labelSpan);
+
+    const valueSpan = document.createElement("span");
+    valueSpan.className = "job-detail-value";
+    valueSpan.textContent = value || "-";
+    item.appendChild(document.createTextNode(" "));
+    item.appendChild(valueSpan);
+
+    return item;
+}
+
 function createJobCard(job) {
     const card = document.createElement("div");
     card.className = "job-card";
@@ -837,10 +855,11 @@ function createJobCard(job) {
     const detailsDiv = document.createElement("div");
     detailsDiv.className = "job-details";
 
-    const presetDiv = document.createElement("div");
-    presetDiv.className = "job-detail-item";
-    presetDiv.innerHTML = `<span class="job-detail-label">Preset:</span> <span class="job-detail-value">${job.preset || "-"}</span>`;
-    detailsDiv.appendChild(presetDiv);
+    const presetList = (job.preset_names || []).length > 0
+        ? job.preset_names.join(", ")
+        : job.preset;
+    detailsDiv.appendChild(createJobDetailItem("Presets:", presetList));
+    detailsDiv.appendChild(createJobDetailItem("Build Profile:", job.compatibility_key));
 
     const printerDiv = document.createElement("div");
     printerDiv.className = "job-detail-item";

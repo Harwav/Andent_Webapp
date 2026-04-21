@@ -970,6 +970,13 @@ git commit -m "feat: drive print handoff from compatibility-aware build manifest
 - Modify: `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
 - Test: `tests/test_planning_preview.py`
 
+**Status 2026-04-21:** Implementation complete on `main`; full repository verification passed with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q` -> `187 passed`.
+
+Completed implementation checkpoint:
+- Batch planning preview now reuses `plan_build_manifests()` so preview grouping matches compatibility-aware Form 4BL build manifests.
+- Mixed-preset print queue jobs render the full preset list and compatibility key.
+- The PreFormServer handoff architecture doc now describes manifest-based mixed-preset planning and auto-layout validation.
+
 - [ ] **Step 1: Write the failing preview and UI-facing tests**
 
 ```python

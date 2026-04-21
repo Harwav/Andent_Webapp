@@ -51,10 +51,18 @@ def test_get_upload_row_by_id_missing_returns_none(tmp_settings):
 # --- planning_preview service unit tests ---
 
 from app.services.planning_preview import build_row_preview, build_batch_preview
-from app.schemas import ClassificationRow
+from app.schemas import ClassificationRow, DimensionSummary
 
 
-def _make_row(row_id=1, case_id="P001", model_type="Die", preset="Die", status="Ready"):
+def _make_row(
+    row_id=1,
+    case_id="P001",
+    model_type="Die",
+    preset="Die",
+    status="Ready",
+    x_mm=10.0,
+    y_mm=10.0,
+):
     return ClassificationRow(
         row_id=row_id,
         file_name=f"case_{case_id}.stl",
@@ -63,6 +71,8 @@ def _make_row(row_id=1, case_id="P001", model_type="Die", preset="Die", status="
         preset=preset,
         confidence="high",
         status=status,
+        dimensions=DimensionSummary(x_mm=x_mm, y_mm=y_mm, z_mm=5.0),
+        file_path=f"C:/cases/{case_id}.stl",
     )
 
 
@@ -80,16 +90,44 @@ def test_build_row_preview_no_model_type():
     assert preview.preview_available is False
 
 
-def test_build_batch_preview_groups_by_case():
+def test_build_batch_preview_groups_by_compatible_manifest():
     rows = [
         _make_row(row_id=1, case_id="P001"),
         _make_row(row_id=2, case_id="P001"),
         _make_row(row_id=3, case_id="P002"),
     ]
     result = build_batch_preview(rows)
-    assert result.group_count == 2
+    assert result.group_count == 1
     assert result.cannot_fit_count == 0
     assert len(result.rows) == 3
+
+
+def test_build_batch_preview_groups_rows_by_compatibility_build():
+    rows = [
+        _make_row(
+            row_id=1,
+            case_id="P001",
+            model_type="Ortho - Solid",
+            preset="Ortho Solid - Flat, No Supports",
+            x_mm=60.0,
+            y_mm=50.0,
+        ),
+        _make_row(
+            row_id=2,
+            case_id="P002",
+            model_type="Tooth",
+            preset="Tooth - With Supports",
+            x_mm=35.0,
+            y_mm=35.0,
+        ),
+    ]
+
+    result = build_batch_preview(rows)
+
+    assert result.group_count == 1
+    assert {row.predicted_group_key for row in result.rows} == {
+        "form-4bl|precision-model-resin|100"
+    }
 
 
 # --- API endpoint tests ---
