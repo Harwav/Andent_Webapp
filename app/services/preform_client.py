@@ -10,8 +10,35 @@ PreFormServer API Reference:
 - POST /print/ - Send to printer
 - GET /devices/ - List printers
 """
+import time
+from functools import wraps
+
 import requests
 from typing import List, Dict, Any, Optional
+
+
+def retry_on_failure(max_retries: int = 3, backoff_factor: float = 2.0):
+    """Decorator to retry API calls on failure with exponential backoff.
+    
+    Args:
+        max_retries: Maximum number of retry attempts
+        backoff_factor: Exponential backoff multiplier
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (requests.RequestException, requests.ConnectionError, requests.Timeout) as e:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        sleep_time = backoff_factor ** attempt
+                        time.sleep(sleep_time)
+            raise last_exception
+        return wrapper
+    return decorator
 
 
 class PreFormClient:
@@ -34,6 +61,7 @@ class PreFormClient:
         self.base_url = base_url.rstrip('/')
         self.session = requests.Session()
     
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def create_scene(self, patient_id: str, case_name: str) -> Dict[str, Any]:
         """Create a new dental scene for a patient case.
         
@@ -53,13 +81,21 @@ class PreFormClient:
             "case_name": case_name
         }
         
-        response = self.session.post(url, json=payload)
+        try:
+            response = self.session.post(url, json=payload, timeout=30)
+        except requests.RequestException as e:
+            raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
         
-        if response.status_code != 200:
+        if response.status_code == 404:
+            raise Exception("PreFormServer not found. Please check the server URL.")
+        elif response.status_code == 503:
+            raise Exception("PreFormServer is unavailable. Please try again later.")
+        elif response.status_code != 200:
             raise Exception(f"Failed to create scene: {response.status_code} - {response.text}")
         
         return response.json()
     
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def import_model(self, scene_id: str, stl_path: str) -> Dict[str, Any]:
         """Import an STL model file into an existing scene.
         
@@ -75,15 +111,27 @@ class PreFormClient:
         """
         url = f"{self.base_url}/scene/{scene_id}/import-model"
         
-        with open(stl_path, 'rb') as f:
-            files = {'model': f}
-            response = self.session.post(url, files=files)
+        try:
+            with open(stl_path, 'rb') as f:
+                files = {'model': f}
+                response = self.session.post(url, files=files, timeout=60)
+        except requests.RequestException as e:
+            raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
+        except FileNotFoundError:
+            raise Exception(f"STL file not found: {stl_path}")
         
-        if response.status_code != 200:
+        if response.status_code == 404:
+            raise Exception(f"Scene {scene_id} not found. Please check the scene ID.")
+        elif response.status_code == 413:
+            raise Exception(f"STL file too large: {stl_path}. Please reduce file size.")
+        elif response.status_code == 422:
+            raise Exception(f"Invalid STL file format: {stl_path}. Please check the file.")
+        elif response.status_code != 200:
             raise Exception(f"Failed to import model: {response.status_code} - {response.text}")
         
         return response.json()
     
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def send_to_printer(self, scene_id: str, device_id: str) -> Dict[str, Any]:
         """Send a scene to a printer for production.
         
@@ -103,9 +151,18 @@ class PreFormClient:
             "device_id": device_id
         }
         
-        response = self.session.post(url, json=payload)
+        try:
+            response = self.session.post(url, json=payload, timeout=30)
+        except requests.RequestException as e:
+            raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
         
-        if response.status_code != 200:
+        if response.status_code == 404:
+            raise Exception(f"Scene {scene_id} or printer {device_id} not found.")
+        elif response.status_code == 409:
+            raise Exception(f"Printer {device_id} is busy. Please try again later.")
+        elif response.status_code == 422:
+            raise Exception("Scene validation failed. Please check scene configuration.")
+        elif response.status_code != 200:
             raise Exception(f"Failed to send to printer: {response.status_code} - {response.text}")
         
         return response.json()

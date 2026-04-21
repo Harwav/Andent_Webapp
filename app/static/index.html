@@ -57,6 +57,10 @@
                         Processed
                         <span id="processed-count" class="tab-count">0</span>
                     </button>
+                    <button id="print-queue-tab" class="tab-button" type="button" role="tab" aria-selected="false">
+                        Print Queue
+                        <span id="print-queue-count" class="tab-count">0</span>
+                    </button>
                 </div>
             </div>
 
@@ -116,6 +120,15 @@
                 </div>
                 <div id="processed-pagination-bottom" class="pagination"></div>
             </div>
+
+            <div id="print-queue-panel" class="queue-panel hidden">
+                <div id="print-queue-pagination-top" class="pagination"></div>
+                <div id="print-queue-empty" class="empty-state hidden">
+                    No print jobs in queue.
+                </div>
+                <div id="print-queue-cards" class="job-cards-grid"></div>
+                <div id="print-queue-pagination-bottom" class="pagination"></div>
+            </div>
         </section>
     </main>
 
@@ -131,6 +144,23 @@
             </div>
             <div id="preview-viewer" class="preview-viewer"></div>
             <p id="preview-caption" class="preview-caption"></p>
+        </div>
+    </div>
+
+    <div id="screenshot-modal" class="modal hidden" aria-hidden="true">
+        <div class="modal-backdrop" data-close-modal="true"></div>
+        <div class="modal-card screenshot-modal-card" role="dialog" aria-modal="true" aria-labelledby="screenshot-title">
+            <div class="modal-header">
+                <div>
+                    <p class="eyebrow">Screenshot</p>
+                    <h2 id="screenshot-title">Job Preview</h2>
+                </div>
+                <button id="close-screenshot" type="button" class="ghost-button">Close</button>
+            </div>
+            <div id="screenshot-viewer" class="screenshot-viewer">
+                <img id="screenshot-image" src="" alt="Job screenshot">
+            </div>
+            <p id="screenshot-caption" class="preview-caption"></p>
         </div>
     </div>
 

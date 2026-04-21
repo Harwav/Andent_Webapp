@@ -1,6 +1,11 @@
 """Phase 3: Metrics Service Tests (TDD)"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import pytest
-from andent_web.app.services.metrics import MetricsService
+from app.services.metrics import MetricsService
 
 
 class TestMetricsService:

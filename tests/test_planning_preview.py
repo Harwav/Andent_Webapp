@@ -1,9 +1,12 @@
 import pathlib
 import io
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 import pytest
-from andent_web.app.config import build_settings
-from andent_web.app.database import init_db, persist_upload_session, get_upload_row_by_id
+from app.config import build_settings
+from app.database import init_db, persist_upload_session, get_upload_row_by_id
 
 
 @pytest.fixture
@@ -47,8 +50,8 @@ def test_get_upload_row_by_id_missing_returns_none(tmp_settings):
 
 # --- planning_preview service unit tests ---
 
-from andent_web.app.services.planning_preview import build_row_preview, build_batch_preview
-from andent_web.app.schemas import ClassificationRow
+from app.services.planning_preview import build_row_preview, build_batch_preview
+from app.schemas import ClassificationRow
 
 
 def _make_row(row_id=1, case_id="P001", model_type="Die", preset="Die", status="Ready"):
@@ -92,7 +95,7 @@ def test_build_batch_preview_groups_by_case():
 # --- API endpoint tests ---
 
 from fastapi.testclient import TestClient
-from andent_web.app.main import create_app
+from app.main import create_app
 
 
 @pytest.fixture

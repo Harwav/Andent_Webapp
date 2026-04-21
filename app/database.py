@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .config import Settings
-from .schemas import ClassificationRow, DimensionSummary
+from .schemas import ClassificationRow, DimensionSummary, PrintJob
 from .services.classification import derive_status, generate_thumbnail_svg, is_current_thumbnail_svg
 
 
@@ -56,6 +56,25 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         FOREIGN KEY(row_id) REFERENCES upload_rows(id) ON DELETE CASCADE
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS print_jobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        job_name TEXT NOT NULL UNIQUE,
+        scene_id TEXT,
+        print_job_id TEXT,
+        status TEXT NOT NULL DEFAULT 'Queued',
+        preset TEXT NOT NULL,
+        case_ids TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        screenshot_url TEXT,
+        printer_type TEXT,
+        resin TEXT,
+        layer_height_microns INTEGER,
+        estimated_completion TIMESTAMP,
+        error_message TEXT
+    )
+    """,
 )
 
 INDEX_STATEMENTS: tuple[str, ...] = (
@@ -70,6 +89,14 @@ INDEX_STATEMENTS: tuple[str, ...] = (
     """
     CREATE INDEX IF NOT EXISTS ix_upload_rows_content_hash
     ON upload_rows(content_hash)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS ix_print_jobs_status
+    ON print_jobs(status)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS ix_print_jobs_created_at
+    ON print_jobs(created_at)
     """,
 )
 
@@ -123,6 +150,179 @@ def init_db(settings: Settings) -> None:
         for statement in INDEX_STATEMENTS:
             connection.execute(statement)
         connection.commit()
+
+
+def _row_to_print_job(row: sqlite3.Row) -> PrintJob:
+    case_ids: list[str] = []
+    if row["case_ids"]:
+        try:
+            loaded_case_ids = json.loads(row["case_ids"])
+            if isinstance(loaded_case_ids, list):
+                case_ids = [str(case_id) for case_id in loaded_case_ids]
+        except json.JSONDecodeError:
+            case_ids = []
+
+    return PrintJob(
+        id=row["id"],
+        job_name=row["job_name"],
+        scene_id=row["scene_id"],
+        print_job_id=row["print_job_id"],
+        status=row["status"],
+        preset=row["preset"],
+        case_ids=case_ids,
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        screenshot_url=row["screenshot_url"],
+        printer_type=row["printer_type"],
+        resin=row["resin"],
+        layer_height_microns=row["layer_height_microns"],
+        estimated_completion=row["estimated_completion"],
+        error_message=row["error_message"],
+    )
+
+
+def _fetch_print_job(connection: sqlite3.Connection, *, job_id: int | None = None, job_name: str | None = None) -> PrintJob | None:
+    if job_id is None and job_name is None:
+        return None
+
+    if job_id is not None:
+        row = connection.execute("SELECT * FROM print_jobs WHERE id = ?", (job_id,)).fetchone()
+    else:
+        row = connection.execute("SELECT * FROM print_jobs WHERE job_name = ?", (job_name,)).fetchone()
+
+    return _row_to_print_job(row) if row else None
+
+
+def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
+    now = _now_iso()
+    case_ids_json = json.dumps(print_job.case_ids)
+
+    with closing(connect(settings)) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO print_jobs (
+                job_name,
+                scene_id,
+                print_job_id,
+                status,
+                preset,
+                case_ids,
+                created_at,
+                updated_at,
+                screenshot_url,
+                printer_type,
+                resin,
+                layer_height_microns,
+                estimated_completion,
+                error_message
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                print_job.job_name,
+                print_job.scene_id,
+                print_job.print_job_id,
+                print_job.status,
+                print_job.preset,
+                case_ids_json,
+                print_job.created_at or now,
+                print_job.updated_at or now,
+                print_job.screenshot_url,
+                print_job.printer_type,
+                print_job.resin,
+                print_job.layer_height_microns,
+                print_job.estimated_completion,
+                print_job.error_message,
+            ),
+        )
+        connection.commit()
+
+        created = _fetch_print_job(connection, job_id=int(cursor.lastrowid))
+        if created is None:
+            raise RuntimeError("Failed to load created print job.")
+        return created
+
+
+def list_print_jobs(settings: Settings) -> list[PrintJob]:
+    with closing(connect(settings)) as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM print_jobs
+            ORDER BY created_at DESC, id DESC
+            """
+        ).fetchall()
+        return [_row_to_print_job(row) for row in rows]
+
+
+def get_print_job_by_id(settings: Settings, job_id: int) -> PrintJob | None:
+    with closing(connect(settings)) as connection:
+        return _fetch_print_job(connection, job_id=job_id)
+
+
+def get_print_job_by_name(settings: Settings, job_name: str) -> PrintJob | None:
+    with closing(connect(settings)) as connection:
+        return _fetch_print_job(connection, job_name=job_name)
+
+
+def update_print_job(settings: Settings, job_id: int, **changes: object) -> PrintJob | None:
+    if not changes:
+        return get_print_job_by_id(settings, job_id)
+
+    allowed_fields = {
+        "job_name",
+        "scene_id",
+        "print_job_id",
+        "status",
+        "preset",
+        "case_ids",
+        "screenshot_url",
+        "printer_type",
+        "resin",
+        "layer_height_microns",
+        "estimated_completion",
+        "error_message",
+    }
+
+    with closing(connect(settings)) as connection:
+        existing = connection.execute("SELECT id FROM print_jobs WHERE id = ?", (job_id,)).fetchone()
+        if existing is None:
+            return None
+
+        assignments: list[str] = []
+        values: list[object] = []
+        for field, value in changes.items():
+            if field not in allowed_fields:
+                continue
+            if field == "case_ids" and value is not None:
+                value = json.dumps(value)
+            assignments.append(f"{field} = ?")
+            values.append(value)
+
+        if not assignments:
+            return _fetch_print_job(connection, job_id=job_id)
+
+        assignments.append("updated_at = ?")
+        values.append(_now_iso())
+        values.append(job_id)
+
+        connection.execute(
+            f"""
+            UPDATE print_jobs
+            SET {', '.join(assignments)}
+            WHERE id = ?
+            """,
+            tuple(values),
+        )
+        connection.commit()
+        return _fetch_print_job(connection, job_id=job_id)
+
+
+def delete_print_job(settings: Settings, job_id: int) -> bool:
+    with closing(connect(settings)) as connection:
+        cursor = connection.execute("DELETE FROM print_jobs WHERE id = ?", (job_id,))
+        connection.commit()
+        return cursor.rowcount > 0
 
 
 def _now_iso() -> str:

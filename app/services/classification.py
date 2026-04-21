@@ -98,9 +98,19 @@ def infer_phase0_model_type(file_name: str, artifact, structure=None) -> str | N
 def default_preset(model_type: str | None) -> str | None:
     if model_type is None:
         return None
-    # Map antagonist types to preset
-    if model_type.startswith("Antagonist"):
-        return model_type
+    # Map model types to presets with support settings
+    # All presets: Precision Model Resin, 100µm, Form 4BL
+    preset_mappings = {
+        "Ortho - Solid": "Ortho Solid - Flat, No Supports",
+        "Ortho - Hollow": "Ortho Hollow - Flat, No Supports",
+        "Die": "Die - Flat, No Supports",
+        "Tooth": "Tooth - With Supports",
+        "Splint": "Splint - Flat, No Supports",
+        "Antagonist - Solid": "Antagonist Solid - Flat, No Supports",
+        "Antagonist - Hollow": "Antagonist Hollow - Flat, No Supports",
+    }
+    if model_type in preset_mappings:
+        return preset_mappings[model_type]
     if model_type not in PHASE0_MODEL_TYPES:
         return None
     return model_type

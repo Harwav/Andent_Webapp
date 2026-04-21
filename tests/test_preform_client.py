@@ -42,7 +42,8 @@ class TestPreFormClient:
         assert result == {"scene_id": "scene-123", "status": "created"}
         mock_session.post.assert_called_once_with(
             "http://localhost:44388/scene/",
-            json={"patient_id": "P001", "case_name": "Test Case"}
+            json={"patient_id": "P001", "case_name": "Test Case"},
+            timeout=30
         )
 
     def test_create_scene_failure(self):
@@ -101,7 +102,8 @@ class TestPreFormClient:
         assert result == {"print_id": "print-789", "status": "queued"}
         mock_session.post.assert_called_once_with(
             "http://localhost:44388/print/",
-            json={"scene_id": "scene-123", "device_id": "printer-01"}
+            json={"scene_id": "scene-123", "device_id": "printer-01"},
+            timeout=30
         )
 
     def test_list_devices_success(self):

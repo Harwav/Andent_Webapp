@@ -18,9 +18,9 @@ from ..database import (
     get_upload_row_by_id,
     list_queue_rows,
     persist_upload_session,
-    send_rows_to_print,
     update_upload_row,
 )
+from ..services.print_queue_service import send_ready_rows_to_print
 from ..schemas import (
     BatchPlanPreviewResponse,
     BulkDeleteRowsResponse,
@@ -171,7 +171,12 @@ async def bulk_allow_duplicate(request: Request, payload: RowIdsRequest) -> list
 @router.post("/rows/send-to-print", response_model=list[ClassificationRow])
 async def bulk_send_to_print(request: Request, payload: RowIdsRequest) -> list[ClassificationRow]:
     settings = request.app.state.settings
-    return send_rows_to_print(settings, payload.row_ids)
+    try:
+        return send_ready_rows_to_print(settings, payload.row_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.post("/rows/bulk-delete", response_model=BulkDeleteRowsResponse)

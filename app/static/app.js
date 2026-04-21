@@ -20,6 +20,7 @@ const ACTIVE_STATUSES = [
 const PAGE_SIZE = 50;
 const MAX_CONCURRENT_UPLOADS = 3;
 const DELETE_UNDO_MS = 10000;
+const PRINT_QUEUE_POLL_INTERVAL = 5000; // 5 seconds
 
 const state = {
     activeTab: "active",
@@ -42,6 +43,11 @@ const state = {
         renderer: null,
         frameId: null,
         cleanup: null,
+    },
+    printQueue: {
+        jobs: [],
+        page: 1,
+        expandedCases: new Set(),
     },
 };
 
@@ -73,6 +79,19 @@ const elements = {
     selectionNote: document.getElementById("selection-note"),
     statusLegend: document.getElementById("status-legend"),
     statusText: document.getElementById("status-text"),
+    printQueueTab: document.getElementById("print-queue-tab"),
+    printQueueCount: document.getElementById("print-queue-count"),
+    printQueuePanel: document.getElementById("print-queue-panel"),
+    printQueueCards: document.getElementById("print-queue-cards"),
+    printQueueEmpty: document.getElementById("print-queue-empty"),
+    printQueuePaginationTop: document.getElementById("print-queue-pagination-top"),
+    printQueuePaginationBottom: document.getElementById("print-queue-pagination-bottom"),
+    screenshotModal: document.getElementById("screenshot-modal"),
+    screenshotTitle: document.getElementById("screenshot-title"),
+    screenshotViewer: document.getElementById("screenshot-viewer"),
+    screenshotImage: document.getElementById("screenshot-image"),
+    screenshotCaption: document.getElementById("screenshot-caption"),
+    closeScreenshot: document.getElementById("close-screenshot"),
 };
 
 async function ensurePreviewDependencies() {
@@ -232,6 +251,22 @@ async function fetchQueue() {
     sortRows();
     syncSelection();
     clampPages();
+}
+
+async function fetchPrintQueue() {
+    try {
+        const response = await fetch("/api/print-queue/jobs");
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.detail || "Could not load print queue.");
+        }
+        state.printQueue.jobs = payload.jobs || [];
+        const totalPages = Math.max(1, Math.ceil(state.printQueue.jobs.length / PAGE_SIZE));
+        state.printQueue.page = Math.min(state.printQueue.page, totalPages);
+    } catch (error) {
+        console.error("Print queue fetch error:", error.message);
+        state.printQueue.jobs = [];
+    }
 }
 
 function formatDimensions(dimensions) {
@@ -716,6 +751,156 @@ function renderProcessedRows() {
     }
 }
 
+function createJobStatusChip(status) {
+    const span = document.createElement("span");
+    const safeClass = status.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    span.className = `status-chip job-status-${safeClass}`;
+    span.textContent = status;
+    return span;
+}
+
+function createJobCard(job) {
+    const card = document.createElement("div");
+    card.className = "job-card";
+    card.dataset.jobId = job.id;
+
+    // Screenshot thumbnail
+    const screenshotDiv = document.createElement("div");
+    screenshotDiv.className = "job-screenshot";
+    const screenshotButton = document.createElement("button");
+    screenshotButton.type = "button";
+    screenshotButton.className = "job-screenshot-button";
+    screenshotButton.addEventListener("click", () => openScreenshotModal(job));
+    
+    if (job.screenshot_url) {
+        const img = document.createElement("img");
+        img.src = job.screenshot_url;
+        img.alt = `${job.job_name} screenshot`;
+        img.loading = "lazy";
+        screenshotButton.appendChild(img);
+    } else {
+        const placeholder = document.createElement("div");
+        placeholder.className = "job-screenshot-placeholder";
+        placeholder.textContent = "No Preview";
+        screenshotButton.appendChild(placeholder);
+    }
+    screenshotDiv.appendChild(screenshotButton);
+    card.appendChild(screenshotDiv);
+
+    // Job info section
+    const infoDiv = document.createElement("div");
+    infoDiv.className = "job-info";
+
+    // Job name header
+    const headerDiv = document.createElement("div");
+    headerDiv.className = "job-header";
+    const jobName = document.createElement("h3");
+    jobName.className = "job-name";
+    jobName.textContent = job.job_name;
+    headerDiv.appendChild(jobName);
+    headerDiv.appendChild(createJobStatusChip(job.status));
+    infoDiv.appendChild(headerDiv);
+
+    // Cases list (expandable)
+    if (job.case_ids && job.case_ids.length > 0) {
+        const casesDiv = document.createElement("div");
+        casesDiv.className = "job-cases";
+        const casesHeader = document.createElement("button");
+        casesHeader.type = "button";
+        casesHeader.className = "job-cases-toggle";
+        const isExpanded = state.printQueue.expandedCases.has(job.id);
+        casesHeader.textContent = isExpanded ? `Hide Cases (${job.case_ids.length})` : `Show Cases (${job.case_ids.length})`;
+        casesHeader.addEventListener("click", () => {
+            if (state.printQueue.expandedCases.has(job.id)) {
+                state.printQueue.expandedCases.delete(job.id);
+            } else {
+                state.printQueue.expandedCases.add(job.id);
+            }
+            renderPrintQueueJobs();
+        });
+        casesDiv.appendChild(casesHeader);
+
+        if (isExpanded) {
+            const casesList = document.createElement("ul");
+            casesList.className = "job-cases-list";
+            job.case_ids.forEach((caseId) => {
+                const li = document.createElement("li");
+                li.textContent = caseId;
+                casesList.appendChild(li);
+            });
+            casesDiv.appendChild(casesList);
+        }
+        infoDiv.appendChild(casesDiv);
+    }
+
+    // Job details
+    const detailsDiv = document.createElement("div");
+    detailsDiv.className = "job-details";
+
+    const presetDiv = document.createElement("div");
+    presetDiv.className = "job-detail-item";
+    presetDiv.innerHTML = `<span class="job-detail-label">Preset:</span> <span class="job-detail-value">${job.preset || "-"}</span>`;
+    detailsDiv.appendChild(presetDiv);
+
+    const printerDiv = document.createElement("div");
+    printerDiv.className = "job-detail-item";
+    printerDiv.innerHTML = `<span class="job-detail-label">Printer:</span> <span class="job-detail-value">${job.printer_type || "-"}</span>`;
+    detailsDiv.appendChild(printerDiv);
+
+    const resinDiv = document.createElement("div");
+    resinDiv.className = "job-detail-item";
+    resinDiv.innerHTML = `<span class="job-detail-label">Resin:</span> <span class="job-detail-value">${job.resin || "-"}</span>`;
+    detailsDiv.appendChild(resinDiv);
+
+    const layerDiv = document.createElement("div");
+    layerDiv.className = "job-detail-item";
+    const layerHeight = job.layer_height_microns ? `${job.layer_height_microns}μm` : "-";
+    layerDiv.innerHTML = `<span class="job-detail-label">Layer:</span> <span class="job-detail-value">${layerHeight}</span>`;
+    detailsDiv.appendChild(layerDiv);
+
+    infoDiv.appendChild(detailsDiv);
+    card.appendChild(infoDiv);
+
+    return card;
+}
+
+function renderPrintQueueJobs() {
+    const pageJobs = getPagedRows(state.printQueue.jobs, state.printQueue.page);
+    elements.printQueueCards.innerHTML = "";
+
+    if (pageJobs.length === 0) {
+        elements.printQueueEmpty.classList.remove("hidden");
+        return;
+    }
+
+    elements.printQueueEmpty.classList.add("hidden");
+    pageJobs.forEach((job) => {
+        elements.printQueueCards.appendChild(createJobCard(job));
+    });
+}
+
+function openScreenshotModal(job) {
+    elements.screenshotModal.classList.remove("hidden");
+    elements.screenshotModal.setAttribute("aria-hidden", "false");
+    elements.screenshotTitle.textContent = job.job_name;
+    
+    if (job.screenshot_url) {
+        elements.screenshotImage.src = job.screenshot_url;
+        elements.screenshotImage.alt = `${job.job_name} screenshot`;
+        elements.screenshotCaption.textContent = `${job.printer_type || "-"} | ${job.resin || "-"} | ${job.layer_height_microns ? `${job.layer_height_microns}μm` : "-"}`;
+    } else {
+        elements.screenshotImage.src = "";
+        elements.screenshotImage.alt = "No screenshot available";
+        elements.screenshotCaption.textContent = "No screenshot available for this job.";
+    }
+}
+
+function closeScreenshotModal() {
+    elements.screenshotModal.classList.add("hidden");
+    elements.screenshotModal.setAttribute("aria-hidden", "true");
+    elements.screenshotImage.src = "";
+}
+
 function renderLegend() {
     elements.statusLegend.innerHTML = "";
     ACTIVE_STATUSES.forEach((status) => {
@@ -960,15 +1145,19 @@ function renderTabs() {
     const activeCount = state.activeRows.length + state.pendingRows.length;
     elements.activeCount.textContent = activeCount;
     elements.processedCount.textContent = state.processedRows.length;
+    elements.printQueueCount.textContent = state.printQueue.jobs.length;
 
-    const showEmpty = activeCount === 0 && state.processedRows.length === 0;
+    const showEmpty = activeCount === 0 && state.processedRows.length === 0 && state.printQueue.jobs.length === 0;
     elements.emptyState.classList.toggle("hidden", !showEmpty);
     elements.activePanel.classList.toggle("hidden", showEmpty || state.activeTab !== "active");
     elements.processedPanel.classList.toggle("hidden", showEmpty || state.activeTab !== "processed");
+    elements.printQueuePanel.classList.toggle("hidden", showEmpty || state.activeTab !== "print-queue");
     elements.activeTab.classList.toggle("tab-button-active", state.activeTab === "active");
     elements.processedTab.classList.toggle("tab-button-active", state.activeTab === "processed");
+    elements.printQueueTab.classList.toggle("tab-button-active", state.activeTab === "print-queue");
     elements.activeTab.setAttribute("aria-selected", String(state.activeTab === "active"));
     elements.processedTab.setAttribute("aria-selected", String(state.activeTab === "processed"));
+    elements.printQueueTab.setAttribute("aria-selected", String(state.activeTab === "print-queue"));
 }
 
 function render() {
@@ -979,6 +1168,7 @@ function render() {
     renderBulkActions();
     renderActiveRows();
     renderProcessedRows();
+    renderPrintQueueJobs();
     renderPagination(elements.activePaginationTop, getFilteredActiveRows().length, state.activePage, (page) => {
         state.activePage = page;
     });
@@ -990,6 +1180,12 @@ function render() {
     });
     renderPagination(elements.processedPaginationBottom, state.processedRows.length, state.processedPage, (page) => {
         state.processedPage = page;
+    });
+    renderPagination(elements.printQueuePaginationTop, state.printQueue.jobs.length, state.printQueue.page, (page) => {
+        state.printQueue.page = page;
+    });
+    renderPagination(elements.printQueuePaginationBottom, state.printQueue.jobs.length, state.printQueue.page, (page) => {
+        state.printQueue.page = page;
     });
     elements.queueActionButton.textContent = "Select Folder";
 }
@@ -1348,6 +1544,11 @@ elements.processedTab.addEventListener("click", () => {
     render();
 });
 
+elements.printQueueTab.addEventListener("click", () => {
+    state.activeTab = "print-queue";
+    render();
+});
+
 elements.queueActionButton.addEventListener("click", (event) => {
     event.stopPropagation();
     openPicker(elements.folderInput);
@@ -1412,6 +1613,14 @@ elements.previewModal.addEventListener("click", (event) => {
 
 elements.closePreview.addEventListener("click", closePreview);
 
+elements.screenshotModal.addEventListener("click", (event) => {
+    if (event.target.dataset.closeModal === "true") {
+        closeScreenshotModal();
+    }
+});
+
+elements.closeScreenshot.addEventListener("click", closeScreenshotModal);
+
 
 // Queue polling - auto-refresh every 10 seconds
 window.pollingPaused = false;
@@ -1428,6 +1637,29 @@ window.setInterval(async () => {
     }
 }, window.pollInterval);
 
+// Print queue polling - auto-refresh every 5 seconds
+window.printQueuePollInterval = PRINT_QUEUE_POLL_INTERVAL;
+
+window.setInterval(async () => {
+    if (window.pollingPaused) return;
+    try {
+        await fetchPrintQueue();
+        if (state.activeTab === "print-queue") {
+            renderPrintQueueJobs();
+            renderPagination(elements.printQueuePaginationTop, state.printQueue.jobs.length, state.printQueue.page, (page) => {
+                state.printQueue.page = page;
+            });
+            renderPagination(elements.printQueuePaginationBottom, state.printQueue.jobs.length, state.printQueue.page, (page) => {
+                state.printQueue.page = page;
+            });
+            elements.printQueueCount.textContent = state.printQueue.jobs.length;
+        }
+        console.log("Print queue auto-refreshed");
+    } catch (error) {
+        console.error("Print queue polling error:", error.message);
+    }
+}, window.printQueuePollInterval);
+
 // Undo cleanup interval (500ms)
 window.setInterval(() => {
     if (state.pendingDeletes.size > 0 || state.pendingBulkDelete) {
@@ -1438,6 +1670,7 @@ window.setInterval(() => {
 async function bootstrap() {
     try {
         await fetchQueue();
+        await fetchPrintQueue();
         render();
         setStatus("Queue loaded.");
     } catch (error) {

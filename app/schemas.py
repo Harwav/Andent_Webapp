@@ -85,3 +85,34 @@ class BatchPlanPreviewResponse(BaseModel):
     rows: list[PlanPreviewRow]
     group_count: int
     cannot_fit_count: int
+
+
+PrintJobStatus = Literal["Queued", "Printing", "Failed", "Paused", "Completed"]
+
+
+class PrintJob(BaseModel):
+    """Print job schema for the print queue.
+    
+    Represents a print job submitted to PreFormServer and tracked
+    via the Formlabs Web API.
+    """
+    id: int | None = None
+    job_name: str = Field(pattern=r"^\d{6}-\d{3}$")  # YYMMDD-001 format
+    scene_id: str | None = None  # From PreFormServer
+    print_job_id: str | None = None  # From Formlabs API
+    status: PrintJobStatus = "Queued"
+    preset: str
+    case_ids: list[str] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+    screenshot_url: str | None = None
+    printer_type: str | None = None
+    resin: str | None = None
+    layer_height_microns: int | None = None
+    estimated_completion: str | None = None
+    error_message: str | None = None
+
+
+class PrintJobListResponse(BaseModel):
+    jobs: list[PrintJob]
+    total_count: int
