@@ -59,6 +59,34 @@ class QueueSnapshotResponse(BaseModel):
     processed_rows: list[ClassificationRow]
 
 
+PreFormReadiness = Literal[
+    "not_installed",
+    "installed_not_running",
+    "incompatible_version",
+    "ready",
+    "failed",
+]
+
+
+class PreFormSetupStatus(BaseModel):
+    readiness: PreFormReadiness
+    install_path: str
+    managed_executable_path: str
+    detected_version: str | None = None
+    expected_version_min: str
+    expected_version_max: str | None = None
+    active_configured_source: bool = True
+    is_running: bool = False
+    last_health_check_at: str | None = None
+    last_error_code: str | None = None
+    last_error_message: str | None = None
+
+
+class PreFormSetupActionResponse(BaseModel):
+    status: PreFormSetupStatus
+    message: str
+
+
 class UpdateClassificationRowRequest(BaseModel):
     model_type: Phase0ModelType | None = None
     preset: str | None = None

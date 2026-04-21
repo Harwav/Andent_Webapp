@@ -137,6 +137,16 @@ Environment variables:
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q
 ```
 
+## Release Gate
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:release-gate
+```
+
+Prerequisite: a live compatible PreFormServer is reachable at `http://localhost:44388` for the happy-path scenarios.
+
 ## Roadmap
 
 ### Current Repository State

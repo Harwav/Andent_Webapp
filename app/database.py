@@ -9,7 +9,12 @@ from typing import Iterable
 
 from .config import Settings
 from .schemas import ClassificationRow, DimensionSummary, PrintJob
-from .services.classification import derive_status, generate_thumbnail_svg, is_current_thumbnail_svg
+from .services.classification import (
+    default_preset,
+    derive_status,
+    generate_thumbnail_svg,
+    is_current_thumbnail_svg,
+)
 
 
 SCHEMA_STATEMENTS: tuple[str, ...] = (
@@ -76,6 +81,21 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         layer_height_microns INTEGER,
         estimated_completion TIMESTAMP,
         error_message TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS preform_setup_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        readiness TEXT NOT NULL,
+        install_path TEXT NOT NULL,
+        managed_executable_path TEXT NOT NULL,
+        detected_version TEXT,
+        last_health_check_at TEXT,
+        last_error_code TEXT,
+        last_error_message TEXT,
+        active_configured_source INTEGER NOT NULL DEFAULT 1,
+        process_id INTEGER,
+        updated_at TEXT NOT NULL
     )
     """,
 )
@@ -361,6 +381,126 @@ def update_print_job(settings: Settings, job_id: int, **changes: object) -> Prin
         return _fetch_print_job(connection, job_id=job_id)
 
 
+def _default_preform_setup_state(settings: Settings) -> dict[str, object]:
+    return {
+        "id": 1,
+        "readiness": "not_installed",
+        "install_path": str(settings.preform_managed_dir),
+        "managed_executable_path": str(settings.preform_managed_executable),
+        "detected_version": None,
+        "last_health_check_at": None,
+        "last_error_code": None,
+        "last_error_message": None,
+        "active_configured_source": 1,
+        "process_id": None,
+        "updated_at": _now_iso(),
+    }
+
+
+def load_preform_setup_state(settings: Settings) -> dict[str, object]:
+    with closing(connect(settings)) as connection:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM preform_setup_state
+            WHERE id = 1
+            """
+        ).fetchone()
+        if row is None:
+            return _default_preform_setup_state(settings)
+        return {
+            "id": row["id"],
+            "readiness": row["readiness"],
+            "install_path": row["install_path"],
+            "managed_executable_path": row["managed_executable_path"],
+            "detected_version": row["detected_version"],
+            "last_health_check_at": row["last_health_check_at"],
+            "last_error_code": row["last_error_code"],
+            "last_error_message": row["last_error_message"],
+            "active_configured_source": row["active_configured_source"],
+            "process_id": row["process_id"],
+            "updated_at": row["updated_at"],
+        }
+
+
+def save_preform_setup_state(settings: Settings, **changes: object) -> dict[str, object]:
+    current = load_preform_setup_state(settings)
+    payload = {
+        "id": 1,
+        "readiness": changes.get("readiness", current["readiness"]),
+        "install_path": changes.get("install_path", current["install_path"]),
+        "managed_executable_path": changes.get(
+            "managed_executable_path",
+            current["managed_executable_path"],
+        ),
+        "detected_version": changes.get("detected_version", current["detected_version"]),
+        "last_health_check_at": changes.get(
+            "last_health_check_at",
+            current["last_health_check_at"],
+        ),
+        "last_error_code": changes.get("last_error_code", current["last_error_code"]),
+        "last_error_message": changes.get(
+            "last_error_message",
+            current["last_error_message"],
+        ),
+        "active_configured_source": 1
+        if changes.get(
+            "active_configured_source",
+            bool(current["active_configured_source"]),
+        )
+        else 0,
+        "process_id": changes.get("process_id", current["process_id"]),
+        "updated_at": _now_iso(),
+    }
+
+    with closing(connect(settings)) as connection:
+        connection.execute(
+            """
+            INSERT INTO preform_setup_state (
+                id,
+                readiness,
+                install_path,
+                managed_executable_path,
+                detected_version,
+                last_health_check_at,
+                last_error_code,
+                last_error_message,
+                active_configured_source,
+                process_id,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                readiness = excluded.readiness,
+                install_path = excluded.install_path,
+                managed_executable_path = excluded.managed_executable_path,
+                detected_version = excluded.detected_version,
+                last_health_check_at = excluded.last_health_check_at,
+                last_error_code = excluded.last_error_code,
+                last_error_message = excluded.last_error_message,
+                active_configured_source = excluded.active_configured_source,
+                process_id = excluded.process_id,
+                updated_at = excluded.updated_at
+            """,
+            (
+                payload["id"],
+                payload["readiness"],
+                payload["install_path"],
+                payload["managed_executable_path"],
+                payload["detected_version"],
+                payload["last_health_check_at"],
+                payload["last_error_code"],
+                payload["last_error_message"],
+                payload["active_configured_source"],
+                payload["process_id"],
+                payload["updated_at"],
+            ),
+        )
+        connection.commit()
+
+    return payload
+
+
 def delete_print_job(settings: Settings, job_id: int) -> bool:
     with closing(connect(settings)) as connection:
         cursor = connection.execute("DELETE FROM print_jobs WHERE id = ?", (job_id,))
@@ -386,6 +526,17 @@ def _record_event(
         """,
         (row_id, event_type, event_at, json.dumps(metadata or {})),
     )
+
+
+def _normalize_manual_preset(model_type: str | None, preset: str | None) -> str | None:
+    if preset is None:
+        return default_preset(model_type) if model_type else None
+
+    normalized_from_model_label = default_preset(preset)
+    if normalized_from_model_label is not None:
+        return normalized_from_model_label
+
+    return preset
 
 
 def persist_upload_session(settings: Settings, session_id: str, rows: Iterable[dict]) -> list[ClassificationRow]:
@@ -593,6 +744,7 @@ def update_upload_row(
         if existing["status"] in {"Submitted", "Printed"}:
             raise ValueError("Submitted rows are read-only.")
 
+        preset = _normalize_manual_preset(model_type, preset)
         status = existing["status"]
         if status not in {"Duplicate", "Submitted", "Printed"}:
             status = derive_status(existing["confidence"], model_type, preset, manual_override=True)
@@ -702,9 +854,10 @@ def bulk_update_upload_rows(
 
             next_model_type = model_type if model_type is not None else row["model_type"]
             if model_type is not None and preset is None:
-                next_preset = model_type
+                raw_preset = model_type
             else:
-                next_preset = preset if preset is not None else row["preset"]
+                raw_preset = preset if preset is not None else row["preset"]
+            next_preset = _normalize_manual_preset(next_model_type, raw_preset)
             next_status = row["status"]
             if next_status not in {"Duplicate", "Submitted", "Printed"}:
                 next_status = derive_status(row["confidence"], next_model_type, next_preset, manual_override=True)

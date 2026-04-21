@@ -289,6 +289,16 @@ def _validation_errors(validation_result: dict[str, Any]) -> list[str]:
     return [str(error) for error in errors]
 
 
+def assert_preform_ready(settings: "Settings") -> None:
+    from .preform_setup_service import get_preform_setup_status
+
+    status = get_preform_setup_status(settings)
+    if status.readiness != "ready":
+        raise ValueError(
+            f"PreFormServer setup is required before printing ({status.readiness})."
+        )
+
+
 def process_print_manifest(
     settings: "Settings",
     manifest: "BuildManifest",
@@ -389,6 +399,8 @@ def send_ready_rows_to_print(
 
     if not row_ids:
         return []
+
+    assert_preform_ready(settings)
 
     rows = []
     for row_id in row_ids:

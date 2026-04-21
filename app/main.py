@@ -11,6 +11,7 @@ from .config import Settings, get_settings
 from .database import init_db
 from .routers.uploads import router as uploads_router
 from .routers.metrics import router as metrics_router
+from .routers.preform_setup import router as preform_setup_router
 from .routers.print_queue import router as print_queue_router
 
 
@@ -33,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(resolved_settings.static_dir)), name="static")
     app.include_router(uploads_router)
     app.include_router(metrics_router)
+    app.include_router(preform_setup_router)
     app.include_router(print_queue_router)
 
     @app.get("/", include_in_schema=False)
