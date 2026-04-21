@@ -8,6 +8,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.config import build_settings
+from app.database import init_db, persist_upload_session
 from app.schemas import ClassificationRow, DimensionSummary
 from app.services.build_planning import plan_build_manifests
 from app.services.preset_catalog import PRESET_CATALOG, PresetProfile
@@ -146,7 +148,7 @@ def test_plan_build_manifests_groups_imports_by_preset_with_preform_hints():
                     "compatibility_key": "form-4bl|precision-model-resin|100",
                     "xy_footprint_estimate": 1200.0,
                     "support_inflation_factor": 1.0,
-                    "order": 0,
+                    "order": 2,
                     "preform_hint": "die_v1",
                 }
             ],
@@ -165,7 +167,7 @@ def test_plan_build_manifests_groups_imports_by_preset_with_preform_hints():
                     "compatibility_key": "form-4bl|precision-model-resin|100",
                     "xy_footprint_estimate": 1200.0,
                     "support_inflation_factor": 1.18,
-                    "order": 1,
+                    "order": 0,
                     "preform_hint": "tooth_v1",
                 },
                 {
@@ -177,7 +179,7 @@ def test_plan_build_manifests_groups_imports_by_preset_with_preform_hints():
                     "compatibility_key": "form-4bl|precision-model-resin|100",
                     "xy_footprint_estimate": 400.0,
                     "support_inflation_factor": 1.18,
-                    "order": 2,
+                    "order": 1,
                     "preform_hint": "tooth_v1",
                 },
             ],
@@ -228,4 +230,73 @@ def test_plan_build_manifests_emits_harder_compatibility_group_before_easier_one
     assert [manifest.case_ids for manifest in manifests] == [
         ["CASE-HARD"],
         ["CASE-EASY"],
+    ]
+
+
+def test_plan_build_manifests_uses_persisted_stored_paths_in_file_specs(tmp_path):
+    settings = build_settings(
+        data_dir=tmp_path / "data",
+        database_path=tmp_path / "data" / "andent_web.db",
+    )
+    init_db(settings)
+    stored_file = tmp_path / "persisted-die.stl"
+    stored_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+
+    persisted_rows = persist_upload_session(
+        settings,
+        "session-1",
+        [
+            {
+                "file_name": stored_file.name,
+                "stored_path": str(stored_file),
+                "content_hash": "hash-1",
+                "thumbnail_svg": None,
+                "case_id": "CASE-PERSISTED",
+                "model_type": "Die",
+                "preset": "Die",
+                "confidence": "high",
+                "status": "Ready",
+                "dimension_x_mm": 10.0,
+                "dimension_y_mm": 10.0,
+                "dimension_z_mm": 5.0,
+                "volume_ml": 0.5,
+                "review_required": False,
+                "review_reason": None,
+            }
+        ],
+    )
+
+    manifests = plan_build_manifests(persisted_rows)
+
+    manifest_file = manifests[0].import_groups[0].files[0]
+    assert manifest_file.file_path == str(stored_file)
+    assert manifest_file.file_path != persisted_rows[0].file_url
+
+
+def test_plan_build_manifests_canonicalizes_alias_and_profile_preset_names():
+    rows = [
+        _row(1, "CASE-MIXED", "Die", file_path="C:/cases/case-mixed/die-legacy.stl"),
+        _row(
+            2,
+            "CASE-MIXED",
+            "Die - Flat, No Supports",
+            x=20.0,
+            y=20.0,
+            file_path="C:/cases/case-mixed/die-canonical.stl",
+        ),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].preset_names == ["Die - Flat, No Supports"]
+    assert [group.preset_name for group in manifests[0].import_groups] == [
+        "Die - Flat, No Supports"
+    ]
+    assert [
+        file_spec.preset_name
+        for file_spec in manifests[0].import_groups[0].files
+    ] == [
+        "Die - Flat, No Supports",
+        "Die - Flat, No Supports",
     ]

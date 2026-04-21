@@ -11,6 +11,7 @@ from .preset_catalog import (
     build_compatibility_key,
     get_preform_preset_hint,
     get_preset_profile,
+    resolve_preset_name,
 )
 
 
@@ -31,17 +32,25 @@ def _support_factor(preset_name: str) -> float:
     return SUPPORT_INFLATION if profile.requires_supports else 1.0
 
 
+def _canonical_preset_name(preset_name: str | None) -> str | None:
+    profile = get_preset_profile(preset_name)
+    if profile is not None:
+        return profile.preset_name
+    return resolve_preset_name(preset_name)
+
+
 def _row_file_path(row: ClassificationRow) -> str:
-    return row.file_path or row.file_url or row.file_name
+    return row.file_path or row.file_name
 
 
 def _build_file_prep_spec(
     row: ClassificationRow,
     compatibility_key: str,
 ) -> FilePrepSpec | None:
-    if row.row_id is None or row.case_id is None or row.preset is None:
+    canonical_preset_name = _canonical_preset_name(row.preset)
+    if row.row_id is None or row.case_id is None or canonical_preset_name is None:
         return None
-    profile = get_preset_profile(row.preset)
+    profile = get_preset_profile(canonical_preset_name)
     if profile is None:
         return None
     return FilePrepSpec(
@@ -49,10 +58,10 @@ def _build_file_prep_spec(
         case_id=row.case_id,
         file_name=row.file_name,
         file_path=_row_file_path(row),
-        preset_name=row.preset,
+        preset_name=canonical_preset_name,
         compatibility_key=compatibility_key,
         xy_footprint_estimate=_row_xy_area(row),
-        support_inflation_factor=_support_factor(row.preset),
+        support_inflation_factor=_support_factor(canonical_preset_name),
         preform_hint=profile.preform_hint,
     )
 
@@ -83,7 +92,13 @@ def _profile_priority(profile: CasePackProfile) -> tuple[float, float, str]:
 
 
 def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePackProfile | None, BuildManifest | None]:
-    preset_names = sorted({row.preset for row in rows if row.preset})
+    preset_names = sorted(
+        {
+            canonical_preset_name
+            for row in rows
+            if (canonical_preset_name := _canonical_preset_name(row.preset)) is not None
+        }
+    )
 
     try:
         compatibility_key = build_compatibility_key(preset_names)
@@ -162,31 +177,33 @@ def _group_profiles_by_compatibility(
 def _build_manifest(compatibility_key: str, profiles: list[CasePackProfile]) -> BuildManifest:
     import_groups: dict[str, list[FilePrepSpec]] = {}
     preset_names: list[str] = []
+    order_by_row_id: dict[int, int] = {}
+    next_order = 0
 
     for profile in profiles:
         for spec in profile.file_specs:
             preset_names.append(spec.preset_name)
             import_groups.setdefault(spec.preset_name, []).append(spec)
+            order_by_row_id[spec.row_id] = next_order
+            next_order += 1
 
-    next_order = 0
     manifest_groups: list[BuildManifestImportGroup] = []
     for preset_name in sorted(import_groups):
         group_hint = get_preform_preset_hint(preset_name)
         ordered_files = sorted(
             import_groups[preset_name],
-            key=lambda spec: (spec.case_id, spec.row_id, spec.file_name),
+            key=lambda spec: order_by_row_id[spec.row_id],
         )
         files = []
         for spec in ordered_files:
             files.append(
                 spec.model_copy(
                     update={
-                        "order": next_order,
+                        "order": order_by_row_id[spec.row_id],
                         "preform_hint": group_hint,
                     }
                 )
             )
-            next_order += 1
         manifest_groups.append(
             BuildManifestImportGroup(
                 preset_name=preset_name,

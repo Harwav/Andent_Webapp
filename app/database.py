@@ -463,6 +463,7 @@ def _row_to_classification_row(row: sqlite3.Row) -> ClassificationRow:
         person=row["person"],
         thumbnail_url=f"/api/uploads/rows/{row_id}/thumbnail.svg",
         file_url=f"/api/uploads/rows/{row_id}/file",
+        file_path=row["stored_path"],
     )
 
 

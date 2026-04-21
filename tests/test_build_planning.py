@@ -195,3 +195,20 @@ def test_plan_build_manifests_skips_unknown_presets_even_when_dimensions_are_mis
     assert len(manifests) == 1
     assert manifests[0].case_ids == ["CASE-VALID", "CASE-VALID-2"]
     assert manifests[0].planning_status == "planned"
+
+
+def test_plan_build_manifests_preserves_selected_case_priority_in_file_order():
+    rows = [
+        _row(10, "CASE-Z-HARD", "Die - Flat, No Supports", 80.0, 70.0),
+        _row(11, "CASE-Z-HARD", "Die - Flat, No Supports", 40.0, 20.0),
+        _row(20, "CASE-A-EASY", "Die - Flat, No Supports", 20.0, 20.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert manifests[0].case_ids == ["CASE-Z-HARD", "CASE-A-EASY"]
+    ordered_files = sorted(
+        manifests[0].import_groups[0].files,
+        key=lambda spec: spec.order,
+    )
+    assert [spec.row_id for spec in ordered_files] == [10, 11, 20]
