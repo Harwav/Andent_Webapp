@@ -50,15 +50,14 @@ def test_plan_build_manifests_allows_mixed_compatible_presets():
     ]
 
 
-def test_plan_build_manifests_uses_smallest_cases_as_fillers():
+def test_plan_build_manifests_uses_smallest_fitting_cases_as_fillers():
     rows = [
-        _row(1, "CASE-L", "Ortho Solid - Flat, No Supports", 100.0, 90.0),
-        _row(2, "CASE-M", "Ortho Solid - Flat, No Supports", 80.0, 70.0),
-        _row(3, "CASE-S1", "Die - Flat, No Supports", 30.0, 20.0),
-        _row(4, "CASE-S2", "Die - Flat, No Supports", 28.0, 18.0),
+        _row(1, "CASE-L", "Ortho Solid - Flat, No Supports", 200.0, 130.0),
+        _row(2, "CASE-M", "Ortho Solid - Flat, No Supports", 60.0, 50.0),
+        _row(3, "CASE-S1", "Ortho Solid - Flat, No Supports", 40.0, 25.0),
+        _row(4, "CASE-S2", "Ortho Solid - Flat, No Supports", 50.0, 40.0),
     ]
 
     manifests = plan_build_manifests(rows)
 
-    assert manifests[0].case_ids[0] == "CASE-L"
-    assert "CASE-S2" in manifests[0].case_ids
+    assert manifests[0].case_ids == ["CASE-L", "CASE-S1", "CASE-S2"]

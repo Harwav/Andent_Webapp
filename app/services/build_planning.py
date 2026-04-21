@@ -119,16 +119,6 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
             seed = remaining.pop(0)
             chosen = [seed]
             used = seed.total_xy_footprint
-            index = 0
-
-            while index < len(remaining):
-                candidate = remaining[index]
-                if used + candidate.total_xy_footprint <= FORM4BL_XY_BUDGET:
-                    chosen.append(candidate)
-                    used += candidate.total_xy_footprint
-                    remaining.pop(index)
-                    continue
-                index += 1
 
             fillers = sorted(remaining, key=lambda profile: (profile.total_xy_footprint, profile.case_id))
             for filler in list(fillers):
