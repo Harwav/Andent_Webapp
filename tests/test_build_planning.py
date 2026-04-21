@@ -10,7 +10,7 @@ from app.services.build_planning import plan_build_manifests
 
 
 def _row(
-    row_id: int,
+    row_id: int | None,
     case_id: str,
     preset: str,
     x: float,
@@ -30,7 +30,8 @@ def _row(
     )
 
 
-def test_plan_build_manifests_keeps_case_intact():
+def test_plan_build_manifests_preserves_case_cohesion():
+    """Planner keeps all rows from the same case together in one build."""
     rows = [
         _row(1, "CASE-1", "Ortho Solid - Flat, No Supports", 80.0, 70.0),
         _row(2, "CASE-1", "Tooth - With Supports", 40.0, 30.0),
@@ -43,7 +44,8 @@ def test_plan_build_manifests_keeps_case_intact():
     assert manifests[0].case_ids == ["CASE-1", "CASE-2"]
 
 
-def test_plan_build_manifests_allows_mixed_compatible_presets():
+def test_plan_build_manifests_allows_mixed_compatible_presets_to_share_one_build():
+    """Compatible presets may be planned into the same build manifest."""
     rows = [
         _row(1, "CASE-1", "Ortho Solid - Flat, No Supports", 60.0, 50.0),
         _row(2, "CASE-2", "Tooth - With Supports", 35.0, 35.0),
@@ -52,13 +54,15 @@ def test_plan_build_manifests_allows_mixed_compatible_presets():
     manifests = plan_build_manifests(rows)
 
     assert len(manifests) == 1
+    assert manifests[0].case_ids == ["CASE-1", "CASE-2"]
     assert manifests[0].preset_names == [
         "Ortho Solid - Flat, No Supports",
         "Tooth - With Supports",
     ]
 
 
-def test_plan_build_manifests_uses_smallest_fitting_cases_as_fillers_after_large_cases_do_not_fit():
+def test_plan_build_manifests_uses_smallest_case_fillers_after_large_cases_do_not_fit():
+    """Once the next-largest case does not fit, the planner fills with smaller cases."""
     rows = [
         _row(1, "CASE-L", "Ortho Solid - Flat, No Supports", 200.0, 130.0),
         _row(2, "CASE-M", "Ortho Solid - Flat, No Supports", 70.0, 50.0),
@@ -69,6 +73,19 @@ def test_plan_build_manifests_uses_smallest_fitting_cases_as_fillers_after_large
     manifests = plan_build_manifests(rows)
 
     assert manifests[0].case_ids == ["CASE-L", "CASE-S1", "CASE-S2"]
+
+
+def test_plan_build_manifests_keeps_row_id_validation_local_to_case_profiles():
+    rows = [
+        _row(1, "CASE-INCOMPLETE", "Ortho Solid - Flat, No Supports", 60.0, 50.0),
+        _row(None, "CASE-INCOMPLETE", "Ortho Solid - Flat, No Supports", 20.0, 20.0),
+        _row(3, "CASE-VALID", "Ortho Solid - Flat, No Supports", 40.0, 30.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].case_ids == ["CASE-VALID"]
 
 
 def test_plan_build_manifests_prefers_next_largest_fit_before_small_fillers():

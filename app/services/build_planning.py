@@ -157,7 +157,7 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
     ready_rows = [
         row
         for row in rows
-        if row.status == "Ready" and row.preset and row.case_id and row.row_id is not None
+        if row.status == "Ready" and row.preset and row.case_id
     ]
     cases = _group_case_profiles(ready_rows)
     manifests: list[BuildManifest] = []
