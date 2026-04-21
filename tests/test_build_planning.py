@@ -174,3 +174,24 @@ def test_plan_build_manifests_marks_missing_dimensions_as_non_plannable():
     assert manifests[0].planning_status == "non_plannable"
     assert manifests[0].non_plannable_reason == "missing_dimensions"
     assert manifests[0].import_groups == []
+
+
+def test_plan_build_manifests_skips_unknown_presets_even_when_dimensions_are_missing():
+    rows = [
+        _row(1, "CASE-VALID", "Ortho Solid - Flat, No Supports", 60.0, 50.0),
+        _row(
+            2,
+            "CASE-UNKNOWN",
+            "Unknown Preset",
+            40.0,
+            30.0,
+            dimensions=None,
+        ),
+        _row(3, "CASE-VALID-2", "Die - Flat, No Supports", 40.0, 30.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].case_ids == ["CASE-VALID", "CASE-VALID-2"]
+    assert manifests[0].planning_status == "planned"

@@ -74,32 +74,35 @@ def _build_non_plannable_manifest(
     )
 
 
+def _profile_priority(profile: CasePackProfile) -> tuple[float, float, str]:
+    return (
+        -profile.difficulty_score,
+        -profile.total_xy_footprint,
+        profile.case_id,
+    )
+
+
 def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePackProfile | None, BuildManifest | None]:
     preset_names = sorted({row.preset for row in rows if row.preset})
-    compatibility_key: str | None = None
+
+    try:
+        compatibility_key = build_compatibility_key(preset_names)
+    except ValueError:
+        if any(get_preset_profile(name) is None for name in preset_names):
+            return None, None
+        return None, _build_non_plannable_manifest(
+            case_id=case_id,
+            preset_names=preset_names,
+            reason="incompatible_case_presets",
+        )
 
     if any(row.dimensions is None for row in rows):
-        try:
-            compatibility_key = build_compatibility_key(preset_names)
-        except ValueError:
-            compatibility_key = None
         return None, _build_non_plannable_manifest(
             case_id=case_id,
             preset_names=preset_names,
             reason="missing_dimensions",
             compatibility_key=compatibility_key,
         )
-
-    try:
-        compatibility_key = build_compatibility_key(preset_names)
-    except ValueError:
-        if all(get_preset_profile(name) is not None for name in preset_names):
-            return None, _build_non_plannable_manifest(
-                case_id=case_id,
-                preset_names=preset_names,
-                reason="incompatible_case_presets",
-            )
-        return None, None
 
     total_xy = sum(_row_xy_area(row) * _support_factor(row.preset or "") for row in rows)
     difficulty = max(_row_xy_area(row) for row in rows) + total_xy
@@ -209,40 +212,40 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
     ]
     cases, non_plannable_cases = _group_case_profiles(ready_rows)
     manifests: list[BuildManifest] = []
+    remaining_by_compatibility = {
+        compatibility_key: sorted(profiles, key=_profile_priority)
+        for compatibility_key, profiles in _group_profiles_by_compatibility(cases).items()
+    }
 
-    for compatibility_key, profiles in _group_profiles_by_compatibility(cases).items():
-        remaining = sorted(
-            profiles,
-            key=lambda profile: (
-                -profile.difficulty_score,
-                -profile.total_xy_footprint,
-                profile.case_id,
-            ),
+    while remaining_by_compatibility:
+        compatibility_key, remaining = min(
+            remaining_by_compatibility.items(),
+            key=lambda item: _profile_priority(item[1][0]),
         )
+        seed = remaining.pop(0)
+        chosen = [seed]
+        used = seed.total_xy_footprint
 
-        while remaining:
-            seed = remaining.pop(0)
-            chosen = [seed]
-            used = seed.total_xy_footprint
+        while remaining and used + remaining[0].total_xy_footprint <= FORM4BL_XY_BUDGET:
+            candidate = remaining.pop(0)
+            chosen.append(candidate)
+            used += candidate.total_xy_footprint
 
-            while remaining and used + remaining[0].total_xy_footprint <= FORM4BL_XY_BUDGET:
-                candidate = remaining.pop(0)
-                chosen.append(candidate)
-                used += candidate.total_xy_footprint
+        fillers = sorted(
+            remaining,
+            key=lambda profile: (profile.total_xy_footprint, profile.case_id),
+        )
+        for filler in list(fillers):
+            if (
+                used + filler.total_xy_footprint <= FORM4BL_XY_BUDGET
+                and filler in remaining
+            ):
+                chosen.append(filler)
+                used += filler.total_xy_footprint
+                remaining.remove(filler)
 
-            fillers = sorted(
-                remaining,
-                key=lambda profile: (profile.total_xy_footprint, profile.case_id),
-            )
-            for filler in list(fillers):
-                if (
-                    used + filler.total_xy_footprint <= FORM4BL_XY_BUDGET
-                    and filler in remaining
-                ):
-                    chosen.append(filler)
-                    used += filler.total_xy_footprint
-                    remaining.remove(filler)
-
-            manifests.append(_build_manifest(compatibility_key, chosen))
+        manifests.append(_build_manifest(compatibility_key, chosen))
+        if not remaining:
+            del remaining_by_compatibility[compatibility_key]
 
     return manifests + non_plannable_cases

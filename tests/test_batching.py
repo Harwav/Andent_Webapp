@@ -200,3 +200,32 @@ def test_plan_build_manifests_skips_unknown_presets_without_aborting_valid_cases
         "Die - Flat, No Supports",
         "Ortho Solid - Flat, No Supports",
     ]
+
+
+def test_plan_build_manifests_emits_harder_compatibility_group_before_easier_one(
+    monkeypatch,
+):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Experimental Preset",
+        PresetProfile(
+            preset_name="Experimental Preset",
+            printer="Form 4BL",
+            resin="Precision Model Resin",
+            layer_height_microns=50,
+            requires_supports=False,
+            preform_hint="experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-EASY", "Experimental Preset", x=20.0, y=20.0),
+        _row(2, "CASE-HARD", "Ortho Solid - Flat, No Supports", x=150.0, y=120.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert [manifest.case_ids for manifest in manifests] == [
+        ["CASE-HARD"],
+        ["CASE-EASY"],
+    ]
