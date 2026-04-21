@@ -7,6 +7,12 @@ from pydantic import BaseModel, Field
 
 Phase0ModelType = Literal["Ortho - Solid", "Ortho - Hollow", "Die", "Tooth", "Splint"]
 ConfidenceLevel = Literal["high", "medium", "low"]
+BuildPlanningStatus = Literal["planned", "non_plannable"]
+NonPlannableReason = Literal[
+    "oversized_case",
+    "incompatible_case_presets",
+    "missing_dimensions",
+]
 
 
 class DimensionSummary(BaseModel):
@@ -125,10 +131,12 @@ class BuildCandidate(BaseModel):
 
 
 class BuildManifest(BaseModel):
-    compatibility_key: str
+    compatibility_key: str | None
     case_ids: list[str] = Field(default_factory=list)
     preset_names: list[str] = Field(default_factory=list)
     import_groups: list[BuildManifestImportGroup] = Field(default_factory=list)
+    planning_status: BuildPlanningStatus = "planned"
+    non_plannable_reason: NonPlannableReason | None = None
 
 
 PrintJobStatus = Literal["Queued", "Printing", "Failed", "Paused", "Completed"]

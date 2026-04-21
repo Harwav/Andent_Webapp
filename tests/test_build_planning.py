@@ -7,6 +7,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.schemas import ClassificationRow, DimensionSummary
 from app.services.build_planning import plan_build_manifests
+from app.services.preset_catalog import PRESET_CATALOG, PresetProfile
+
+_DEFAULT_DIMENSIONS = object()
 
 
 def _row(
@@ -16,6 +19,7 @@ def _row(
     x: float,
     y: float,
     *,
+    dimensions: DimensionSummary | None | object = _DEFAULT_DIMENSIONS,
     file_path: str | None = None,
 ) -> ClassificationRow:
     return ClassificationRow(
@@ -25,7 +29,11 @@ def _row(
         preset=preset,
         confidence="high",
         status="Ready",
-        dimensions=DimensionSummary(x_mm=x, y_mm=y, z_mm=10.0),
+        dimensions=(
+            DimensionSummary(x_mm=x, y_mm=y, z_mm=10.0)
+            if dimensions is _DEFAULT_DIMENSIONS
+            else dimensions
+        ),
         file_path=file_path,
     )
 
@@ -101,3 +109,68 @@ def test_plan_build_manifests_prefers_next_largest_fit_before_small_fillers():
         ["CASE-15K", "CASE-14K"],
         ["CASE-1K"],
     ]
+
+
+def test_plan_build_manifests_marks_oversized_single_case_as_non_plannable():
+    rows = [
+        _row(1, "CASE-HUGE", "Ortho Solid - Flat, No Supports", 200.0, 150.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].case_ids == ["CASE-HUGE"]
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "oversized_case"
+    assert manifests[0].import_groups == []
+
+
+def test_plan_build_manifests_marks_incompatible_presets_within_one_case_as_non_plannable(
+    monkeypatch,
+):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Experimental Preset",
+        PresetProfile(
+            preset_name="Experimental Preset",
+            printer="Form 4BL",
+            resin="Draft Resin",
+            layer_height_microns=100,
+            requires_supports=False,
+            preform_hint="experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-MIXED", "Ortho Solid - Flat, No Supports", 60.0, 50.0),
+        _row(2, "CASE-MIXED", "Experimental Preset", 40.0, 30.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].case_ids == ["CASE-MIXED"]
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "incompatible_case_presets"
+    assert manifests[0].import_groups == []
+
+
+def test_plan_build_manifests_marks_missing_dimensions_as_non_plannable():
+    rows = [
+        _row(
+            1,
+            "CASE-NODIMS",
+            "Ortho Solid - Flat, No Supports",
+            60.0,
+            50.0,
+            dimensions=None,
+        ),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].case_ids == ["CASE-NODIMS"]
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "missing_dimensions"
+    assert manifests[0].import_groups == []

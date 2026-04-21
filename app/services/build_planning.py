@@ -57,12 +57,49 @@ def _build_file_prep_spec(
     )
 
 
-def _case_profile(case_id: str, rows: list[ClassificationRow]) -> CasePackProfile | None:
+def _build_non_plannable_manifest(
+    *,
+    case_id: str,
+    preset_names: list[str],
+    reason: str,
+    compatibility_key: str | None = None,
+) -> BuildManifest:
+    return BuildManifest(
+        compatibility_key=compatibility_key,
+        case_ids=[case_id],
+        preset_names=preset_names,
+        import_groups=[],
+        planning_status="non_plannable",
+        non_plannable_reason=reason,
+    )
+
+
+def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePackProfile | None, BuildManifest | None]:
     preset_names = sorted({row.preset for row in rows if row.preset})
+    compatibility_key: str | None = None
+
+    if any(row.dimensions is None for row in rows):
+        try:
+            compatibility_key = build_compatibility_key(preset_names)
+        except ValueError:
+            compatibility_key = None
+        return None, _build_non_plannable_manifest(
+            case_id=case_id,
+            preset_names=preset_names,
+            reason="missing_dimensions",
+            compatibility_key=compatibility_key,
+        )
+
     try:
         compatibility_key = build_compatibility_key(preset_names)
     except ValueError:
-        return None
+        if all(get_preset_profile(name) is not None for name in preset_names):
+            return None, _build_non_plannable_manifest(
+                case_id=case_id,
+                preset_names=preset_names,
+                reason="incompatible_case_presets",
+            )
+        return None, None
 
     total_xy = sum(_row_xy_area(row) * _support_factor(row.preset or "") for row in rows)
     difficulty = max(_row_xy_area(row) for row in rows) + total_xy
@@ -71,8 +108,16 @@ def _case_profile(case_id: str, rows: list[ClassificationRow]) -> CasePackProfil
     for row in sorted(rows, key=lambda item: (item.row_id or 0, item.file_name)):
         spec = _build_file_prep_spec(row, compatibility_key)
         if spec is None:
-            return None
+            return None, None
         file_specs.append(spec)
+
+    if total_xy > FORM4BL_XY_BUDGET:
+        return None, _build_non_plannable_manifest(
+            case_id=case_id,
+            preset_names=preset_names,
+            reason="oversized_case",
+            compatibility_key=compatibility_key,
+        )
 
     return CasePackProfile(
         case_id=case_id,
@@ -81,22 +126,25 @@ def _case_profile(case_id: str, rows: list[ClassificationRow]) -> CasePackProfil
         total_xy_footprint=total_xy,
         difficulty_score=difficulty,
         file_count=len(rows),
-    )
+    ), None
 
 
-def _group_case_profiles(rows: list[ClassificationRow]) -> list[CasePackProfile]:
+def _group_case_profiles(rows: list[ClassificationRow]) -> tuple[list[CasePackProfile], list[BuildManifest]]:
     rows_by_case: dict[str, list[ClassificationRow]] = {}
     for row in rows:
         case_id = row.case_id or ""
         rows_by_case.setdefault(case_id, []).append(row)
     profiles: list[CasePackProfile] = []
+    non_plannable_cases: list[BuildManifest] = []
     for case_id, case_rows in rows_by_case.items():
         if not case_id:
             continue
-        profile = _case_profile(case_id, case_rows)
+        profile, non_plannable = _case_profile(case_id, case_rows)
         if profile is not None:
             profiles.append(profile)
-    return profiles
+        if non_plannable is not None:
+            non_plannable_cases.append(non_plannable)
+    return profiles, non_plannable_cases
 
 
 def _group_profiles_by_compatibility(
@@ -159,7 +207,7 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
         for row in rows
         if row.status == "Ready" and row.preset and row.case_id
     ]
-    cases = _group_case_profiles(ready_rows)
+    cases, non_plannable_cases = _group_case_profiles(ready_rows)
     manifests: list[BuildManifest] = []
 
     for compatibility_key, profiles in _group_profiles_by_compatibility(cases).items():
@@ -197,4 +245,4 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
 
             manifests.append(_build_manifest(compatibility_key, chosen))
 
-    return manifests
+    return manifests + non_plannable_cases
