@@ -11,6 +11,7 @@ This module provides functionality for:
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -19,22 +20,13 @@ from .formlabs_web_client import FormlabsWebClient
 
 if TYPE_CHECKING:
     from ..config import Settings
-    from ..schemas import ClassificationRow, PrintJob
+    from ..schemas import BuildManifest, ClassificationRow, FilePrepSpec, PrintJob
 
 
 _job_cache: dict | None = None
 _cache_timestamp: datetime | None = None
 _screenshot_cache: dict[int, tuple[datetime, bytes]] = {}
 CACHE_TTL_SECONDS = 5
-PREFORM_PRESET_HINTS = {
-    "Ortho Solid - Flat, No Supports": "ortho_solid_v1",
-    "Ortho Hollow - Flat, No Supports": "ortho_hollow_v1",
-    "Die - Flat, No Supports": "die_v1",
-    "Tooth - With Supports": "tooth_v1",
-    "Splint - Flat, No Supports": "splint_v1",
-    "Antagonist Solid - Flat, No Supports": "antagonist_solid_v1",
-    "Antagonist Hollow - Flat, No Supports": "antagonist_hollow_v1",
-}
 
 
 def _now() -> datetime:
@@ -180,48 +172,11 @@ def get_print_job_screenshot(settings: "Settings", job_id: int) -> bytes:
     return screenshot_bytes
 
 
-def batch_cases_by_preset(rows: list["ClassificationRow"]) -> dict[str, list["ClassificationRow"]]:
-    """Group Ready cases by preset.
-
-    Args:
-        rows: List of ClassificationRow objects
-
-    Returns:
-        Dict mapping preset name to list of rows with that preset.
-        Rows with None preset are excluded.
-    """
-    batches: dict[str, list["ClassificationRow"]] = {}
-    seen_cases: set[tuple[str | int | None, str | None, str | None]] = set()
-
-    for row in rows:
-        if row.status != "Ready" or row.preset is None:
-            continue
-        case_key = (
-            row.row_id if row.row_id is not None else row.file_name,
-            row.case_id,
-            row.preset,
-        )
-        if case_key in seen_cases:
-            continue
-        seen_cases.add(case_key)
-        if row.preset not in batches:
-            batches[row.preset] = []
-        batches[row.preset].append(row)
-
-    return batches
-
-
 def generate_job_name(date: datetime, batch_number: int) -> str:
     """Generate job name in YYMMDD-NNN format."""
     date_part = date.strftime("%y%m%d")
     number_part = f"{batch_number:03d}"
     return f"{date_part}-{number_part}"
-
-
-def _preform_preset_hint(preset: str | None) -> str | None:
-    if preset is None:
-        return None
-    return PREFORM_PRESET_HINTS.get(preset)
 
 
 def _resolve_device_id(rows: list["ClassificationRow"]) -> str:
@@ -233,57 +188,189 @@ def _resolve_device_id(rows: list["ClassificationRow"]) -> str:
     return next(iter(explicit_printers))
 
 
-def process_print_batch(
+def _manifest_preset_summary(manifest: "BuildManifest") -> str:
+    if not manifest.preset_names:
+        return "Unknown Preset"
+    if len(manifest.preset_names) == 1:
+        return manifest.preset_names[0]
+    return " + ".join(manifest.preset_names)
+
+
+def _manifest_rows(
+    manifest: "BuildManifest",
+    row_lookup: dict[int, "ClassificationRow"],
+) -> list["ClassificationRow"]:
+    rows: list["ClassificationRow"] = []
+    seen_row_ids: set[int] = set()
+
+    for group in manifest.import_groups:
+        for file_spec in group.files:
+            row = row_lookup.get(file_spec.row_id)
+            if row is None or file_spec.row_id in seen_row_ids:
+                continue
+            seen_row_ids.add(file_spec.row_id)
+            rows.append(row)
+
+    return rows
+
+
+def _ordered_manifest_file_specs(manifest: "BuildManifest") -> list["FilePrepSpec"]:
+    file_specs = [
+        file_spec
+        for group in manifest.import_groups
+        for file_spec in group.files
+    ]
+    return sorted(file_specs, key=lambda spec: (spec.order, spec.row_id, spec.file_name))
+
+
+def _manifest_case_ids_by_file_order(manifest: "BuildManifest") -> list[str]:
+    case_ids: list[str] = []
+    seen: set[str] = set()
+
+    for file_spec in _ordered_manifest_file_specs(manifest):
+        if file_spec.case_id in seen:
+            continue
+        seen.add(file_spec.case_id)
+        case_ids.append(file_spec.case_id)
+
+    for case_id in manifest.case_ids:
+        if case_id in seen:
+            continue
+        seen.add(case_id)
+        case_ids.append(case_id)
+
+    return case_ids
+
+
+def _last_added_case_id(manifest: "BuildManifest") -> str | None:
+    ordered_files = _ordered_manifest_file_specs(manifest)
+    if ordered_files:
+        return ordered_files[-1].case_id
+    if manifest.case_ids:
+        return manifest.case_ids[-1]
+    return None
+
+
+def _subset_manifest(
+    manifest: "BuildManifest",
+    case_ids: list[str],
+) -> "BuildManifest":
+    case_id_set = set(case_ids)
+    import_groups = []
+    preset_names: list[str] = []
+
+    for group in manifest.import_groups:
+        files = [file_spec for file_spec in group.files if file_spec.case_id in case_id_set]
+        if not files:
+            continue
+        preset_names.extend(file_spec.preset_name for file_spec in files)
+        import_groups.append(
+            group.model_copy(
+                update={
+                    "row_ids": [file_spec.row_id for file_spec in files],
+                    "files": files,
+                }
+            )
+        )
+
+    return manifest.model_copy(
+        update={
+            "case_ids": case_ids,
+            "preset_names": sorted(set(preset_names)),
+            "import_groups": import_groups,
+        }
+    )
+
+
+def _validation_errors(validation_result: dict[str, Any]) -> list[str]:
+    errors = validation_result.get("errors")
+    if not isinstance(errors, list):
+        return []
+    return [str(error) for error in errors]
+
+
+def process_print_manifest(
     settings: "Settings",
-    preset: str,
+    manifest: "BuildManifest",
     rows: list["ClassificationRow"],
     batch_number: int,
 ) -> dict:
-    """Process a batch of cases for printing."""
+    """Process one planned build manifest for printing."""
     from .preform_client import PreFormClient
 
+    if manifest.planning_status != "planned" or not manifest.import_groups:
+        raise ValueError("Cannot process a non-plannable build manifest.")
+
     job_name = generate_job_name(datetime.now(), batch_number)
-
-    case_ids = [r.case_id for r in rows if r.case_id]
-    stored_paths = []
-    for row in rows:
-        if row.row_id:
-            from ..database import get_stored_file_path
-
-            path = get_stored_file_path(settings, row.row_id)
-            if path:
-                stored_paths.append(path)
-
-    if not stored_paths:
-        raise ValueError("No valid STL files found for batch")
+    row_lookup = {
+        row.row_id: row
+        for row in rows
+        if row.row_id is not None
+    }
+    active_case_ids = _manifest_case_ids_by_file_order(manifest)
+    if not active_case_ids:
+        raise ValueError("Build manifest does not contain any cases.")
+    active_rows = _manifest_rows(manifest, row_lookup)
+    if not active_rows:
+        raise ValueError("No valid STL files found for manifest")
 
     client = PreFormClient(settings.preform_server_url)
 
     try:
-        patient_id = case_ids[0] if case_ids else "unknown"
+        patient_id = active_case_ids[0]
         scene_result = client.create_scene(patient_id, job_name)
         scene_id = scene_result.get("scene_id")
-        preset_hint = _preform_preset_hint(preset)
 
         if not scene_id:
             raise Exception("Failed to create scene: no scene_id returned")
 
-        for stl_path in stored_paths:
-            if Path(stl_path).exists():
-                client.import_model(scene_id, str(stl_path), preset=preset_hint)
+        imported_any = False
+        for file_spec in _ordered_manifest_file_specs(manifest):
+            stl_path = Path(file_spec.file_path)
+            if not stl_path.exists():
+                raise ValueError(f"STL file not found for manifest: {file_spec.file_path}")
+            client.import_model(scene_id, str(stl_path), preset=file_spec.preform_hint)
+            imported_any = True
 
-        device_id = _resolve_device_id(rows)
-        print_result = client.send_to_printer(scene_id, device_id)
-        print_job_id = print_result.get("print_id")
+        if not imported_any:
+            raise ValueError("No valid STL files found for manifest")
 
+        client.auto_layout(scene_id)
+        validation_result = client.validate_scene(scene_id)
+        if validation_result.get("valid", False):
+            print_result = client.send_to_printer(scene_id, _resolve_device_id(active_rows))
+            return {
+                "job_name": job_name,
+                "scene_id": scene_id,
+                "print_job_id": print_result.get("print_id"),
+                "preset": _manifest_preset_summary(manifest),
+                "preset_names": manifest.preset_names,
+                "compatibility_key": manifest.compatibility_key,
+                "case_ids": active_case_ids,
+                "manifest": manifest,
+                "manifest_json": manifest.model_dump(),
+                "status": "Queued",
+                "row_count": len(active_rows),
+                "review_required": False,
+                "validation_passed": True,
+            }
+
+        validation_errors = _validation_errors(validation_result)
         return {
             "job_name": job_name,
             "scene_id": scene_id,
-            "print_job_id": print_job_id,
-            "preset": preset,
-            "case_ids": case_ids,
-            "status": "Queued",
-            "row_count": len(rows),
+            "print_job_id": None,
+            "preset": _manifest_preset_summary(manifest),
+            "preset_names": manifest.preset_names,
+            "compatibility_key": manifest.compatibility_key,
+            "case_ids": active_case_ids,
+            "manifest": manifest,
+            "manifest_json": manifest.model_dump(),
+            "status": "Needs Review",
+            "row_count": len(active_rows),
+            "review_required": True,
+            "validation_passed": False,
+            "error_message": ", ".join(validation_errors) or "scene_validation_failed",
         }
     finally:
         client.close()
@@ -295,10 +382,10 @@ def send_ready_rows_to_print(
 ) -> list["ClassificationRow"]:
     """Send Ready rows to print with full PreFormServer handoff."""
     from contextlib import closing
-    import json
 
     from ..database import _load_rows_by_ids, _now_iso, connect, get_upload_row_by_id
     from ..schemas import PrintJob
+    from .build_planning import plan_build_manifests
 
     if not row_ids:
         return []
@@ -313,27 +400,134 @@ def send_ready_rows_to_print(
     if not ready_rows:
         return rows
 
-    batches = batch_cases_by_preset(ready_rows)
-    if not batches:
+    manifests = plan_build_manifests(ready_rows)
+    if not manifests:
         return rows
 
     now = _now_iso()
     batch_number = 1
+    rows_by_case: dict[str, list[ClassificationRow]] = {}
+    rows_by_id = {
+        row.row_id: row
+        for row in ready_rows
+        if row.row_id is not None
+    }
+    for row in ready_rows:
+        if row.case_id:
+            rows_by_case.setdefault(row.case_id, []).append(row)
 
     with closing(connect(settings)) as connection:
         try:
-            for preset, batch_rows in batches.items():
-                result = process_print_batch(settings, preset, batch_rows, batch_number)
-                batch_number += 1
+            for manifest in manifests:
+                manifest_rows = [
+                    row
+                    for case_id in manifest.case_ids
+                    for row in rows_by_case.get(case_id, [])
+                ]
+                if not manifest_rows:
+                    continue
 
-                case_ids = [row.case_id for row in batch_rows if row.case_id]
+                if manifest.planning_status != "planned" or not manifest.import_groups:
+                    review_reason = (
+                        f"Build planning requires manual review: {manifest.non_plannable_reason}"
+                    )
+                    for row in manifest_rows:
+                        connection.execute(
+                            """
+                            UPDATE upload_rows
+                            SET status = 'Needs Review',
+                                review_required = 1,
+                                review_reason = ?,
+                                current_event_at = ?
+                            WHERE id = ?
+                            """,
+                            (review_reason, now, row.row_id),
+                        )
+                        metadata = json.dumps({
+                            "status": "Needs Review",
+                            "reason": review_reason,
+                            "manifest": manifest.model_dump(),
+                        })
+                        connection.execute(
+                            """
+                            INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                            VALUES (?, ?, ?, ?)
+                            """,
+                            (row.row_id, "manual_review_required", now, metadata),
+                        )
+                    continue
+
+                active_manifest = manifest
+                while True:
+                    active_rows = _manifest_rows(active_manifest, rows_by_id)
+                    result = process_print_manifest(
+                        settings,
+                        active_manifest,
+                        active_rows,
+                        batch_number,
+                    )
+                    active_case_ids = _manifest_case_ids_by_file_order(active_manifest)
+                    if result.get("validation_passed", True) or len(active_case_ids) == 1:
+                        break
+
+                    rollback_case_id = _last_added_case_id(active_manifest)
+                    if rollback_case_id is None:
+                        break
+
+                    retry_case_ids = [
+                        case_id
+                        for case_id in active_case_ids
+                        if case_id != rollback_case_id
+                    ]
+                    if not retry_case_ids:
+                        break
+                    active_manifest = _subset_manifest(active_manifest, retry_case_ids)
+
+                accepted_manifest = result["manifest"]
+                accepted_rows = _manifest_rows(accepted_manifest, rows_by_id)
+
+                if result.get("review_required"):
+                    review_reason = (
+                        "PreForm validation requires manual review: "
+                        f"{result.get('error_message') or 'scene_validation_failed'}"
+                    )
+                    for row in accepted_rows:
+                        connection.execute(
+                            """
+                            UPDATE upload_rows
+                            SET status = 'Needs Review',
+                                review_required = 1,
+                                review_reason = ?,
+                                current_event_at = ?
+                            WHERE id = ?
+                            """,
+                            (review_reason, now, row.row_id),
+                        )
+                        metadata = json.dumps({
+                            "status": "Needs Review",
+                            "reason": review_reason,
+                            "scene_id": result["scene_id"],
+                            "manifest": result["manifest_json"],
+                        })
+                        connection.execute(
+                            """
+                            INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                            VALUES (?, ?, ?, ?)
+                            """,
+                            (row.row_id, "manual_review_required", now, metadata),
+                        )
+                    continue
+
                 print_job = PrintJob(
                     job_name=result["job_name"],
                     scene_id=result["scene_id"],
                     print_job_id=result["print_job_id"],
                     status=result.get("status", "Queued"),
-                    preset=preset,
-                    case_ids=case_ids,
+                    preset=result["preset"],
+                    preset_names=result.get("preset_names", []),
+                    compatibility_key=result.get("compatibility_key"),
+                    case_ids=result["case_ids"],
+                    manifest_json=result.get("manifest_json"),
                 )
 
                 connection.execute(
@@ -344,7 +538,10 @@ def send_ready_rows_to_print(
                         print_job_id,
                         status,
                         preset,
+                        preset_names_json,
+                        compatibility_key,
                         case_ids,
+                        manifest_json,
                         created_at,
                         updated_at,
                         screenshot_url,
@@ -354,7 +551,7 @@ def send_ready_rows_to_print(
                         estimated_completion,
                         error_message
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         print_job.job_name,
@@ -362,7 +559,10 @@ def send_ready_rows_to_print(
                         print_job.print_job_id,
                         print_job.status,
                         print_job.preset,
+                        json.dumps(print_job.preset_names),
+                        print_job.compatibility_key,
                         json.dumps(print_job.case_ids),
+                        json.dumps(print_job.manifest_json) if print_job.manifest_json is not None else None,
                         now,
                         now,
                         print_job.screenshot_url,
@@ -373,8 +573,9 @@ def send_ready_rows_to_print(
                         print_job.error_message,
                     ),
                 )
+                batch_number += 1
 
-                for row in batch_rows:
+                for row in accepted_rows:
                     connection.execute(
                         """
                         UPDATE upload_rows
@@ -388,6 +589,7 @@ def send_ready_rows_to_print(
                         "job_name": result["job_name"],
                         "scene_id": result["scene_id"],
                         "print_job_id": result["print_job_id"],
+                        "manifest": result["manifest_json"],
                     })
                     connection.execute(
                         """

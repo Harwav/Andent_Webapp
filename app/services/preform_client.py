@@ -132,6 +132,31 @@ class PreFormClient:
             raise Exception(f"Failed to import model: {response.status_code} - {response.text}")
         
         return response.json()
+
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
+    def auto_layout(self, scene_id: str) -> Dict[str, Any]:
+        """Trigger automatic layout generation for a scene."""
+        url = f"{self.base_url}/scene/{scene_id}/auto-layout/"
+        payload = {"allow_overlapping_supports": False}
+
+        response = self.session.post(url, json=payload, timeout=30)
+
+        if response.status_code != 200:
+            raise Exception(f"Failed to auto-layout scene: {response.status_code} - {response.text}")
+
+        return response.json()
+
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
+    def validate_scene(self, scene_id: str) -> Dict[str, Any]:
+        """Validate a scene and return validity state and reported issues."""
+        url = f"{self.base_url}/scene/{scene_id}/validate/"
+
+        response = self.session.get(url, timeout=30)
+
+        if response.status_code != 200:
+            raise Exception(f"Failed to validate scene: {response.status_code} - {response.text}")
+
+        return response.json()
     
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def send_to_printer(self, scene_id: str, device_id: str) -> Dict[str, Any]:

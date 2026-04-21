@@ -7,6 +7,14 @@ from pydantic import BaseModel, Field
 
 Phase0ModelType = Literal["Ortho - Solid", "Ortho - Hollow", "Die", "Tooth", "Splint"]
 ConfidenceLevel = Literal["high", "medium", "low"]
+BuildPlanningStatus = Literal["planned", "non_plannable"]
+NonPlannableReason = Literal[
+    "oversized_case",
+    "incompatible_case_presets",
+    "missing_dimensions",
+    "missing_file_path",
+    "missing_row_id",
+]
 
 
 class DimensionSummary(BaseModel):
@@ -38,6 +46,7 @@ class ClassificationRow(BaseModel):
     person: str | None = None
     thumbnail_url: str | None = None
     file_url: str | None = None
+    file_path: str | None = Field(default=None, exclude=True)
 
 
 class UploadClassificationResponse(BaseModel):
@@ -87,22 +96,66 @@ class BatchPlanPreviewResponse(BaseModel):
     cannot_fit_count: int
 
 
+class FilePrepSpec(BaseModel):
+    row_id: int
+    case_id: str
+    file_name: str
+    file_path: str
+    preset_name: str
+    compatibility_key: str
+    xy_footprint_estimate: float
+    support_inflation_factor: float
+    order: int = 0
+    preform_hint: str | None = None
+
+
+class BuildManifestImportGroup(BaseModel):
+    preset_name: str
+    preform_hint: str | None = None
+    row_ids: list[int] = Field(default_factory=list)
+    files: list[FilePrepSpec] = Field(default_factory=list)
+
+
+class CasePackProfile(BaseModel):
+    case_id: str
+    compatibility_key: str
+    file_specs: list[FilePrepSpec] = Field(default_factory=list)
+    total_xy_footprint: float
+    difficulty_score: float
+    file_count: int
+
+
+class BuildCandidate(BaseModel):
+    compatibility_key: str
+    case_ids: list[str] = Field(default_factory=list)
+    used_xy_budget: float = 0.0
+    remaining_xy_budget: float = 0.0
+
+
+class BuildManifest(BaseModel):
+    compatibility_key: str | None
+    case_ids: list[str] = Field(default_factory=list)
+    preset_names: list[str] = Field(default_factory=list)
+    import_groups: list[BuildManifestImportGroup] = Field(default_factory=list)
+    planning_status: BuildPlanningStatus = "planned"
+    non_plannable_reason: NonPlannableReason | None = None
+
+
 PrintJobStatus = Literal["Queued", "Printing", "Failed", "Paused", "Completed"]
 
 
 class PrintJob(BaseModel):
-    """Print job schema for the print queue.
-    
-    Represents a print job submitted to PreFormServer and tracked
-    via the Formlabs Web API.
-    """
+    """Print job schema for the print queue."""
     id: int | None = None
-    job_name: str = Field(pattern=r"^\d{6}-\d{3}$")  # YYMMDD-001 format
-    scene_id: str | None = None  # From PreFormServer
-    print_job_id: str | None = None  # From Formlabs API
+    job_name: str = Field(pattern=r"^\d{6}-\d{3}$")
+    scene_id: str | None = None
+    print_job_id: str | None = None
     status: PrintJobStatus = "Queued"
     preset: str
+    preset_names: list[str] = Field(default_factory=list)
+    compatibility_key: str | None = None
     case_ids: list[str] = Field(default_factory=list)
+    manifest_json: dict[str, Any] | None = None
     created_at: str | None = None
     updated_at: str | None = None
     screenshot_url: str | None = None

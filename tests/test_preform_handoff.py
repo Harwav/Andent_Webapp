@@ -22,6 +22,8 @@ class StubPreFormClient:
         self.base_url = base_url
         self.created_scenes: list[tuple[str, str]] = []
         self.imported_models: list[tuple[str, str, str | None]] = []
+        self.layout_calls: list[str] = []
+        self.validation_results: list[dict[str, object]] = []
         self.print_jobs: list[tuple[str, str]] = []
         self.closed = False
 
@@ -32,6 +34,15 @@ class StubPreFormClient:
     def import_model(self, scene_id: str, stl_path: str, preset: str | None = None):
         self.imported_models.append((scene_id, stl_path, preset))
         return {"model_id": f"model-{len(self.imported_models)}"}
+
+    def auto_layout(self, scene_id: str):
+        self.layout_calls.append(scene_id)
+        return {"status": "ok"}
+
+    def validate_scene(self, scene_id: str):
+        if self.validation_results:
+            return self.validation_results.pop(0)
+        return {"valid": True, "errors": []}
 
     def send_to_printer(self, scene_id: str, device_id: str):
         self.print_jobs.append((scene_id, device_id))
@@ -60,7 +71,11 @@ def _row_payload(
     preset: str,
     status: str,
     content_hash: str,
+    model_type: str = "Ortho - Solid",
     printer: str | None = None,
+    dimension_x_mm: float = 40.0,
+    dimension_y_mm: float = 30.0,
+    dimension_z_mm: float = 10.0,
 ) -> dict:
     return {
         "file_name": file_path.name,
@@ -68,13 +83,13 @@ def _row_payload(
         "content_hash": content_hash,
         "thumbnail_svg": None,
         "case_id": case_id,
-        "model_type": "Ortho - Solid",
+        "model_type": model_type,
         "preset": preset,
         "confidence": "high",
         "status": status,
-        "dimension_x_mm": None,
-        "dimension_y_mm": None,
-        "dimension_z_mm": None,
+        "dimension_x_mm": dimension_x_mm,
+        "dimension_y_mm": dimension_y_mm,
+        "dimension_z_mm": dimension_z_mm,
         "volume_ml": None,
         "structure": None,
         "structure_confidence": None,
@@ -105,10 +120,41 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
     row_ids = _seed_rows(
         settings,
         [
-            _row_payload(case_files[0], case_id="CASE001", preset="Preset A", status="Ready", content_hash="hash-1"),
-            _row_payload(case_files[1], case_id="CASE002", preset="Preset A", status="Ready", content_hash="hash-2"),
-            _row_payload(case_files[2], case_id="CASE003", preset="Preset B", status="Ready", content_hash="hash-3"),
-            _row_payload(case_files[3], case_id="CASE004", preset="Preset A", status="Check", content_hash="hash-4"),
+            _row_payload(
+                case_files[0],
+                case_id="CASE001",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-1",
+                dimension_x_mm=150.0,
+                dimension_y_mm=100.0,
+            ),
+            _row_payload(
+                case_files[1],
+                case_id="CASE002",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-2",
+                dimension_x_mm=140.0,
+                dimension_y_mm=100.0,
+            ),
+            _row_payload(
+                case_files[2],
+                case_id="CASE003",
+                preset="Tooth - With Supports",
+                status="Ready",
+                content_hash="hash-3",
+                model_type="Tooth",
+                dimension_x_mm=40.0,
+                dimension_y_mm=25.0,
+            ),
+            _row_payload(
+                case_files[3],
+                case_id="CASE004",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Check",
+                content_hash="hash-4",
+            ),
         ],
     )
 
@@ -120,6 +166,7 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
     assert stub_client.base_url == settings.preform_server_url
     assert len(stub_client.created_scenes) == 2
     assert len(stub_client.imported_models) == 3
+    assert len(stub_client.layout_calls) == 2
     assert len(stub_client.print_jobs) == 2
 
     submitted_rows = {row["file_name"]: row["status"] for row in response.json()}
@@ -131,8 +178,170 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
     jobs = list_print_jobs(settings)
     assert len(jobs) == 2
     jobs_by_preset = {job.preset: job for job in jobs}
-    assert jobs_by_preset["Preset A"].case_ids == ["CASE001", "CASE002"]
-    assert jobs_by_preset["Preset B"].case_ids == ["CASE003"]
+    assert jobs_by_preset["Ortho Solid - Flat, No Supports"].case_ids == ["CASE001", "CASE002"]
+    assert jobs_by_preset["Tooth - With Supports"].case_ids == ["CASE003"]
+
+
+def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_a = tmp_path / "case-a.stl"
+    case_b = tmp_path / "case-b.stl"
+    for file_path in (case_a, case_b):
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_a,
+                case_id="CASE-A",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-a",
+                dimension_x_mm=60.0,
+                dimension_y_mm=50.0,
+            ),
+            _row_payload(
+                case_b,
+                case_id="CASE-B",
+                preset="Tooth - With Supports",
+                status="Ready",
+                content_hash="hash-b",
+                model_type="Tooth",
+                dimension_x_mm=35.0,
+                dimension_y_mm=35.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    assert len(stub_client.created_scenes) == 1
+    assert stub_client.imported_models == [
+        ("scene-1", str(case_a), "ortho_solid_v1"),
+        ("scene-1", str(case_b), "tooth_v1"),
+    ]
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].preset_names == [
+        "Ortho Solid - Flat, No Supports",
+        "Tooth - With Supports",
+    ]
+    assert jobs[0].compatibility_key == "form-4bl|precision-model-resin|100"
+    assert jobs[0].manifest_json is not None
+    assert jobs[0].manifest_json["case_ids"] == ["CASE-A", "CASE-B"]
+
+
+def test_send_to_print_rolls_back_last_case_when_validation_fails(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_files = [
+        tmp_path / "case-a.stl",
+        tmp_path / "case-b.stl",
+        tmp_path / "case-c.stl",
+    ]
+    for file_path in case_files:
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_files[0],
+                case_id="CASE-TOOTH",
+                preset="Tooth - With Supports",
+                status="Ready",
+                content_hash="hash-tooth",
+                model_type="Tooth",
+                dimension_x_mm=150.0,
+                dimension_y_mm=100.0,
+            ),
+            _row_payload(
+                case_files[1],
+                case_id="CASE-ORTHO",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-ortho",
+                dimension_x_mm=60.0,
+                dimension_y_mm=50.0,
+            ),
+            _row_payload(
+                case_files[2],
+                case_id="CASE-LATE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-late",
+                dimension_x_mm=140.0,
+                dimension_y_mm=100.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.validation_results = [
+        {"valid": False, "errors": ["overlap"]},
+        {"valid": True, "errors": []},
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    row_statuses = {row["file_name"]: row["status"] for row in response.json()}
+    assert row_statuses["case-a.stl"] == "Submitted"
+    assert row_statuses["case-b.stl"] == "Ready"
+    assert row_statuses["case-c.stl"] == "Submitted"
+    assert len(stub_client.created_scenes) == 3
+    assert stub_client.imported_models[:3] == [
+        ("scene-1", str(case_files[0]), "tooth_v1"),
+        ("scene-1", str(case_files[1]), "ortho_solid_v1"),
+        ("scene-2", str(case_files[0]), "tooth_v1"),
+    ]
+    assert len(list_print_jobs(settings)) == 2
+
+
+def test_send_to_print_routes_single_invalid_case_to_manual_review(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "invalid-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-INVALID",
+                preset="Tooth - With Supports",
+                status="Ready",
+                content_hash="hash-invalid",
+                model_type="Tooth",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.validation_results = [{"valid": False, "errors": ["overlap"]}]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert row["status"] == "Needs Review"
+    assert row["review_required"] is True
+    assert row["review_reason"] == "PreForm validation requires manual review: overlap"
+    assert list_print_jobs(settings) == []
 
 
 def test_send_to_print_passes_preset_hint_and_selected_printer(tmp_path):
@@ -151,6 +360,7 @@ def test_send_to_print_passes_preset_hint_and_selected_printer(tmp_path):
                 preset="Tooth - With Supports",
                 status="Ready",
                 content_hash="hash-900",
+                model_type="Tooth",
                 printer="printer_form4_001",
             ),
         ],
@@ -175,7 +385,13 @@ def test_send_to_print_returns_502_when_preform_unavailable(tmp_path):
     row_ids = _seed_rows(
         settings,
         [
-            _row_payload(case_file, case_id="CASE001", preset="Preset A", status="Ready", content_hash="hash-1"),
+            _row_payload(
+                case_file,
+                case_id="CASE001",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-1",
+            ),
         ],
     )
 

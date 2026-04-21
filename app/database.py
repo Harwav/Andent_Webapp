@@ -64,7 +64,10 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         print_job_id TEXT,
         status TEXT NOT NULL DEFAULT 'Queued',
         preset TEXT NOT NULL,
+        preset_names_json TEXT,
+        compatibility_key TEXT,
         case_ids TEXT,
+        manifest_json TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         screenshot_url TEXT,
@@ -140,6 +143,9 @@ def init_db(settings: Settings) -> None:
         _ensure_column(connection, "upload_rows", "printer", "TEXT")
         _ensure_column(connection, "upload_rows", "person", "TEXT")
         _ensure_column(connection, "upload_rows", "current_event_at", "TEXT")
+        _ensure_column(connection, "print_jobs", "preset_names_json", "TEXT")
+        _ensure_column(connection, "print_jobs", "manifest_json", "TEXT")
+        _ensure_column(connection, "print_jobs", "compatibility_key", "TEXT")
         connection.execute(
             """
             UPDATE upload_rows
@@ -162,6 +168,24 @@ def _row_to_print_job(row: sqlite3.Row) -> PrintJob:
         except json.JSONDecodeError:
             case_ids = []
 
+    preset_names: list[str] = []
+    if row["preset_names_json"]:
+        try:
+            loaded_preset_names = json.loads(row["preset_names_json"])
+            if isinstance(loaded_preset_names, list):
+                preset_names = [str(preset_name) for preset_name in loaded_preset_names]
+        except json.JSONDecodeError:
+            preset_names = []
+
+    manifest_json: dict[str, object] | None = None
+    if row["manifest_json"]:
+        try:
+            loaded_manifest = json.loads(row["manifest_json"])
+            if isinstance(loaded_manifest, dict):
+                manifest_json = loaded_manifest
+        except json.JSONDecodeError:
+            manifest_json = None
+
     return PrintJob(
         id=row["id"],
         job_name=row["job_name"],
@@ -169,7 +193,10 @@ def _row_to_print_job(row: sqlite3.Row) -> PrintJob:
         print_job_id=row["print_job_id"],
         status=row["status"],
         preset=row["preset"],
+        preset_names=preset_names,
+        compatibility_key=row["compatibility_key"],
         case_ids=case_ids,
+        manifest_json=manifest_json,
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         screenshot_url=row["screenshot_url"],
@@ -195,7 +222,9 @@ def _fetch_print_job(connection: sqlite3.Connection, *, job_id: int | None = Non
 
 def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
     now = _now_iso()
+    preset_names_json = json.dumps(print_job.preset_names)
     case_ids_json = json.dumps(print_job.case_ids)
+    manifest_json = json.dumps(print_job.manifest_json) if print_job.manifest_json is not None else None
 
     with closing(connect(settings)) as connection:
         cursor = connection.execute(
@@ -206,7 +235,10 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 print_job_id,
                 status,
                 preset,
+                preset_names_json,
+                compatibility_key,
                 case_ids,
+                manifest_json,
                 created_at,
                 updated_at,
                 screenshot_url,
@@ -216,7 +248,7 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 estimated_completion,
                 error_message
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 print_job.job_name,
@@ -224,7 +256,10 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 print_job.print_job_id,
                 print_job.status,
                 print_job.preset,
+                preset_names_json,
+                print_job.compatibility_key,
                 case_ids_json,
+                manifest_json,
                 print_job.created_at or now,
                 print_job.updated_at or now,
                 print_job.screenshot_url,
@@ -275,7 +310,10 @@ def update_print_job(settings: Settings, job_id: int, **changes: object) -> Prin
         "print_job_id",
         "status",
         "preset",
+        "preset_names",
+        "compatibility_key",
         "case_ids",
+        "manifest_json",
         "screenshot_url",
         "printer_type",
         "resin",
@@ -294,7 +332,12 @@ def update_print_job(settings: Settings, job_id: int, **changes: object) -> Prin
         for field, value in changes.items():
             if field not in allowed_fields:
                 continue
-            if field == "case_ids" and value is not None:
+            if field == "preset_names":
+                field = "preset_names_json"
+                value = json.dumps(value if value is not None else [])
+            elif field == "case_ids" and value is not None:
+                value = json.dumps(value)
+            elif field == "manifest_json" and value is not None:
                 value = json.dumps(value)
             assignments.append(f"{field} = ?")
             values.append(value)
@@ -463,6 +506,7 @@ def _row_to_classification_row(row: sqlite3.Row) -> ClassificationRow:
         person=row["person"],
         thumbnail_url=f"/api/uploads/rows/{row_id}/thumbnail.svg",
         file_url=f"/api/uploads/rows/{row_id}/file",
+        file_path=row["stored_path"],
     )
 
 
