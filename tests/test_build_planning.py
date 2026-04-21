@@ -125,6 +125,22 @@ def test_plan_build_manifests_marks_oversized_single_case_as_non_plannable():
     assert manifests[0].import_groups == []
 
 
+def test_plan_build_manifests_orders_non_plannable_cases_by_same_priority_scheme():
+    rows = [
+        _row(1, "CASE-OVERSIZED", "Ortho Solid - Flat, No Supports", 200.0, 150.0),
+        _row(2, "CASE-EASY", "Ortho Solid - Flat, No Supports", 20.0, 20.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert [manifest.case_ids for manifest in manifests] == [
+        ["CASE-OVERSIZED"],
+        ["CASE-EASY"],
+    ]
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "oversized_case"
+
+
 def test_plan_build_manifests_marks_incompatible_presets_within_one_case_as_non_plannable(
     monkeypatch,
 ):

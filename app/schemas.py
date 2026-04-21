@@ -44,7 +44,7 @@ class ClassificationRow(BaseModel):
     person: str | None = None
     thumbnail_url: str | None = None
     file_url: str | None = None
-    file_path: str | None = None
+    file_path: str | None = Field(default=None, exclude=True)
 
 
 class UploadClassificationResponse(BaseModel):

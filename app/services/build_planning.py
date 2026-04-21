@@ -17,6 +17,7 @@ from .preset_catalog import (
 
 FORM4BL_XY_BUDGET = 29000.0
 SUPPORT_INFLATION = 1.18
+ManifestOrderKey = tuple[float, float, str]
 
 
 def _row_xy_area(row: ClassificationRow) -> float:
@@ -83,6 +84,18 @@ def _build_non_plannable_manifest(
     )
 
 
+def _case_metrics(rows: list[ClassificationRow]) -> tuple[float, float]:
+    measurable_rows = [row for row in rows if row.dimensions is not None]
+    total_xy = sum(_row_xy_area(row) * _support_factor(row.preset or "") for row in measurable_rows)
+    difficulty = max((_row_xy_area(row) for row in measurable_rows), default=0.0) + total_xy
+    return total_xy, difficulty
+
+
+def _case_priority(case_id: str, rows: list[ClassificationRow]) -> ManifestOrderKey:
+    total_xy, difficulty = _case_metrics(rows)
+    return (-difficulty, -total_xy, case_id)
+
+
 def _profile_priority(profile: CasePackProfile) -> tuple[float, float, str]:
     return (
         -profile.difficulty_score,
@@ -119,8 +132,7 @@ def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePack
             compatibility_key=compatibility_key,
         )
 
-    total_xy = sum(_row_xy_area(row) * _support_factor(row.preset or "") for row in rows)
-    difficulty = max(_row_xy_area(row) for row in rows) + total_xy
+    total_xy, difficulty = _case_metrics(rows)
     file_specs: list[FilePrepSpec] = []
 
     for row in sorted(rows, key=lambda item: (item.row_id or 0, item.file_name)):
@@ -147,13 +159,15 @@ def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePack
     ), None
 
 
-def _group_case_profiles(rows: list[ClassificationRow]) -> tuple[list[CasePackProfile], list[BuildManifest]]:
+def _group_case_profiles(
+    rows: list[ClassificationRow],
+) -> tuple[list[CasePackProfile], list[tuple[ManifestOrderKey, BuildManifest]]]:
     rows_by_case: dict[str, list[ClassificationRow]] = {}
     for row in rows:
         case_id = row.case_id or ""
         rows_by_case.setdefault(case_id, []).append(row)
     profiles: list[CasePackProfile] = []
-    non_plannable_cases: list[BuildManifest] = []
+    non_plannable_cases: list[tuple[ManifestOrderKey, BuildManifest]] = []
     for case_id, case_rows in rows_by_case.items():
         if not case_id:
             continue
@@ -161,7 +175,7 @@ def _group_case_profiles(rows: list[ClassificationRow]) -> tuple[list[CasePackPr
         if profile is not None:
             profiles.append(profile)
         if non_plannable is not None:
-            non_plannable_cases.append(non_plannable)
+            non_plannable_cases.append((_case_priority(case_id, case_rows), non_plannable))
     return profiles, non_plannable_cases
 
 
@@ -228,7 +242,7 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
         if row.status == "Ready" and row.preset and row.case_id
     ]
     cases, non_plannable_cases = _group_case_profiles(ready_rows)
-    manifests: list[BuildManifest] = []
+    ordered_manifests: list[tuple[ManifestOrderKey, BuildManifest]] = []
     remaining_by_compatibility = {
         compatibility_key: sorted(profiles, key=_profile_priority)
         for compatibility_key, profiles in _group_profiles_by_compatibility(cases).items()
@@ -261,8 +275,12 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
                 used += filler.total_xy_footprint
                 remaining.remove(filler)
 
-        manifests.append(_build_manifest(compatibility_key, chosen))
+        ordered_manifests.append(
+            (_profile_priority(seed), _build_manifest(compatibility_key, chosen))
+        )
         if not remaining:
             del remaining_by_compatibility[compatibility_key]
 
-    return manifests + non_plannable_cases
+    ordered_manifests.extend(non_plannable_cases)
+    ordered_manifests.sort(key=lambda item: item[0])
+    return [manifest for _, manifest in ordered_manifests]

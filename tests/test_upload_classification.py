@@ -80,3 +80,25 @@ def test_classify_upload_marks_existing_hash_as_duplicate(tmp_path):
     duplicate_row = second.json()["rows"][0]
     assert duplicate_row["status"] == "Duplicate"
 
+
+def test_public_upload_and_queue_responses_do_not_expose_file_path(tmp_path):
+    settings = _build_settings(tmp_path)
+    client = TestClient(create_app(settings))
+
+    classify_response = client.post(
+        "/api/uploads/classify",
+        files=[("files", ("P001_die.stl", io.BytesIO(_minimal_stl_bytes()), "model/stl"))],
+    )
+
+    assert classify_response.status_code == 200
+    classify_payload = classify_response.json()
+    assert "file_path" not in classify_payload["rows"][0]
+
+    queue_response = client.get("/api/uploads/queue")
+
+    assert queue_response.status_code == 200
+    queue_payload = queue_response.json()
+    public_rows = queue_payload["active_rows"] + queue_payload["processed_rows"]
+    assert public_rows
+    assert all("file_path" not in row for row in public_rows)
+
