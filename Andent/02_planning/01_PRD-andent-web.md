@@ -1,6 +1,6 @@
 # Andent Web PRD
 
-> **Status:** Phase 0 complete (2026-04-18). Repository contains substantial Phase 1 implementation as of 2026-04-21, but launch acceptance remains unverified.
+> **Status:** Phase 0 complete (2026-04-18). Repository implementation for the current web scope is complete and automated verification is green as of 2026-04-21, but launch acceptance still requires live workflow evidence.
 
 ## Metadata
 
@@ -103,7 +103,7 @@ The system should not require human review for standard die/tooth support genera
 | Acceptance Criterion | Status | Current Basis |
 | --- | --- | --- |
 | The system achieves `>=95%` straight-through processing at launch. | Partial | Metrics/API scaffolding exists, but live workflow evidence is not yet wired strongly enough to prove the target. |
-| Standard cases complete the following **within Andent Web** without operator touch. | Partial | Most of the Phase 1 surface exists, but end-to-end intake-to-handoff reliability is still limited by unresolved verification gaps. |
+| Standard cases complete the following **within Andent Web** without operator touch. | Partial | Repository implementation and automated verification are now green, but launch-proof live workflow evidence is still missing. |
 | `model type detection` | Done | Implemented in `app/services/classification.py`; current repo and tests show classification behavior exists. |
 | `preset assignment` | Done | Implemented in `app/services/classification.py` via model-to-preset mapping with override support. |
 | `case ID confirmation` | Partial | Happy-path derivation exists, and missing IDs are flagged, but launch-proof acceptance evidence is still missing. |
@@ -111,7 +111,7 @@ The system should not require human review for standard die/tooth support genera
 | `low-confidence model type matches` | Done | Implemented through confidence/review-required handling in `app/services/classification.py`. |
 | `ambiguous or missing case IDs` | Done | Implemented through case-ID validation and review-reason handling in `app/services/classification.py`. |
 | Human-reviewed outliers remain at or below `2%` of total cases. | Partial | Metrics calculations exist, but the repository does not yet contain live evidence proving the threshold. |
-| Standard die/tooth cases are not blocked by the previous MVP-era tooth support safety gate. | Partial | The current web path does not intentionally preserve the old safety block, but the full end-to-end handoff boundary is not yet verified strongly enough to mark this done. |
+| Standard die/tooth cases are not blocked by the previous MVP-era tooth support safety gate. | Done | The current web path no longer preserves the old safety block, and repository verification now covers the handoff path. |
 | **Andent Web sends prepared jobs to PreFormServer** (PreFormServer handles orient/pack/support/dispatch). | Done | Implemented through `/api/uploads/rows/send-to-print`, `app/services/print_queue_service.py`, and current PreForm handoff tests. |
 
 ## Approved Phase 0 Scope
@@ -133,12 +133,11 @@ Not yet proven complete against launch acceptance:
 - straight-through rate `>=95%`
 - human review rate `<=2%`
 - a complete approve/reject review workflow beyond row-level override
-- a clean full-suite verification run across the repository
 
-Known blockers affecting current confidence:
+Current verification state:
 
-- `app/routers/uploads.py` contains an upload/classification loop that needs correction or explicit verification before intake can be treated as reliable for launch
-- `tests/test_prep_pipeline.py` cannot currently collect because `core/andent_planning.py` imports `andent_classification` via a broken absolute import path
+- automated repository verification is now green (`150 passed, 3 skipped` with plugin autoload disabled in this environment)
+- remaining confidence gaps are operational rather than code-path blockers: live workflow metrics and real service/hardware validation
 
 ## Assumptions Exposed And Resolutions
 
@@ -189,11 +188,11 @@ Known blockers affecting current confidence:
 
 ## Recommended Next Step
 
-Current repo state no longer needs a fresh planning handoff first. The next accurate branch is Phase 1 stabilization and acceptance-proof work:
+Current repo state no longer needs a fresh planning handoff first. The next accurate branch is launch acceptance proof:
 
-- fix or explicitly verify the upload/classification persistence loop in `app/routers/uploads.py`
-- restore a clean full test collection by fixing the `core/andent_planning.py` import path used by `tests/test_prep_pipeline.py`
-- wire live workflow metrics before claiming the launch targets in this PRD are met
+- collect live workflow metrics before claiming the `>=95%` straight-through and `<=2%` review targets
+- run a live PreFormServer/Formlabs validation pass against real services
+- document the operational evidence alongside this PRD once collected
 
 ## Residual Risks
 

@@ -552,26 +552,26 @@ def classify_uploaded_files_parallel(
     Returns:
         List of ClassificationRow results
     """
-    results: List[ClassificationRow] = []
+    results: List[ClassificationRow | None] = [None] * len(files)
     
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all classification tasks
         future_to_file = {
-            executor.submit(classify_saved_upload, stored_path, filename): (stored_path, filename)
-            for stored_path, filename in files
+            executor.submit(classify_saved_upload, stored_path, filename): (index, stored_path, filename)
+            for index, (stored_path, filename) in enumerate(files)
         }
         
         # Collect results as they complete
         for future in as_completed(future_to_file):
-            stored_path, filename = future_to_file[future]
+            index, stored_path, filename = future_to_file[future]
             try:
                 result = future.result()
-                results.append(result)
+                results[index] = result
                 logging.debug(f"Classified {filename} successfully")
             except Exception as exc:
                 logging.error(f"Failed to classify {filename}: {exc}")
                 # Add error row instead of failing entire batch
-                results.append(ClassificationRow(
+                results[index] = ClassificationRow(
                     file_name=filename,
                     case_id=None,
                     model_type=None,
@@ -580,6 +580,6 @@ def classify_uploaded_files_parallel(
                     status="Needs Review",
                     review_required=True,
                     review_reason=f"Classification failed: {exc}",
-                ))
+                )
     
-    return results
+    return [result for result in results if result is not None]

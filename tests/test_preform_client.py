@@ -86,6 +86,28 @@ class TestPreFormClient:
         finally:
             os.unlink(temp_path)
 
+    def test_import_model_sends_preset_hint_when_provided(self):
+        """Test importing an STL model with an explicit preset hint."""
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "imported", "model_id": "model-456"}
+        mock_session.post.return_value = mock_response
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.stl', delete=False) as f:
+            f.write("solid test\nendsolid test\n")
+            temp_path = f.name
+
+        try:
+            client = PreFormClient()
+            client.session = mock_session
+
+            client.import_model(scene_id="scene-123", stl_path=temp_path, preset="tooth_v1")
+
+            assert mock_session.post.call_args.kwargs["data"] == {"preset": "tooth_v1"}
+        finally:
+            os.unlink(temp_path)
+
     def test_send_to_printer_success(self):
         """Test sending print job to printer successfully."""
         mock_session = Mock()

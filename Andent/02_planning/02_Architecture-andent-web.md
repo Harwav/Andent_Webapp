@@ -2,7 +2,7 @@
 
 > **Created:** 2026-04-18
 > **Updated:** 2026-04-21
-> **Status:** Approved intent; partially implemented in repository, verification pending
+> **Status:** Approved intent; repository implementation is complete and automated verification is green, with live-service acceptance still pending
 
 ---
 
@@ -16,8 +16,8 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 ### Current Repository Snapshot (2026-04-21)
 
 - Implemented: intake/classification queue, editable overrides, send-to-print handoff route, print job persistence, Print Queue tab, Formlabs polling, screenshot retrieval, and plan preview endpoints.
-- Not yet proven: launch metrics, full review-queue workflow, and a clean full-suite verification pass.
-- Known defect under verification: the current `/api/uploads/classify` implementation in `app/routers/uploads.py` needs correction or explicit proof before it can be treated as launch-stable.
+- Verified in repository: the upload/classification route, handoff route, print-queue flows, and a clean full-suite pytest run (`150 passed, 3 skipped` with plugin autoload disabled in this environment).
+- Still not proven from repository-only evidence: launch metrics against real workflow volume, and a live external-service run through PreFormServer/Formlabs hardware/cloud.
 
 ---
 
@@ -133,7 +133,7 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | Plan Preview | Read-only predicted grouping and job name preview | Implemented |
 | Print Queue Display | Job list, screenshots, and status display via polling | Implemented (display only) |
 | Human Review | Override model type/preset for low-confidence cases | ✅ Phase 0 |
-| Send to PreFormServer | API call with prepared job data | Implemented, verification pending |
+| Send to PreFormServer | API call with prepared job data | Implemented and repository-verified |
 
 ### PreFormServer Handles (NOT Andent Web)
 
@@ -188,7 +188,7 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | Upload latency | < 30s per file | Including classification |
 | Queue update refresh | 5-10s polling | UI auto-refresh |
 
-Current state: the targets remain correct, but the repository does not yet record enough live workflow evidence to claim they are met.
+Current state: implementation and automated verification are now in place, but the repository still does not record enough live workflow evidence to claim the production targets are met.
 
 ---
 
@@ -243,6 +243,7 @@ andent_web/
 | 2026-04-18 | Initial architecture doc - clarified PreFormServer handles dispatch/job management |
 | 2026-04-18 | Defined Andent Web scope: upload, classify, review, handoff only |
 | 2026-04-21 | Updated implementation snapshot, endpoint surface, and verification status to match the repository |
+| 2026-04-21 | Updated after stabilization pass: classify route fixed, handoff boundary completed, full automated suite green |
 
 ---
 

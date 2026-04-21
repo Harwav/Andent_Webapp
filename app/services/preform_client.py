@@ -12,9 +12,9 @@ PreFormServer API Reference:
 """
 import time
 from functools import wraps
+from typing import Any, Dict, List
 
 import requests
-from typing import List, Dict, Any, Optional
 
 
 def retry_on_failure(max_retries: int = 3, backoff_factor: float = 2.0):
@@ -96,12 +96,13 @@ class PreFormClient:
         return response.json()
     
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
-    def import_model(self, scene_id: str, stl_path: str) -> Dict[str, Any]:
+    def import_model(self, scene_id: str, stl_path: str, preset: str | None = None) -> Dict[str, Any]:
         """Import an STL model file into an existing scene.
         
         Args:
             scene_id: ID of the scene to import the model into
             stl_path: File path to the STL model file
+            preset: Optional preset hint for PreFormServer material/orientation settings
             
         Returns:
             Dict containing import status and model_id
@@ -114,7 +115,8 @@ class PreFormClient:
         try:
             with open(stl_path, 'rb') as f:
                 files = {'model': f}
-                response = self.session.post(url, files=files, timeout=60)
+                data = {'preset': preset} if preset else None
+                response = self.session.post(url, files=files, data=data, timeout=60)
         except requests.RequestException as e:
             raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
         except FileNotFoundError:

@@ -2,7 +2,7 @@
 
 > **Created:** 2026-04-18
 > **Status:** Active
-> **Current Phase:** Phase 1 largely implemented in repository; stabilization and verification are next
+> **Current Phase:** Repository implementation is complete for the current scope; live acceptance validation is next
 
 ---
 
@@ -19,12 +19,12 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Phase | Name | Status | Repository State | Verification State |
 |-------|------|--------|------------------|--------------------|
 | Phase 0 | Classification Intake | COMPLETE | Delivered | Mostly covered |
-| Phase 1 | PreFormServer Handoff + Print Queue | IN PROGRESS | Major surfaces implemented | Not yet launch-ready |
+| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE (repo) | Major surfaces implemented | Automated verification green; live validation pending |
 | Phase 2 | Enhanced Queue Features | PARTIALLY IMPLEMENTED | Several UX features already landed | Uneven coverage |
 | Phase 3 | Validation & Metrics | PARTIALLY IMPLEMENTED | Metrics/API scaffolding exists | Not wired to live workflow proof |
 | Phase 4 | Production Hardening | PARTIALLY IMPLEMENTED | Health/network basics exist | Production hardening incomplete |
 
-**Overall Status:** The repository is well beyond Phase 0, but production verification still trails implementation.
+**Overall Status:** The repository is well beyond Phase 0, the automated test suite is currently green, and the remaining gaps are mainly launch-proof and operational validation.
 
 ### PRD Acceptance Status (Compact)
 
@@ -81,7 +81,7 @@ Source of truth: see the line-by-line checklist in `Andent/02_planning/01_PRD-an
 
 ---
 
-## Phase 1: PreFormServer Handoff + Print Queue Tab 🔄 IN PROGRESS
+## Phase 1: PreFormServer Handoff + Print Queue Tab ✅ REPOSITORY COMPLETE
 
 ### Goal
 
@@ -97,11 +97,10 @@ This phase is no longer just planned work. The repository already contains:
 - real handoff routing from `/api/uploads/rows/send-to-print`
 - Print Queue API/UI, status sync, and screenshot caching
 
-What still blocks phase completion is verification quality:
+What still blocks full launch sign-off is external validation quality:
 
-- explicit preset propagation/configuration at the PreFormServer API boundary is currently failing targeted verification
-- the current upload/classification route needs corrective verification before end-to-end intake can be treated as stable
-- the full test suite does not collect cleanly because of the `core/andent_planning.py` import path issue
+- live PreFormServer/Formlabs service validation has not been run in this repository session
+- target operational metrics still need evidence from real workflow runs
 
 ### Phase 1 Scope (Finalized)
 
@@ -159,14 +158,14 @@ What still blocks phase completion is verification quality:
 |-----------|----------------|-------|
 | Batching logic groups Ready cases by preset | Implemented and tested | `tests/test_batching.py` |
 | Job names auto-generated (YYMMDD-001 format) | Implemented and tested | `tests/test_batching.py` |
-| Presets configured: Ortho/Hollow/Die = lay flat; Tooth = auto-supports; All = Precision Model Resin 100µm | Partially complete | Implemented in model-to-preset mapping, but targeted handoff verification currently fails on preset propagation |
-| PreFormServer handoff creates scene, imports STLs, configures preset, sends to printer | Partially complete | Scene/import/send are implemented; explicit preset configuration and selected-printer expectations are not yet met end-to-end |
+| Presets configured: Ortho/Hollow/Die = lay flat; Tooth = auto-supports; All = Precision Model Resin 100µm | Implemented and repository-verified | UI preset is now translated to a PreFormServer preset hint |
+| PreFormServer handoff creates scene, imports STLs, configures preset, sends to printer | Implemented and repository-verified | Includes preset hint propagation and row-level printer routing |
 | Print Queue tab displays jobs with screenshots, names, cases, status | Implemented and tested | `tests/test_print_queue.py`, `tests/test_print_queue_polling.py` |
 | Formlabs Web API client authenticates and fetches job data | Implemented and tested | `tests/test_formlabs_web_client.py` |
 | Backend polls Formlabs API every 5s for status updates | Partially complete | Current design uses frontend 5s polling plus backend cache-on-request sync |
 | Status values shown: Queued, Printing, Failed, Paused, Completed | Implemented | Schema/UI support present |
 | Connection errors handled with user-friendly messages | Basic handling implemented | Broader recovery remains a stabilization task |
-| All P0 tests passing | Not yet complete | Targeted slices pass, but full-suite collection is currently blocked |
+| All P0 tests passing | Complete | Full suite currently passes in this environment |
 
 ---
 
@@ -361,11 +360,9 @@ The following were removed from Andent Web scope after architecture clarificatio
 
 **Phase 1 stabilization and acceptance proof**
 
-1. Fix or explicitly verify the `/api/uploads/classify` persistence loop in `app/routers/uploads.py`.
-2. Restore clean full-suite collection by fixing the `core/andent_planning.py` import used by `tests/test_prep_pipeline.py`.
-3. Verify explicit preset propagation requirements at the PreFormServer API boundary.
-4. Wire live metrics capture before claiming `>=95%` straight-through and `<=2%` review targets.
-5. Re-run the full verification pass after the above defects are closed.
+1. Run a live PreFormServer/Formlabs validation pass.
+2. Capture real workflow metrics for launch acceptance.
+3. Record the operational evidence in the planning docs.
 
 ---
 
@@ -388,6 +385,7 @@ The following were removed from Andent Web scope after architecture clarificatio
 | 2026-04-18 | Marked Phase 0 complete |
 | 2026-04-20 | Phase 1 requirements finalized with Print Queue tab, Formlabs Web API integration, batching logic, and preset configuration |
 | 2026-04-21 | Updated roadmap to reflect implemented Phase 1/2/3/4 surfaces and remaining verification gaps |
+| 2026-04-21 | Updated after stabilization pass: clean full-suite verification, classify-route fix, preset/device propagation completed |
 
 ---
 

@@ -26,6 +26,15 @@ _job_cache: dict | None = None
 _cache_timestamp: datetime | None = None
 _screenshot_cache: dict[int, tuple[datetime, bytes]] = {}
 CACHE_TTL_SECONDS = 5
+PREFORM_PRESET_HINTS = {
+    "Ortho Solid - Flat, No Supports": "ortho_solid_v1",
+    "Ortho Hollow - Flat, No Supports": "ortho_hollow_v1",
+    "Die - Flat, No Supports": "die_v1",
+    "Tooth - With Supports": "tooth_v1",
+    "Splint - Flat, No Supports": "splint_v1",
+    "Antagonist Solid - Flat, No Supports": "antagonist_solid_v1",
+    "Antagonist Hollow - Flat, No Supports": "antagonist_hollow_v1",
+}
 
 
 def _now() -> datetime:
@@ -209,6 +218,21 @@ def generate_job_name(date: datetime, batch_number: int) -> str:
     return f"{date_part}-{number_part}"
 
 
+def _preform_preset_hint(preset: str | None) -> str | None:
+    if preset is None:
+        return None
+    return PREFORM_PRESET_HINTS.get(preset)
+
+
+def _resolve_device_id(rows: list["ClassificationRow"]) -> str:
+    explicit_printers = {row.printer for row in rows if row.printer}
+    if not explicit_printers:
+        return "default"
+    if len(explicit_printers) > 1:
+        raise ValueError("Rows in the same print batch target different printers.")
+    return next(iter(explicit_printers))
+
+
 def process_print_batch(
     settings: "Settings",
     preset: str,
@@ -239,15 +263,16 @@ def process_print_batch(
         patient_id = case_ids[0] if case_ids else "unknown"
         scene_result = client.create_scene(patient_id, job_name)
         scene_id = scene_result.get("scene_id")
+        preset_hint = _preform_preset_hint(preset)
 
         if not scene_id:
             raise Exception("Failed to create scene: no scene_id returned")
 
         for stl_path in stored_paths:
             if Path(stl_path).exists():
-                client.import_model(scene_id, str(stl_path))
+                client.import_model(scene_id, str(stl_path), preset=preset_hint)
 
-        device_id = "default"
+        device_id = _resolve_device_id(rows)
         print_result = client.send_to_printer(scene_id, device_id)
         print_job_id = print_result.get("print_id")
 

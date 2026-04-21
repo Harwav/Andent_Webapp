@@ -21,7 +21,7 @@ class StubPreFormClient:
     def __init__(self, base_url: str):
         self.base_url = base_url
         self.created_scenes: list[tuple[str, str]] = []
-        self.imported_models: list[tuple[str, str]] = []
+        self.imported_models: list[tuple[str, str, str | None]] = []
         self.print_jobs: list[tuple[str, str]] = []
         self.closed = False
 
@@ -29,8 +29,8 @@ class StubPreFormClient:
         self.created_scenes.append((patient_id, case_name))
         return {"scene_id": f"scene-{len(self.created_scenes)}"}
 
-    def import_model(self, scene_id: str, stl_path: str):
-        self.imported_models.append((scene_id, stl_path))
+    def import_model(self, scene_id: str, stl_path: str, preset: str | None = None):
+        self.imported_models.append((scene_id, stl_path, preset))
         return {"model_id": f"model-{len(self.imported_models)}"}
 
     def send_to_printer(self, scene_id: str, device_id: str):
@@ -53,7 +53,15 @@ def _seed_rows(settings, rows: list[dict]) -> list[int]:
     return [row.row_id for row in persisted if row.row_id is not None]
 
 
-def _row_payload(file_path: Path, *, case_id: str, preset: str, status: str, content_hash: str) -> dict:
+def _row_payload(
+    file_path: Path,
+    *,
+    case_id: str,
+    preset: str,
+    status: str,
+    content_hash: str,
+    printer: str | None = None,
+) -> dict:
     return {
         "file_name": file_path.name,
         "stored_path": str(file_path),
@@ -75,7 +83,7 @@ def _row_payload(file_path: Path, *, case_id: str, preset: str, status: str, con
         "structure_locked": False,
         "review_required": status != "Ready",
         "review_reason": None,
-        "printer": None,
+        "printer": printer,
         "person": None,
     }
 
@@ -125,6 +133,36 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
     jobs_by_preset = {job.preset: job for job in jobs}
     assert jobs_by_preset["Preset A"].case_ids == ["CASE001", "CASE002"]
     assert jobs_by_preset["Preset B"].case_ids == ["CASE003"]
+
+
+def test_send_to_print_passes_preset_hint_and_selected_printer(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "tooth-1.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE900",
+                preset="Tooth - With Supports",
+                status="Ready",
+                content_hash="hash-900",
+                printer="printer_form4_001",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    assert stub_client.imported_models == [("scene-1", str(case_file), "tooth_v1")]
+    assert stub_client.print_jobs == [("scene-1", "printer_form4_001")]
 
 
 def test_send_to_print_returns_502_when_preform_unavailable(tmp_path):

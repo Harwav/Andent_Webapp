@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .batch_optimizer import BatchOptimizer, DEFAULT_BUILD_PLATE, STLDimensions, get_stl_dimensions, get_stl_volume_ml
-from andent_classification import (
+from .andent_classification import (
     ArtifactClassification,
     STRUCTURE_HOLLOW,
     STRUCTURE_REVIEW,

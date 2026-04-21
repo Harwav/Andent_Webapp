@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
+from typing import List, Tuple
 from uuid import uuid4
-from typing import List
 
 from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
@@ -34,10 +35,8 @@ from ..schemas import (
 )
 from ..services.planning_preview import build_batch_preview, build_row_preview
 from ..services.classification import (
-    classify_saved_upload,
     classify_uploaded_files_parallel,
     dedupe_filename,
-    derive_status,
     file_content_hash,
     sanitize_filename,
     serialize_row_for_storage,
@@ -63,7 +62,6 @@ async def classify_uploads(
     rows = []
     persisted_rows = []
     seen_names: dict[str, int] = {}
-    uploaded_hashes: set[str] = set()
 
     try:
         pending_uploads: list[tuple[UploadFile, str, str, bytes]] = []
@@ -88,20 +86,17 @@ async def classify_uploads(
             stored_path = session_dir / stored_filename
             stored_path.write_bytes(payload)
             file_tuples.append((stored_path, original_filename))
-            uploaded_hashes.add(content_hash)
             await upload.close()
 
         # Classify in parallel
         rows = classify_uploaded_files_parallel(file_tuples, max_workers=4)
         
         # Mark duplicates
-        for i, row in enumerate(rows):
-            if duplicate_hashes and file_tuples[i][1] in [h for h in duplicate_hashes]:
+        for (stored_path, _), (_, _, content_hash, _), row in zip(file_tuples, pending_uploads, rows):
+            if content_hash in duplicate_hashes:
                 row.status = "Duplicate"
 
-            rows.append(row)
             persisted_rows.append(serialize_row_for_storage(row, stored_path, content_hash))
-            uploaded_hashes.add(content_hash)
 
         stored_rows = persist_upload_session(settings, session_id, persisted_rows)
     except Exception:
