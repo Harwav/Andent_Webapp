@@ -705,6 +705,21 @@ git commit -m "feat: persist mixed-preset print job manifests"
 - Modify: `tests/test_preform_handoff.py`
 - Modify: `tests/test_integration.py`
 
+**Status 2026-04-21:** Implementation merged to `main`; review loop still pending.
+
+Completed implementation checkpoint:
+- Manifest-driven send-to-print is implemented in `app/services/print_queue_service.py`.
+- Compatible mixed presets can share one print job.
+- PreForm handoff now imports from manifest file specs, runs `auto_layout()` and `validate_scene()`, persists manifest metadata, and marks only accepted rows as `Submitted`.
+- Whole-case rollback was moved outside `process_print_manifest()`, so one call processes one concrete manifest attempt and creates one scene.
+- Rollback now removes the actual last-added case from manifest file order, not blindly `case_ids[-1]`.
+- Targeted verification from the implementation checkpoint: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/test_preform_handoff.py tests/test_integration.py -q` -> `22 passed`.
+
+Resume next time:
+- Do not reimplement Task 5 from scratch.
+- Start with Task 5 spec-compliance review on `main`, then code-quality review.
+- If Task 5 passes both reviews, continue with Task 6.
+
 - [ ] **Step 1: Write the failing handoff tests**
 
 ```python
