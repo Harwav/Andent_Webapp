@@ -1,18 +1,20 @@
 # Playwright Release Gate Design
 
 Date: 2026-04-21
-Status: Drafted and reviewed for implementation planning
+Status: Updated for implemented Form 4BL build-manifest handoff
 Scope: Release-blocking end-to-end acceptance gate for Andent Web
 
 ## Summary
 
 This design defines a Playwright-driven release gate for Andent Web that simulates operator behavior in the browser while using a live PreFormServer instance on `http://localhost:44388` for handoff verification.
 
+Implementation context, 2026-04-21: Andent Web now plans compatibility-aware Form 4BL build manifests before PreFormServer handoff. The release gate therefore verifies the browser journey plus the build-manifest handoff evidence persisted by the app. The gate still remains narrow and does not expand into broad batching coverage.
+
 The gate is intentionally narrow. It is not a broad acceptance suite and it does not prove Formlabs cloud or printer completion. It proves that the current release candidate can:
 
 1. Accept realistic STL inputs that follow production-style naming conventions.
 2. Classify and present them correctly in the web UI.
-3. Allow a standard happy path and a manual-correction happy path to reach real PreFormServer handoff.
+3. Allow a standard happy path and a manual-correction happy path to reach real build-manifest PreFormServer handoff.
 4. Block an ambiguous case from being sent.
 5. Surface a clean failure when the app is configured against an unavailable PreFormServer endpoint.
 
@@ -31,7 +33,8 @@ The release gate must close that gap without becoming a slow, fragile, full-plat
 5. Verify one manual-edit path where the operator changes `Model Type` and explicitly overrides `Preset`.
 6. Verify one ambiguous-case guard that remains blocked in `Active`.
 7. Verify one offline failure path against a separate app instance configured to a dead local PreFormServer port.
-8. Produce operator-readable pass/fail output with artifacts suitable for release decisions.
+8. Verify persisted build-manifest handoff evidence for successful sends, including `scene_id`, `print_job_id`, `case_ids`, `preset_names`, `compatibility_key`, and `manifest_json`.
+9. Produce operator-readable pass/fail output with artifacts suitable for release decisions.
 
 ## Non-Goals
 
@@ -68,6 +71,8 @@ Expected browser behavior:
 
 Expected non-UI verification:
 - The app records the resulting handoff identifiers such as `scene_id` and `print_job_id`.
+- The app persists build-manifest evidence for the created print job, including `case_ids`, `preset_names`, `compatibility_key`, and `manifest_json`.
+- The persisted `manifest_json` contains import groups and per-file preset hints for the files that were sent.
 - The gate performs a direct check against the live PreFormServer API to confirm that the created scene or print job exists.
 
 ### 2. Manual-Edit Happy Path
@@ -84,6 +89,8 @@ Expected browser behavior:
 
 Expected non-UI verification:
 - The app records resulting handoff identifiers.
+- The app persists build-manifest evidence for the edited submission, including `case_ids`, `preset_names`, `compatibility_key`, and `manifest_json`.
+- The persisted `manifest_json` reflects the operator-selected preset rather than only the originally inferred model type.
 - The gate performs a direct check against the live PreFormServer API to confirm the scene or print job exists after the edited submission.
 
 ### 3. Ambiguous-Case Guard
@@ -149,8 +156,10 @@ Verification helpers own non-UI assertions.
 
 Responsibilities:
 1. Read app-side persisted identifiers needed to prove handoff.
-2. Query the live PreFormServer API directly for created scenes or print jobs.
-3. Confirm that negative scenarios did not result in false success evidence.
+2. Read app-side build-manifest fields from persisted `print_jobs` rows.
+3. Confirm the persisted manifest contains the expected case IDs, preset names, compatibility key, import groups, file records, and per-file PreForm preset hints.
+4. Query the live PreFormServer API directly for created scenes or print jobs.
+5. Confirm that negative scenarios did not result in false success evidence.
 
 This separation preserves readable UI tests while still making the gate strict enough for release blocking.
 
@@ -165,16 +174,19 @@ Rationale:
 
 Fixture rules:
 1. All STL names must follow realistic inbound naming conventions, including case IDs and workflow cues where appropriate.
-2. The straight-through fixture must be a same-case multi-file upload.
-3. The manual-edit fixture must still look realistic while being appropriate for operator correction.
-4. The ambiguous fixture must look plausible as a real inbound file set while intentionally yielding a blocked state.
+2. The straight-through fixture must be a same-case multi-file upload that produces a planned build manifest.
+3. At least one successful scenario must prove manifest import-group persistence and per-file PreForm preset hints.
+4. The manual-edit fixture must still look realistic while being appropriate for operator correction.
+5. The ambiguous fixture must look plausible as a real inbound file set while intentionally yielding a blocked state.
 
 The first implementation should keep the fixture set minimal:
 1. One same-case multi-file happy-path set.
-2. One manual-edit set.
+2. One manual-edit set that proves operator-selected preset persistence.
 3. One ambiguous set.
 
 The offline failure path can reuse a sendable fixture from the happy-path or manual-edit set.
+
+The first gate should not add a fifth mixed-preset scenario only to prove build planning. If compatible mixed-preset proof is needed for release confidence, fold it into either the straight-through path or the manual-edit path while keeping the approved four-scenario shape.
 
 ## Runtime Model
 
@@ -202,9 +214,13 @@ A happy-path scenario passes only if all of the following are true:
 1. The browser flow completes successfully.
 2. The UI reflects successful submission.
 3. The app records the handoff identifiers.
-4. A direct query to the live PreFormServer API confirms the created scene or print job exists.
+4. The app records a persisted print job with expected `case_ids`, `preset_names`, `compatibility_key`, and `manifest_json`.
+5. The persisted manifest contains import groups whose file records match the uploaded STL fixtures and preserve the expected PreForm preset hints.
+6. A direct query to the live PreFormServer API confirms the created scene or print job exists.
 
 UI-only success is insufficient.
+
+The happy-path proof should reflect the implemented handoff sequence: create scene, import each STL by manifest preset group, run layout, validate the scene, then send the validated scene to the printer queue.
 
 ### Ambiguous Guard
 
@@ -231,7 +247,8 @@ For each scenario, it should record:
 3. Whether live PreFormServer health was confirmed before the run.
 4. Final browser-visible result.
 5. Any app-side handoff identifiers observed.
-6. Direct PreFormServer verification result when required.
+6. Persisted manifest summary when required: `case_ids`, `preset_names`, `compatibility_key`, import group count, and file count.
+7. Direct PreFormServer verification result when required.
 
 On failure:
 1. Capture a Playwright screenshot.
@@ -289,7 +306,9 @@ This design is complete when implementation planning can answer:
 1. Which exact realistic STL fixtures will be used.
 2. How the app instances will be started and torn down.
 3. How app-side persisted handoff identifiers will be read for verification.
-4. Which direct PreFormServer endpoints will be queried to confirm scene or print existence.
-5. Where screenshots and scenario summaries will be written.
+4. How persisted build-manifest evidence will be read from `print_jobs`.
+5. Which manifest fields are asserted for each happy path.
+6. Which direct PreFormServer endpoints will be queried to confirm scene or print existence.
+7. Where screenshots and scenario summaries will be written.
 
 Those are implementation-plan questions, not open design questions.
