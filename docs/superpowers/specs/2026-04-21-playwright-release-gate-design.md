@@ -1,12 +1,14 @@
 # Playwright Release Gate Design
 
 Date: 2026-04-21
-Status: Updated for implemented Form 4BL build-manifest handoff
+Status: Updated after design approval and implementation-plan alignment
 Scope: Release-blocking end-to-end acceptance gate for Andent Web
 
 ## Summary
 
 This design defines a Playwright-driven release gate for Andent Web that simulates operator behavior in the browser while using a live PreFormServer instance on `http://localhost:44388` for handoff verification.
+
+Execution model, approved on 2026-04-21: the gate is release-blocking in policy, but it runs as a local pre-release command rather than as a normal CI job. This reflects the hard dependency on a live local PreFormServer instance for real handoff proof.
 
 Implementation context, 2026-04-21: Andent Web now plans compatibility-aware Form 4BL build manifests before PreFormServer handoff. The release gate therefore verifies the browser journey plus the build-manifest handoff evidence persisted by the app. The gate still remains narrow and does not expand into broad batching coverage.
 
@@ -54,6 +56,20 @@ The release gate consists of exactly four scenarios:
 4. Offline failure path.
 
 Anything beyond those four scenarios is out of scope for the first gate and should remain in normal pytest or later acceptance expansion.
+
+## Execution Model
+
+The first release gate should run as a local human-executed pre-release command.
+
+This is still a release blocker. The difference is execution surface, not importance. A release should not be cut unless this gate passes against the real local PreFormServer boundary.
+
+This design intentionally does not make the full gate a standard CI requirement because:
+
+1. The happy paths require a live local PreFormServer instance on `http://localhost:44388`.
+2. The gate is meant to prove the real browser-to-app-to-PreForm handoff boundary, not a mocked or substituted environment.
+3. Forcing that dependency into normal CI would make the first gate less trustworthy, not more trustworthy.
+
+If the repository later adds a separate CI browser smoke lane, that should be treated as an earlier feedback layer rather than as a replacement for this release gate.
 
 ## Scenario Contract
 
@@ -136,6 +152,8 @@ Responsibilities:
 
 This keeps startup and health logic out of UI steps.
 
+The runner should be implemented as a local release-gate command that invokes Playwright, reads the resulting scenario report, and prints a compact release summary for the operator.
+
 ### Layer 2: Playwright Acceptance Tests
 
 The Playwright layer owns operator simulation only.
@@ -186,6 +204,8 @@ The first implementation should keep the fixture set minimal:
 
 The offline failure path can reuse a sendable fixture from the happy-path or manual-edit set.
 
+The fixtures should be tiny committed ASCII STL files. Their job is deterministic filename-driven classification and stable release-gate behavior, not realistic geometry complexity.
+
 The first gate should not add a fifth mixed-preset scenario only to prove build planning. If compatible mixed-preset proof is needed for release confidence, fold it into either the straight-through path or the manual-edit path while keeping the approved four-scenario shape.
 
 ## Runtime Model
@@ -199,6 +219,8 @@ Responsibilities of the gate:
 4. Shut down both app instances after the run.
 
 The gate does not own starting or stopping the live PreFormServer process itself. It assumes the service is already available locally and checks health before beginning.
+
+The gate should fail fast when live PreFormServer health is unavailable instead of continuing into browser scenarios that would produce ambiguous downstream failures.
 
 This is the safest split between automation and environmental stability:
 1. It keeps the app runtime deterministic.
@@ -256,6 +278,16 @@ On failure:
 3. Record enough context to distinguish UI failure, app failure, and external verification failure.
 
 This output should be suitable for a release decision without requiring someone to reconstruct the failure from raw logs alone.
+
+The happy-path summaries should also include a compact manifest proof line with:
+
+1. `scene_id`
+2. `print_job_id`
+3. `case_ids`
+4. `preset_names`
+5. `compatibility_key`
+6. import group count
+7. file count
 
 ## Recommended File Layout
 
