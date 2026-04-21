@@ -38,6 +38,7 @@ from stl import mesh as stl_mesh_module
 from core.stl_validator import validate_stl_file
 
 from ..schemas import ClassificationRow, DimensionSummary
+from .preset_catalog import get_preset_profile
 
 
 PHASE0_MODEL_TYPES = (
@@ -98,8 +99,6 @@ def infer_phase0_model_type(file_name: str, artifact, structure=None) -> str | N
 def default_preset(model_type: str | None) -> str | None:
     if model_type is None:
         return None
-    # Map model types to presets with support settings
-    # All presets: Precision Model Resin, 100µm, Form 4BL
     preset_mappings = {
         "Ortho - Solid": "Ortho Solid - Flat, No Supports",
         "Ortho - Hollow": "Ortho Hollow - Flat, No Supports",
@@ -109,11 +108,13 @@ def default_preset(model_type: str | None) -> str | None:
         "Antagonist - Solid": "Antagonist Solid - Flat, No Supports",
         "Antagonist - Hollow": "Antagonist Hollow - Flat, No Supports",
     }
-    if model_type in preset_mappings:
-        return preset_mappings[model_type]
-    if model_type not in PHASE0_MODEL_TYPES:
+    preset = preset_mappings.get(model_type)
+    if preset is None:
         return None
-    return model_type
+    profile = get_preset_profile(preset)
+    if profile is None:
+        return None
+    return profile.preset_name
 
 
 def derive_confidence(
