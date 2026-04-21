@@ -134,15 +134,10 @@ class PreFormClient:
         return response.json()
 
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
-    def auto_layout(
-        self,
-        scene_id: str,
-        *,
-        allow_overlapping_supports: bool = False,
-    ) -> Dict[str, Any]:
+    def auto_layout(self, scene_id: str) -> Dict[str, Any]:
         """Trigger automatic layout generation for a scene."""
         url = f"{self.base_url}/scene/{scene_id}/auto-layout/"
-        payload = {"allow_overlapping_supports": allow_overlapping_supports}
+        payload = {"allow_overlapping_supports": False}
 
         response = self.session.post(url, json=payload, timeout=30)
 
