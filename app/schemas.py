@@ -12,6 +12,8 @@ NonPlannableReason = Literal[
     "oversized_case",
     "incompatible_case_presets",
     "missing_dimensions",
+    "missing_file_path",
+    "missing_row_id",
 ]
 
 

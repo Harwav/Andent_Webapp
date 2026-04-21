@@ -10,6 +10,7 @@ from app.services.build_planning import plan_build_manifests
 from app.services.preset_catalog import PRESET_CATALOG, PresetProfile
 
 _DEFAULT_DIMENSIONS = object()
+_DEFAULT_FILE_PATH = object()
 
 
 def _row(
@@ -20,8 +21,13 @@ def _row(
     y: float,
     *,
     dimensions: DimensionSummary | None | object = _DEFAULT_DIMENSIONS,
-    file_path: str | None = None,
+    file_path: str | None | object = _DEFAULT_FILE_PATH,
 ) -> ClassificationRow:
+    resolved_file_path = (
+        f"C:/cases/{case_id}/{case_id}-{row_id if row_id is not None else 'missing'}.stl"
+        if file_path is _DEFAULT_FILE_PATH
+        else file_path
+    )
     return ClassificationRow(
         row_id=row_id,
         file_name=f"{case_id}-{row_id}.stl",
@@ -34,7 +40,7 @@ def _row(
             if dimensions is _DEFAULT_DIMENSIONS
             else dimensions
         ),
-        file_path=file_path,
+        file_path=resolved_file_path,
     )
 
 
@@ -92,8 +98,13 @@ def test_plan_build_manifests_keeps_row_id_validation_local_to_case_profiles():
 
     manifests = plan_build_manifests(rows)
 
-    assert len(manifests) == 1
-    assert manifests[0].case_ids == ["CASE-VALID"]
+    assert len(manifests) == 2
+    assert manifests[0].case_ids == ["CASE-INCOMPLETE"]
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "missing_row_id"
+    assert manifests[0].import_groups == []
+    assert manifests[1].case_ids == ["CASE-VALID"]
+    assert manifests[1].planning_status == "planned"
 
 
 def test_plan_build_manifests_prefers_next_largest_fit_before_small_fillers():
@@ -189,6 +200,27 @@ def test_plan_build_manifests_marks_missing_dimensions_as_non_plannable():
     assert manifests[0].case_ids == ["CASE-NODIMS"]
     assert manifests[0].planning_status == "non_plannable"
     assert manifests[0].non_plannable_reason == "missing_dimensions"
+    assert manifests[0].import_groups == []
+
+
+def test_plan_build_manifests_marks_missing_file_path_as_non_plannable():
+    rows = [
+        _row(
+            1,
+            "CASE-NOPATH",
+            "Ortho Solid - Flat, No Supports",
+            60.0,
+            50.0,
+            file_path=None,
+        ),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].case_ids == ["CASE-NOPATH"]
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "missing_file_path"
     assert manifests[0].import_groups == []
 
 

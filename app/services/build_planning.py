@@ -40,31 +40,38 @@ def _canonical_preset_name(preset_name: str | None) -> str | None:
     return resolve_preset_name(preset_name)
 
 
-def _row_file_path(row: ClassificationRow) -> str:
-    return row.file_path or row.file_name
+def _row_file_path(row: ClassificationRow) -> str | None:
+    if row.file_path and row.file_path.strip():
+        return row.file_path
+    return None
 
 
 def _build_file_prep_spec(
     row: ClassificationRow,
     compatibility_key: str,
-) -> FilePrepSpec | None:
+) -> tuple[FilePrepSpec | None, str | None]:
     canonical_preset_name = _canonical_preset_name(row.preset)
-    if row.row_id is None or row.case_id is None or canonical_preset_name is None:
-        return None
+    if row.row_id is None:
+        return None, "missing_row_id"
+    if row.case_id is None or canonical_preset_name is None:
+        return None, None
     profile = get_preset_profile(canonical_preset_name)
     if profile is None:
-        return None
+        return None, None
+    file_path = _row_file_path(row)
+    if file_path is None:
+        return None, "missing_file_path"
     return FilePrepSpec(
         row_id=row.row_id,
         case_id=row.case_id,
         file_name=row.file_name,
-        file_path=_row_file_path(row),
+        file_path=file_path,
         preset_name=canonical_preset_name,
         compatibility_key=compatibility_key,
         xy_footprint_estimate=_row_xy_area(row),
         support_inflation_factor=_support_factor(canonical_preset_name),
         preform_hint=profile.preform_hint,
-    )
+    ), None
 
 
 def _build_non_plannable_manifest(
@@ -136,9 +143,16 @@ def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePack
     file_specs: list[FilePrepSpec] = []
 
     for row in sorted(rows, key=lambda item: (item.row_id or 0, item.file_name)):
-        spec = _build_file_prep_spec(row, compatibility_key)
+        spec, failure_reason = _build_file_prep_spec(row, compatibility_key)
         if spec is None:
-            return None, None
+            if failure_reason is None:
+                return None, None
+            return None, _build_non_plannable_manifest(
+                case_id=case_id,
+                preset_names=preset_names,
+                reason=failure_reason,
+                compatibility_key=compatibility_key,
+            )
         file_specs.append(spec)
 
     if total_xy > FORM4BL_XY_BUDGET:
