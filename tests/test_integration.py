@@ -4,29 +4,25 @@ End-to-end test of handoff flow covering full system integration.
 """
 
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import pytest
-
 
 class TestFullPrintHandoffFlow:
     """Full end-to-end print handoff flow."""
 
     def test_batch_multiple_cases(self):
-        """Batch multiple cases with same preset.
+        """Compatible ready cases should share one build manifest.
         
         Flow:
-        1. Create multiple rows with same preset
-        2. Send to print
-        3. Verify they are grouped in one batch
-        4. Verify single print job created
+        1. Create multiple rows with compatible presets
+        2. Build manifests
+        3. Verify they are grouped into one manifest
         """
-        from app.services.print_queue_service import batch_cases_by_preset
-        from app.schemas import ClassificationRow
+        from app.schemas import ClassificationRow, DimensionSummary
+        from app.services.build_planning import plan_build_manifests
         
         rows = [
             ClassificationRow(
@@ -36,84 +32,124 @@ class TestFullPrintHandoffFlow:
                 case_id="CASE001",
                 confidence="high",
                 status="Ready",
+                dimensions=DimensionSummary(x_mm=60.0, y_mm=50.0, z_mm=10.0),
+                file_path="C:/cases/case1.stl",
             ),
             ClassificationRow(
                 row_id=2,
-                file_name="case2.stl",
-                preset="Ortho Solid - Flat, No Supports",
+                file_name="case2-tooth.stl",
+                preset="Tooth - With Supports",
                 case_id="CASE002",
                 confidence="high",
                 status="Ready",
+                dimensions=DimensionSummary(x_mm=35.0, y_mm=35.0, z_mm=10.0),
+                file_path="C:/cases/case2.stl",
             ),
         ]
         
-        batches = batch_cases_by_preset(rows)
+        manifests = plan_build_manifests(rows)
         
-        # Should be one batch
-        assert len(batches) == 1
-        assert len(list(batches.values())[0]) == 2
+        assert len(manifests) == 1
+        assert manifests[0].case_ids == ["CASE001", "CASE002"]
+        assert manifests[0].preset_names == [
+            "Ortho Solid - Flat, No Supports",
+            "Tooth - With Supports",
+        ]
 
     def test_batch_multiple_presets(self):
-        """Multiple cases with different presets create multiple batches."""
-        from app.services.print_queue_service import batch_cases_by_preset
-        from app.schemas import ClassificationRow
-        
-        rows = [
-            ClassificationRow(row_id=1, file_name="a.stl", preset="Preset A", case_id="A", confidence="high", status="Ready"),
-            ClassificationRow(row_id=2, file_name="b.stl", preset="Preset B", case_id="B", confidence="high", status="Ready"),
-        ]
-        
-        batches = batch_cases_by_preset(rows)
-        
-        # Should be two batches
-        assert len(batches) == 2
-
-    def test_send_to_print_prefomserver_receives(self):
-        """Send to print should call PreFormServer API.
-        
-        Flow:
-        1. Mock PreFormClient
-        2. Call process_print_batch
-        3. Verify create_scene called
-        4. Verify import_model called for each STL
-        5. Verify send_to_printer called
-        """
-        from app.services.print_queue_service import process_print_batch
-        from app.schemas import ClassificationRow
-        from app.config import build_settings
-        
-        settings = build_settings()
+        """Mixed presets are still split when the first manifest hits build budget."""
+        from app.schemas import ClassificationRow, DimensionSummary
+        from app.services.build_planning import plan_build_manifests
         
         rows = [
             ClassificationRow(
                 row_id=1,
-                file_name="test.stl",
+                file_name="a.stl",
+                preset="Ortho Solid - Flat, No Supports",
+                case_id="A",
+                confidence="high",
+                status="Ready",
+                dimensions=DimensionSummary(x_mm=150.0, y_mm=100.0, z_mm=10.0),
+                file_path="C:/cases/a.stl",
+            ),
+            ClassificationRow(
+                row_id=2,
+                file_name="b.stl",
+                preset="Ortho Solid - Flat, No Supports",
+                case_id="B",
+                confidence="high",
+                status="Ready",
+                dimensions=DimensionSummary(x_mm=140.0, y_mm=100.0, z_mm=10.0),
+                file_path="C:/cases/b.stl",
+            ),
+            ClassificationRow(
+                row_id=3,
+                file_name="c.stl",
+                preset="Tooth - With Supports",
+                case_id="C",
+                confidence="high",
+                status="Ready",
+                dimensions=DimensionSummary(x_mm=40.0, y_mm=25.0, z_mm=10.0),
+                file_path="C:/cases/c.stl",
+            ),
+        ]
+        
+        manifests = plan_build_manifests(rows)
+        
+        assert [manifest.case_ids for manifest in manifests] == [["A", "B"], ["C"]]
+
+    def test_send_to_print_prefomserver_receives(self, tmp_path):
+        """Manifest processing should call scene import/layout/validation/print APIs.
+        
+        Flow:
+        1. Create a planned manifest
+        2. Mock PreFormClient
+        3. Call manifest processing
+        3. Verify create_scene called
+        4. Verify import_model called for each STL
+        5. Verify auto_layout, validate_scene, and send_to_printer called
+        """
+        from app.config import build_settings
+        from app.schemas import ClassificationRow, DimensionSummary
+        from app.services.build_planning import plan_build_manifests
+        from app.services.print_queue_service import process_print_manifest
+        
+        settings = build_settings()
+        case_file = tmp_path / "test.stl"
+        case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+        
+        rows = [
+            ClassificationRow(
+                row_id=1,
+                file_name=case_file.name,
                 preset="Ortho Solid - Flat, No Supports",
                 case_id="CASE001",
                 confidence="high",
                 status="Ready",
+                dimensions=DimensionSummary(x_mm=60.0, y_mm=50.0, z_mm=10.0),
+                file_path=str(case_file),
             ),
         ]
+        manifest = plan_build_manifests(rows)[0]
         
         with patch('app.services.preform_client.PreFormClient') as MockClient:
             mock_instance = Mock()
             mock_instance.create_scene.return_value = {"scene_id": "scene-123"}
             mock_instance.import_model.return_value = {"model_id": "model-123"}
+            mock_instance.auto_layout.return_value = {"status": "ok"}
+            mock_instance.validate_scene.return_value = {"valid": True, "errors": []}
             mock_instance.send_to_printer.return_value = {"print_id": "print-123"}
             MockClient.return_value = mock_instance
-            
-            try:
-                result = process_print_batch(settings, "Ortho Solid - Flat, No Supports", rows, 1)
-                
-                # Verify PreFormServer calls
-                assert mock_instance.create_scene.called
-                assert mock_instance.import_model.called
-                assert mock_instance.send_to_printer.called
-                assert result["scene_id"] == "scene-123"
-                assert result["print_job_id"] == "print-123"
-            except Exception as e:
-                # Expected if file doesn't exist
-                pass
+
+            result = process_print_manifest(settings, manifest, rows, 1)
+
+            assert mock_instance.create_scene.called
+            assert mock_instance.import_model.called
+            assert mock_instance.auto_layout.called
+            assert mock_instance.validate_scene.called
+            assert mock_instance.send_to_printer.called
+            assert result["scene_id"] == "scene-123"
+            assert result["print_job_id"] == "print-123"
 
     def test_poll_for_status_updates(self):
         """Poll for status updates from Formlabs API.
@@ -167,11 +203,10 @@ class TestBatchingIntegration:
     """Batching integration tests."""
 
     def test_batching_groups_by_preset_correctly(self):
-        """Batching should group by preset correctly."""
-        from app.services.print_queue_service import batch_cases_by_preset
-        from app.schemas import ClassificationRow
+        """Batch planning should preserve per-preset import groups inside one manifest."""
+        from app.schemas import ClassificationRow, DimensionSummary
+        from app.services.build_planning import plan_build_manifests
         
-        # Create rows with different presets
         presets = [
             "Ortho Solid - Flat, No Supports",
             "Ortho Hollow - Flat, No Supports",
@@ -188,16 +223,14 @@ class TestBatchingIntegration:
                 case_id=f"CASE{i+1:03d}",
                 confidence="high",
                 status="Ready",
+                dimensions=DimensionSummary(x_mm=20.0, y_mm=20.0, z_mm=10.0),
+                file_path=f"C:/cases/case{i+1}.stl",
             ))
         
-        batches = batch_cases_by_preset(rows)
+        manifests = plan_build_manifests(rows)
         
-        # Should be 4 batches
-        assert len(batches) == 4
-        
-        # Each batch should have 1 row
-        for preset, batch_rows in batches.items():
-            assert len(batch_rows) == 1
+        assert len(manifests) == 1
+        assert [group.preset_name for group in manifests[0].import_groups] == sorted(presets)
 
     def test_job_names_auto_increment(self):
         """Job names should auto-increment."""
