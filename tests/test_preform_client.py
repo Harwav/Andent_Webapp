@@ -26,12 +26,12 @@ class TestPreFormClient:
         assert client.base_url == custom_url
 
     def test_create_scene_success(self):
-        """Test creating a scene successfully."""
+        """Test creating a scene with the current Local API scene-settings payload."""
         # Create a mock session
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"scene_id": "scene-123", "status": "created"}
+        mock_response.json.return_value = {"id": "scene-123", "layer_count": 0}
         mock_session.post.return_value = mock_response
         
         client = PreFormClient()
@@ -39,10 +39,15 @@ class TestPreFormClient:
         
         result = client.create_scene(patient_id="P001", case_name="Test Case")
         
-        assert result == {"scene_id": "scene-123", "status": "created"}
+        assert result == {"id": "scene-123", "scene_id": "scene-123", "layer_count": 0}
         mock_session.post.assert_called_once_with(
             "http://localhost:44388/scene/",
-            json={"patient_id": "P001", "case_name": "Test Case"},
+            json={
+                "layer_thickness_mm": 0.1,
+                "machine_type": "FORM-4-0",
+                "material_code": "FLPMBE01",
+                "print_setting": "DEFAULT",
+            },
             timeout=30
         )
 
@@ -63,7 +68,7 @@ class TestPreFormClient:
         assert "500" in str(exc_info.value)
 
     def test_import_model_success(self):
-        """Test importing an STL model successfully."""
+        """Test importing an STL model through the current JSON path contract."""
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
@@ -82,7 +87,11 @@ class TestPreFormClient:
             result = client.import_model(scene_id="scene-123", stl_path=temp_path)
             
             assert result == {"status": "imported", "model_id": "model-456"}
-            mock_session.post.assert_called_once()
+            mock_session.post.assert_called_once_with(
+                "http://localhost:44388/scene/scene-123/import-model",
+                json={"file": temp_path},
+                timeout=60,
+            )
         finally:
             os.unlink(temp_path)
 
@@ -104,7 +113,10 @@ class TestPreFormClient:
 
             client.import_model(scene_id="scene-123", stl_path=temp_path, preset="tooth_v1")
 
-            assert mock_session.post.call_args.kwargs["data"] == {"preset": "tooth_v1"}
+            assert mock_session.post.call_args.kwargs["json"] == {
+                "file": temp_path,
+                "preset": "tooth_v1",
+            }
         finally:
             os.unlink(temp_path)
 
@@ -168,9 +180,31 @@ class TestPreFormClient:
 
             assert result == {"valid": False, "errors": ["overlap"]}
             mock_get.assert_called_once_with(
-                "http://localhost:44388/scene/scene-123/validate/",
+                "http://localhost:44388/scene/scene-123/print-validation",
                 timeout=30,
             )
+
+    def test_validate_scene_translates_print_validation_payload(self):
+        """Test print-validation results are normalized into valid/errors."""
+        with patch("requests.Session.get") as mock_get:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "per_model_results": {
+                    "{model-1}": {
+                        "cups": 0,
+                        "has_seamline": False,
+                        "undersupported": False,
+                        "unsupported_minima": 0,
+                    }
+                }
+            }
+            mock_get.return_value = mock_response
+
+            client = PreFormClient("http://localhost:44388")
+            result = client.validate_scene("scene-123")
+
+            assert result == {"valid": True, "errors": []}
 
     def test_validate_scene_raises_on_non_200_response(self):
         """Test validate_scene raises with status and response text on failure."""
@@ -193,18 +227,18 @@ class TestPreFormClient:
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"print_id": "print-789", "status": "queued"}
+        mock_response.json.return_value = {"job_id": "{print-789}"}
         mock_session.post.return_value = mock_response
         
         client = PreFormClient()
         client.session = mock_session
         
-        result = client.send_to_printer(scene_id="scene-123", device_id="printer-01")
+        result = client.send_to_printer(scene_id="scene-123", device_id="Form 4", job_name="260421-001")
         
-        assert result == {"print_id": "print-789", "status": "queued"}
+        assert result == {"job_id": "{print-789}", "print_id": "{print-789}"}
         mock_session.post.assert_called_once_with(
-            "http://localhost:44388/print/",
-            json={"scene_id": "scene-123", "device_id": "printer-01"},
+            "http://localhost:44388/scene/scene-123/print/",
+            json={"job_name": "260421-001", "printer": "Form 4"},
             timeout=30
         )
 

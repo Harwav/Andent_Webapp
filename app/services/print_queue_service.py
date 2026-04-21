@@ -182,7 +182,7 @@ def generate_job_name(date: datetime, batch_number: int) -> str:
 def _resolve_device_id(rows: list["ClassificationRow"]) -> str:
     explicit_printers = {row.printer for row in rows if row.printer}
     if not explicit_printers:
-        return "default"
+        return "Form 4"
     if len(explicit_printers) > 1:
         raise ValueError("Rows in the same print batch target different printers.")
     return next(iter(explicit_printers))
@@ -348,7 +348,11 @@ def process_print_manifest(
         client.auto_layout(scene_id)
         validation_result = client.validate_scene(scene_id)
         if validation_result.get("valid", False):
-            print_result = client.send_to_printer(scene_id, _resolve_device_id(active_rows))
+            print_result = client.send_to_printer(
+                scene_id,
+                _resolve_device_id(active_rows),
+                job_name=job_name,
+            )
             return {
                 "job_name": job_name,
                 "scene_id": scene_id,
