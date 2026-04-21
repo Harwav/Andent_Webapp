@@ -95,7 +95,7 @@ class TestFullPrintHandoffFlow:
             ),
         ]
         
-        with patch('app.services.print_queue_service.PreFormClient') as MockClient:
+        with patch('app.services.preform_client.PreFormClient') as MockClient:
             mock_instance = Mock()
             mock_instance.create_scene.return_value = {"scene_id": "scene-123"}
             mock_instance.import_model.return_value = {"model_id": "model-123"}
