@@ -1,0 +1,14 @@
+{
+  "name": "andent-web-release-gate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:release-gate": "playwright test tests/release_gate/smoke.spec.ts --project=chromium",
+    "test:release-gate:headed": "playwright test tests/release_gate/smoke.spec.ts --project=chromium --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  }
+}
