@@ -5,9 +5,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.services.preset_catalog import (
+    PRESET_CATALOG,
+    PresetProfile,
     build_compatibility_key,
     get_preform_preset_hint,
     get_preset_profile,
@@ -41,3 +45,56 @@ def test_build_compatibility_key_is_stable_for_mixed_compatible_presets():
 
 def test_get_preform_preset_hint_maps_ui_preset_to_preform_hint():
     assert get_preform_preset_hint("Die - Flat, No Supports") == "die_v1"
+
+
+def test_get_preset_profile_resolves_legacy_model_type_aliases():
+    profile = get_preset_profile("Die")
+
+    assert profile is not None
+    assert profile.preset_name == "Die - Flat, No Supports"
+
+
+def test_presets_are_compatible_is_false_for_unknown_preset():
+    assert presets_are_compatible(["Tooth - With Supports", "Unknown Preset"]) is False
+
+
+def test_presets_are_compatible_is_false_for_incompatible_presets(monkeypatch):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Experimental Preset",
+        PresetProfile(
+            preset_name="Experimental Preset",
+            printer="Form 4BL",
+            resin="Precision Model Resin",
+            layer_height_microns=50,
+            requires_supports=False,
+            preform_hint="experimental_v1",
+        ),
+    )
+
+    assert presets_are_compatible(
+        ["Tooth - With Supports", "Experimental Preset"]
+    ) is False
+
+
+def test_build_compatibility_key_raises_for_unknown_preset():
+    with pytest.raises(ValueError, match="unknown preset"):
+        build_compatibility_key(["Tooth - With Supports", "Unknown Preset"])
+
+
+def test_build_compatibility_key_raises_for_incompatible_presets(monkeypatch):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Experimental Preset",
+        PresetProfile(
+            preset_name="Experimental Preset",
+            printer="Form 4BL",
+            resin="Precision Model Resin",
+            layer_height_microns=50,
+            requires_supports=False,
+            preform_hint="experimental_v1",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="compatible"):
+        build_compatibility_key(["Tooth - With Supports", "Experimental Preset"])

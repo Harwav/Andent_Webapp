@@ -72,11 +72,28 @@ PRESET_CATALOG: dict[str, PresetProfile] = {
     ),
 }
 
+LEGACY_PRESET_ALIASES: dict[str, str] = {
+    "Ortho - Solid": "Ortho Solid - Flat, No Supports",
+    "Ortho - Hollow": "Ortho Hollow - Flat, No Supports",
+    "Die": "Die - Flat, No Supports",
+    "Tooth": "Tooth - With Supports",
+    "Splint": "Splint - Flat, No Supports",
+    "Antagonist - Solid": "Antagonist Solid - Flat, No Supports",
+    "Antagonist - Hollow": "Antagonist Hollow - Flat, No Supports",
+}
 
-def get_preset_profile(preset_name: str | None) -> PresetProfile | None:
+
+def resolve_preset_name(preset_name: str | None) -> str | None:
     if preset_name is None:
         return None
-    return PRESET_CATALOG.get(preset_name)
+    return LEGACY_PRESET_ALIASES.get(preset_name, preset_name)
+
+
+def get_preset_profile(preset_name: str | None) -> PresetProfile | None:
+    resolved_name = resolve_preset_name(preset_name)
+    if resolved_name is None:
+        return None
+    return PRESET_CATALOG.get(resolved_name)
 
 
 def get_preform_preset_hint(preset_name: str | None) -> str | None:
@@ -88,12 +105,18 @@ def build_compatibility_key(preset_names: list[str]) -> str:
     profiles = [get_preset_profile(name) for name in preset_names]
     if not profiles or any(profile is None for profile in profiles):
         raise ValueError("Cannot build compatibility key for unknown preset.")
-    first = profiles[0]
-    assert first is not None
+    compatibility_values = {
+        (profile.printer, profile.resin, profile.layer_height_microns)
+        for profile in profiles
+        if profile is not None
+    }
+    if len(compatibility_values) != 1:
+        raise ValueError("Cannot build compatibility key for incompatible presets.")
+    printer, resin, layer_height_microns = compatibility_values.pop()
     return (
-        f"{first.printer.lower().replace(' ', '-')}|"
-        f"{first.resin.lower().replace(' ', '-')}|"
-        f"{first.layer_height_microns}"
+        f"{printer.lower().replace(' ', '-')}|"
+        f"{resin.lower().replace(' ', '-')}|"
+        f"{layer_height_microns}"
     )
 
 
