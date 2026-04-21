@@ -1,6 +1,6 @@
 # Andent Web PRD
 
-> **Status:** Phase 0 complete (2026-04-18). Active product — governs Phase 1 through production.
+> **Status:** Phase 0 complete (2026-04-18). Repository contains substantial Phase 1 implementation as of 2026-04-21, but launch acceptance remains unverified.
 
 ## Metadata
 
@@ -98,9 +98,47 @@ The system should not require human review for standard die/tooth support genera
 
 > **Note:** PreFormServer handles orient/pack, support generation, job queue management, printer dispatch, and print status tracking. Andent Web's acceptance criteria focus on intake-to-handoff accuracy.
 
+### Acceptance Checklist (2026-04-21)
+
+| Acceptance Criterion | Status | Current Basis |
+| --- | --- | --- |
+| The system achieves `>=95%` straight-through processing at launch. | Partial | Metrics/API scaffolding exists, but live workflow evidence is not yet wired strongly enough to prove the target. |
+| Standard cases complete the following **within Andent Web** without operator touch. | Partial | Most of the Phase 1 surface exists, but end-to-end intake-to-handoff reliability is still limited by unresolved verification gaps. |
+| `model type detection` | Done | Implemented in `app/services/classification.py`; current repo and tests show classification behavior exists. |
+| `preset assignment` | Done | Implemented in `app/services/classification.py` via model-to-preset mapping with override support. |
+| `case ID confirmation` | Partial | Happy-path derivation exists, and missing IDs are flagged, but launch-proof acceptance evidence is still missing. |
+| Human review is reserved only for: | Partial | Low-confidence and missing/ambiguous case-ID review flags exist, but there is no complete approve/reject review queue workflow yet. |
+| `low-confidence model type matches` | Done | Implemented through confidence/review-required handling in `app/services/classification.py`. |
+| `ambiguous or missing case IDs` | Done | Implemented through case-ID validation and review-reason handling in `app/services/classification.py`. |
+| Human-reviewed outliers remain at or below `2%` of total cases. | Partial | Metrics calculations exist, but the repository does not yet contain live evidence proving the threshold. |
+| Standard die/tooth cases are not blocked by the previous MVP-era tooth support safety gate. | Partial | The current web path does not intentionally preserve the old safety block, but the full end-to-end handoff boundary is not yet verified strongly enough to mark this done. |
+| **Andent Web sends prepared jobs to PreFormServer** (PreFormServer handles orient/pack/support/dispatch). | Done | Implemented through `/api/uploads/rows/send-to-print`, `app/services/print_queue_service.py`, and current PreForm handoff tests. |
+
 ## Approved Phase 0 Scope
 
 Phase 0 delivered classification intake (FastAPI server, STL upload, classification table, editable Model Type/Preset). **Complete as of 2026-04-18.** See `Andent/99_archive/phase-0-build-today.md` for full detail.
+
+## Current Repository Snapshot (2026-04-21)
+
+Implemented in the repository:
+
+- intake/classification queue with editable model type and preset
+- case ID derivation and review-required flags for low-confidence or missing-ID rows
+- PreFormServer handoff route and print job persistence
+- Print Queue UI, Formlabs job polling, and screenshot retrieval/caching
+- read-only plan preview endpoints for predicted grouping and job naming
+
+Not yet proven complete against launch acceptance:
+
+- straight-through rate `>=95%`
+- human review rate `<=2%`
+- a complete approve/reject review workflow beyond row-level override
+- a clean full-suite verification run across the repository
+
+Known blockers affecting current confidence:
+
+- `app/routers/uploads.py` contains an upload/classification loop that needs correction or explicit verification before intake can be treated as reliable for launch
+- `tests/test_prep_pipeline.py` cannot currently collect because `core/andent_planning.py` imports `andent_classification` via a broken absolute import path
 
 ## Assumptions Exposed And Resolutions
 
@@ -149,26 +187,19 @@ Phase 0 delivered classification intake (FastAPI server, STL upload, classificat
 6. **PreFormServer handles:** orient/pack, support generation, job queue management, printer dispatch, print status tracking.
 7. Launch success metric: `>=95%` straight-through classification accuracy.
 
-## Recommended Handoff
+## Recommended Next Step
 
-Recommended next step: `$ralplan`
+Current repo state no longer needs a fresh planning handoff first. The next accurate branch is Phase 1 stabilization and acceptance-proof work:
 
-Suggested invocation:
-
-```text
-$plan --consensus --direct .omx/specs/deep-interview-andent-web-auto-prep-prd.md
-```
-
-Alternative handoffs:
-
-- `$autopilot .omx/specs/deep-interview-andent-web-auto-prep-prd.md`
-- `$ralph .omx/specs/deep-interview-andent-web-auto-prep-prd.md`
-- `$team .omx/specs/deep-interview-andent-web-auto-prep-prd.md`
+- fix or explicitly verify the upload/classification persistence loop in `app/routers/uploads.py`
+- restore a clean full test collection by fixing the `core/andent_planning.py` import path used by `tests/test_prep_pipeline.py`
+- wire live workflow metrics before claiming the launch targets in this PRD are met
 
 ## Residual Risks
 
-- The spec sets a clear straight-through target, but it does not yet define:
-  - upload-to-queue latency target
+- The repo now contains much of the intended Phase 1 surface, but launch-readiness is still limited by verification rather than feature absence.
+- The spec sets a clear straight-through target, but the current implementation still lacks repository-backed proof for:
+  - upload-to-queue latency target under representative load
   - printer dispatch success-rate target
   - handling rules for mixed-model-type uploads
-- Those should be tightened during planning, not reopened as intent ambiguity.
+- Those should be closed through stabilization and validation, not by reopening product intent.

@@ -2,7 +2,7 @@
 
 > **Created:** 2026-04-18
 > **Status:** Active
-> **Current Phase:** Phase 0 Complete → Phase 1 Next
+> **Current Phase:** Phase 1 largely implemented in repository; stabilization and verification are next
 
 ---
 
@@ -10,19 +10,37 @@
 
 This roadmap defines the phased implementation for Andent Web Auto Prep. The scope has been simplified based on architecture clarification: **PreFormServer handles orient/pack, supports, dispatch, and tracking**. Andent Web focuses on intake, classification, and handoff.
 
+Historical effort and file-estimate tables are retained as planning reference. Status sections in this document are the authoritative view of current repository maturity.
+
 ---
 
 ## Progress Summary
 
-| Phase | Name | Status | Progress |
-|-------|------|--------|----------|
-| Phase 0 | Classification Intake | ✅ COMPLETE | 100% |
-| Phase 1 | PreFormServer Handoff + Print Queue | 🔄 In Progress | ~40% |
-| Phase 2 | Enhanced Queue Features | 🔲 Planned | 0% |
-| Phase 3 | Validation & Metrics | 🔲 Planned | 0% |
-| Phase 4 | Production Hardening | 🔲 Planned | 0% |
+| Phase | Name | Status | Repository State | Verification State |
+|-------|------|--------|------------------|--------------------|
+| Phase 0 | Classification Intake | COMPLETE | Delivered | Mostly covered |
+| Phase 1 | PreFormServer Handoff + Print Queue | IN PROGRESS | Major surfaces implemented | Not yet launch-ready |
+| Phase 2 | Enhanced Queue Features | PARTIALLY IMPLEMENTED | Several UX features already landed | Uneven coverage |
+| Phase 3 | Validation & Metrics | PARTIALLY IMPLEMENTED | Metrics/API scaffolding exists | Not wired to live workflow proof |
+| Phase 4 | Production Hardening | PARTIALLY IMPLEMENTED | Health/network basics exist | Production hardening incomplete |
 
-**Overall Progress: ~35%**
+**Overall Status:** The repository is well beyond Phase 0, but production verification still trails implementation.
+
+### PRD Acceptance Status (Compact)
+
+| PRD Acceptance Criterion | Status |
+|--------------------------|--------|
+| Straight-through processing `>=95%` at launch | Partial |
+| Standard cases complete model type detection without touch | Done |
+| Standard cases complete preset assignment without touch | Done |
+| Standard cases complete case ID confirmation without touch | Partial |
+| Human review limited to low-confidence model type matches | Done |
+| Human review limited to ambiguous or missing case IDs | Done |
+| Human-reviewed outliers remain `<=2%` | Partial |
+| Standard die/tooth cases are not blocked by the old MVP safety gate | Partial |
+| Andent Web sends prepared jobs to PreFormServer | Done |
+
+Source of truth: see the line-by-line checklist in `Andent/02_planning/01_PRD-andent-web.md`.
 
 ---
 
@@ -45,10 +63,10 @@ This roadmap defines the phased implementation for Andent Web Auto Prep. The sco
 | Duplicate detection (content hash) | ✅ | `file_content_hash()` |
 | Row editing (Model Type/Preset) | ✅ | PATCH `/api/uploads/rows/{id}` |
 | Queue pagination (50 per page) | ✅ | `list_queue_rows()` |
-| Bulk send-to-print (simulated) | ✅ | POST `/api/uploads/rows/send-to-print` |
+| Send-to-print endpoint surface | ✅ | POST `/api/uploads/rows/send-to-print` (now backed by Phase 1 handoff code) |
 | Allow duplicate action | ✅ | POST `/api/uploads/rows/allow-duplicate` |
 | Row removal | ✅ | DELETE `/api/uploads/rows/{id}` |
-| **Performance optimization** | ✅ | **>95% auto-classification, <20s/file** |
+| Classification parallelization | Implemented | `classify_uploaded_files_parallel()` exists; launch metrics remain unproven |
 
 ### Exit Criteria Met
 
@@ -68,6 +86,22 @@ This roadmap defines the phased implementation for Andent Web Auto Prep. The sco
 ### Goal
 
 Complete PreFormServer integration with automated batching, real handoff, and new Print Queue tab for job monitoring.
+
+### Current Status (2026-04-21)
+
+This phase is no longer just planned work. The repository already contains:
+
+- batching logic and job naming
+- `PreFormClient` and `FormlabsWebClient`
+- `print_jobs` schema and CRUD helpers
+- real handoff routing from `/api/uploads/rows/send-to-print`
+- Print Queue API/UI, status sync, and screenshot caching
+
+What still blocks phase completion is verification quality:
+
+- explicit preset propagation/configuration at the PreFormServer API boundary is currently failing targeted verification
+- the current upload/classification route needs corrective verification before end-to-end intake can be treated as stable
+- the full test suite does not collect cleanly because of the `core/andent_planning.py` import path issue
 
 ### Phase 1 Scope (Finalized)
 
@@ -121,24 +155,38 @@ Complete PreFormServer integration with automated batching, real handoff, and ne
 
 ### Phase 1 Exit Criteria
 
-- [ ] Batching logic groups Ready cases by preset (one case ≠ multiple batches)
-- [ ] Job names auto-generated (YYMMDD-001 format)
-- [ ] Presets configured: Ortho/Hollow/Die = lay flat; Tooth = auto-supports; All = Precision Model Resin 100µm
-- [ ] PreFormServer handoff creates scene, imports STLs, configures preset, sends to printer
-- [ ] Print Queue tab displays jobs with screenshots, names, cases, status
-- [ ] Formlabs Web API client authenticates and fetches job data
-- [ ] Backend polls Formlabs API every 5s for status updates
-- [ ] Status values shown: Queued, Printing, Failed, Paused, Completed
-- [ ] Connection errors handled with user-friendly messages
-- [ ] All P0 tests passing
+| Criterion | Current Status | Notes |
+|-----------|----------------|-------|
+| Batching logic groups Ready cases by preset | Implemented and tested | `tests/test_batching.py` |
+| Job names auto-generated (YYMMDD-001 format) | Implemented and tested | `tests/test_batching.py` |
+| Presets configured: Ortho/Hollow/Die = lay flat; Tooth = auto-supports; All = Precision Model Resin 100µm | Partially complete | Implemented in model-to-preset mapping, but targeted handoff verification currently fails on preset propagation |
+| PreFormServer handoff creates scene, imports STLs, configures preset, sends to printer | Partially complete | Scene/import/send are implemented; explicit preset configuration and selected-printer expectations are not yet met end-to-end |
+| Print Queue tab displays jobs with screenshots, names, cases, status | Implemented and tested | `tests/test_print_queue.py`, `tests/test_print_queue_polling.py` |
+| Formlabs Web API client authenticates and fetches job data | Implemented and tested | `tests/test_formlabs_web_client.py` |
+| Backend polls Formlabs API every 5s for status updates | Partially complete | Current design uses frontend 5s polling plus backend cache-on-request sync |
+| Status values shown: Queued, Printing, Failed, Paused, Completed | Implemented | Schema/UI support present |
+| Connection errors handled with user-friendly messages | Basic handling implemented | Broader recovery remains a stabilization task |
+| All P0 tests passing | Not yet complete | Targeted slices pass, but full-suite collection is currently blocked |
 
 ---
 
-## Phase 2: Enhanced Queue Features 🔲 PLANNED
+## Phase 2: Enhanced Queue Features 🔲 PARTIALLY IMPLEMENTED
 
 ### Goal
 
 Production-ready queue management with UX improvements.
+
+### Current Status (2026-04-21)
+
+Several items originally listed for Phase 2 are already present in the repository:
+
+- undo removal (currently 10s rather than the earlier roadmap's 30s wording)
+- 3D preview modal
+- queue polling
+- case-aware selection
+- status legend filters
+
+This phase should now be treated as a refinement/stabilization phase rather than untouched planned work.
 
 ### Scope
 
@@ -179,11 +227,15 @@ Production-ready queue management with UX improvements.
 
 ---
 
-## Phase 3: Validation & Metrics 🔲 PLANNED
+## Phase 3: Validation & Metrics 🔲 PARTIALLY IMPLEMENTED
 
 ### Goal
 
 Prove classification accuracy meets targets, add metrics dashboard.
+
+### Current Status (2026-04-21)
+
+Metrics scaffolding already exists in the repository (`app/services/metrics.py`, `app/routers/metrics.py`, tests), but it is not yet wired to live workflow events strongly enough to prove launch readiness.
 
 ### Scope
 
@@ -227,11 +279,15 @@ Prove classification accuracy meets targets, add metrics dashboard.
 
 ---
 
-## Phase 4: Production Hardening 🔲 PLANNED
+## Phase 4: Production Hardening 🔲 PARTIALLY IMPLEMENTED
 
 ### Goal
 
 Deployment-ready system for dental lab use.
+
+### Current Status (2026-04-21)
+
+Some Phase 4 basics already exist, including health endpoints and network-binding support. The remaining work is broader hardening, operational validation, and documentation rather than a true zero-start phase.
 
 ### Scope
 
@@ -297,23 +353,19 @@ The following were removed from Andent Web scope after architecture clarificatio
 | Phase 3 | 3-4 | 16-18 days |
 | Phase 4 | 3-4 | 19-22 days |
 
-**Total: ~19-22 days from now to production-ready**
+**Historical estimate:** ~19-22 days from the original 2026-04-18 planning point. This is no longer an authoritative remaining-effort forecast.
 
 ---
 
 ## Next Action
 
-**Phase 1: PreFormServer Handoff + Print Queue Tab**
+**Phase 1 stabilization and acceptance proof**
 
-1. Update preset configuration (Ortho/Hollow/Die = lay flat; Tooth = auto-supports)
-2. Implement batching logic in `print_queue_service.py`
-3. Update `preform_client.py` with correct preset mappings
-4. Create `formlabs_web_client.py` for cloud API
-5. Add `print_jobs` table to database schema
-6. Create Print Queue tab UI components
-7. Implement status polling service
-8. Add screenshot display with zoom modal
-9. Test end-to-end handoff flow
+1. Fix or explicitly verify the `/api/uploads/classify` persistence loop in `app/routers/uploads.py`.
+2. Restore clean full-suite collection by fixing the `core/andent_planning.py` import used by `tests/test_prep_pipeline.py`.
+3. Verify explicit preset propagation requirements at the PreFormServer API boundary.
+4. Wire live metrics capture before claiming `>=95%` straight-through and `<=2%` review targets.
+5. Re-run the full verification pass after the above defects are closed.
 
 ---
 
@@ -335,6 +387,7 @@ The following were removed from Andent Web scope after architecture clarificatio
 | 2026-04-18 | Removed PreFormServer scope from Andent Web |
 | 2026-04-18 | Marked Phase 0 complete |
 | 2026-04-20 | Phase 1 requirements finalized with Print Queue tab, Formlabs Web API integration, batching logic, and preset configuration |
+| 2026-04-21 | Updated roadmap to reflect implemented Phase 1/2/3/4 surfaces and remaining verification gaps |
 
 ---
 

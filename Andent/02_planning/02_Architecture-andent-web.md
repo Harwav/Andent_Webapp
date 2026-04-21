@@ -1,8 +1,8 @@
 # Architecture: Andent Web Auto Prep
 
 > **Created:** 2026-04-18
-> **Updated:** 2026-04-18
-> **Status:** Approved
+> **Updated:** 2026-04-21
+> **Status:** Approved intent; partially implemented in repository, verification pending
 
 ---
 
@@ -12,6 +12,12 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 
 ### Key Insight
 **PreFormServer handles all print-related operations:** job queue management, printer dispatch, orient/pack, support generation, and print status tracking. Andent Web focuses solely on intake, classification, and handoff.
+
+### Current Repository Snapshot (2026-04-21)
+
+- Implemented: intake/classification queue, editable overrides, send-to-print handoff route, print job persistence, Print Queue tab, Formlabs polling, screenshot retrieval, and plan preview endpoints.
+- Not yet proven: launch metrics, full review-queue workflow, and a clean full-suite verification pass.
+- Known defect under verification: the current `/api/uploads/classify` implementation in `app/routers/uploads.py` needs correction or explicit proof before it can be treated as launch-stable.
 
 ---
 
@@ -124,8 +130,10 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | Classification | Detect model type + case ID from filename/geometry | ✅ Phase 0 |
 | Preset Assignment | Map model type to preset | ✅ Phase 0 |
 | Queue UI | Active/Processed tabs with editing | ✅ Phase 0 |
+| Plan Preview | Read-only predicted grouping and job name preview | Implemented |
+| Print Queue Display | Job list, screenshots, and status display via polling | Implemented (display only) |
 | Human Review | Override model type/preset for low-confidence cases | ✅ Phase 0 |
-| Send to PreFormServer | API call with prepared job data | 🔲 Phase 1 |
+| Send to PreFormServer | API call with prepared job data | Implemented, verification pending |
 
 ### PreFormServer Handles (NOT Andent Web)
 
@@ -151,7 +159,7 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 
 ---
 
-## 7. API Endpoints (Phase 0)
+## 7. API Endpoints (Current Repository Surface)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -163,6 +171,11 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | `/api/uploads/rows/{id}` | DELETE | Remove row from queue |
 | `/api/uploads/rows/{id}/file` | GET | Download STL file |
 | `/api/uploads/rows/{id}/thumbnail.svg` | GET | Get thumbnail preview |
+| `/api/uploads/rows/{id}/plan-preview` | GET | Get predicted grouping/job-name preview for a row |
+| `/api/uploads/rows/batch-plan-preview` | POST | Get predicted grouping/job-name preview for multiple rows |
+| `/api/print-queue/jobs` | GET | List tracked print jobs with synced status |
+| `/api/print-queue/jobs/{job_id}/screenshot` | GET | Fetch or return cached job screenshot |
+| `/api/metrics/` | GET | Return metrics summary (not yet wired to live workflow events) |
 
 ---
 
@@ -174,6 +187,8 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | Human review rate | ≤2% | Only low-confidence or ambiguous case ID |
 | Upload latency | < 30s per file | Including classification |
 | Queue update refresh | 5-10s polling | UI auto-refresh |
+
+Current state: the targets remain correct, but the repository does not yet record enough live workflow evidence to claim they are met.
 
 ---
 
@@ -189,24 +204,33 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 
 ## 10. File Structure
 
-```
+```text
 andent_web/
 ├── app/
-│   ├── main.py          # FastAPI app entry
-│   ├── config.py        # Settings
-│   ├── database.py      # SQLite operations
-│   ├── schemas.py       # Pydantic models
+│   ├── main.py                  # FastAPI app entry
+│   ├── config.py                # Settings
+│   ├── database.py              # SQLite operations + print_jobs
+│   ├── schemas.py               # Pydantic models
 │   ├── routers/
-│   │   └── uploads.py   # Upload/classification endpoints
+│   │   ├── uploads.py           # Upload/classification/handoff endpoints
+│   │   ├── print_queue.py       # Print Queue API endpoints
+│   │   └── metrics.py           # Metrics API endpoints
 │   ├── services/
-│   │   └── classification.py  # Classification logic
+│   │   ├── classification.py    # Classification logic
+│   │   ├── planning_preview.py  # Read-only plan preview
+│   │   ├── preform_client.py    # PreFormServer client
+│   │   ├── formlabs_web_client.py # Formlabs Web API client
+│   │   ├── print_queue_service.py # Print job sync and screenshot caching
+│   │   └── metrics.py           # Metrics calculations
 │   └── static/
-│       ├── index.html   # Queue UI
+│       ├── index.html           # Queue + Print Queue UI
 │       ├── styles.css
-│       └── app.js
+│       ├── app.js
+│       └── metrics.html
 ├── data/
-│   ├── andent_web.db    # SQLite database
-│   └── uploads/         # STL storage
+│   ├── andent_web.db            # SQLite database
+│   ├── uploads/                 # STL storage
+│   └── screenshots/             # Cached print queue screenshots
 └── requirements.txt
 ```
 
@@ -218,6 +242,7 @@ andent_web/
 |------|--------|
 | 2026-04-18 | Initial architecture doc - clarified PreFormServer handles dispatch/job management |
 | 2026-04-18 | Defined Andent Web scope: upload, classify, review, handoff only |
+| 2026-04-21 | Updated implementation snapshot, endpoint surface, and verification status to match the repository |
 
 ---
 
