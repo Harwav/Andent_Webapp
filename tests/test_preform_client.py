@@ -108,6 +108,37 @@ class TestPreFormClient:
         finally:
             os.unlink(temp_path)
 
+    def test_auto_layout_posts_scene_id_payload(self):
+        """Test auto-layout posts the scene endpoint and overlap flag."""
+        with patch("requests.Session.post") as mock_post:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"status": "ok"}
+            mock_post.return_value = mock_response
+
+            client = PreFormClient("http://localhost:44388")
+            result = client.auto_layout("scene-123")
+
+            assert result == {"status": "ok"}
+            mock_post.assert_called_with(
+                "http://localhost:44388/scene/scene-123/auto-layout/",
+                json={"allow_overlapping_supports": False},
+                timeout=30,
+            )
+
+    def test_validate_scene_returns_clean_boolean_and_errors(self):
+        """Test scene validation returns the API validation payload."""
+        with patch("requests.Session.get") as mock_get:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"valid": False, "errors": ["overlap"]}
+            mock_get.return_value = mock_response
+
+            client = PreFormClient("http://localhost:44388")
+            result = client.validate_scene("scene-123")
+
+            assert result == {"valid": False, "errors": ["overlap"]}
+
     def test_send_to_printer_success(self):
         """Test sending print job to printer successfully."""
         mock_session = Mock()
