@@ -5,7 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-Phase0ModelType = Literal["Ortho - Solid", "Ortho - Hollow", "Die", "Tooth", "Splint"]
+Phase0ModelType = Literal["Ortho - Solid", "Ortho - Hollow", "Die", "Tooth", "Splint", "Antagonist"]
 ConfidenceLevel = Literal["high", "medium", "low"]
 BuildPlanningStatus = Literal["planned", "non_plannable"]
 NonPlannableReason = Literal[
@@ -46,6 +46,10 @@ class ClassificationRow(BaseModel):
     person: str | None = None
     thumbnail_url: str | None = None
     file_url: str | None = None
+    handoff_stage: str | None = None
+    queue_section: Literal["analysis", "in_progress", "history"] = "analysis"
+    linked_job_name: str | None = None
+    linked_print_job_id: int | None = None
     file_path: str | None = Field(default=None, exclude=True)
 
 

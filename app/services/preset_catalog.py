@@ -78,6 +78,7 @@ LEGACY_PRESET_ALIASES: dict[str, str] = {
     "Die": "Die - Flat, No Supports",
     "Tooth": "Tooth - With Supports",
     "Splint": "Splint - Flat, No Supports",
+    "Antagonist": "Ortho Solid - Flat, No Supports",
     "Antagonist - Solid": "Antagonist Solid - Flat, No Supports",
     "Antagonist - Hollow": "Antagonist Hollow - Flat, No Supports",
 }

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Tuple
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from ..database import (
@@ -22,6 +22,7 @@ from ..database import (
     update_upload_row,
 )
 from ..services.print_queue_service import send_ready_rows_to_print
+from ..services.volume_enrichment import enrich_upload_row_volumes
 from ..schemas import (
     BatchPlanPreviewResponse,
     BulkDeleteRowsResponse,
@@ -49,6 +50,7 @@ router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 @router.post("/classify", response_model=UploadClassificationResponse)
 async def classify_uploads(
     request: Request,
+    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
 ) -> UploadClassificationResponse:
     if not files:
@@ -99,6 +101,11 @@ async def classify_uploads(
             persisted_rows.append(serialize_row_for_storage(row, stored_path, content_hash))
 
         stored_rows = persist_upload_session(settings, session_id, persisted_rows)
+        background_tasks.add_task(
+            enrich_upload_row_volumes,
+            settings,
+            [row.row_id for row in stored_rows if row.row_id is not None and row.volume_ml is None],
+        )
     except Exception:
         shutil.rmtree(session_dir, ignore_errors=True)
         raise

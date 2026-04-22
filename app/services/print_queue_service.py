@@ -400,6 +400,7 @@ def send_ready_rows_to_print(
     from ..database import _load_rows_by_ids, _now_iso, connect, get_upload_row_by_id
     from ..schemas import PrintJob
     from .build_planning import plan_build_manifests
+    from .volume_enrichment import enrich_upload_row_volumes
 
     if not row_ids:
         return []
@@ -412,7 +413,20 @@ def send_ready_rows_to_print(
         if row:
             rows.append(row)
 
-    ready_rows = [r for r in rows if r.status == "Ready"]
+    missing_volume_ids = [
+        row.row_id
+        for row in rows
+        if row.row_id is not None and row.status == "Ready" and row.volume_ml is None
+    ]
+    if missing_volume_ids:
+        enrich_upload_row_volumes(settings, missing_volume_ids)
+        rows = []
+        for row_id in row_ids:
+            row = get_upload_row_by_id(settings, row_id)
+            if row:
+                rows.append(row)
+
+    ready_rows = [r for r in rows if r.status == "Ready" and r.volume_ml is not None]
     if not ready_rows:
         return rows
 
@@ -443,6 +457,30 @@ def send_ready_rows_to_print(
                 if not manifest_rows:
                     continue
 
+                for row in manifest_rows:
+                    connection.execute(
+                        """
+                        UPDATE upload_rows
+                        SET queue_section = 'in_progress',
+                            handoff_stage = 'Processing',
+                            current_event_at = ?
+                        WHERE id = ?
+                        """,
+                        (now, row.row_id),
+                    )
+                    metadata = json.dumps({
+                        "status": row.status,
+                        "handoff_stage": "Processing",
+                        "queue_section": "in_progress",
+                    })
+                    connection.execute(
+                        """
+                        INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (row.row_id, "handoff_started", now, metadata),
+                    )
+
                 if manifest.planning_status != "planned" or not manifest.import_groups:
                     review_reason = (
                         f"Build planning requires manual review: {manifest.non_plannable_reason}"
@@ -452,6 +490,8 @@ def send_ready_rows_to_print(
                             """
                             UPDATE upload_rows
                             SET status = 'Needs Review',
+                                queue_section = 'analysis',
+                                handoff_stage = NULL,
                                 review_required = 1,
                                 review_reason = ?,
                                 current_event_at = ?
@@ -501,6 +541,36 @@ def send_ready_rows_to_print(
 
                 accepted_manifest = result["manifest"]
                 accepted_rows = _manifest_rows(accepted_manifest, rows_by_id)
+                accepted_row_ids = {row.row_id for row in accepted_rows if row.row_id is not None}
+                deferred_rows = [
+                    row
+                    for row in manifest_rows
+                    if row.row_id is not None and row.row_id not in accepted_row_ids
+                ]
+
+                for row in deferred_rows:
+                    connection.execute(
+                        """
+                        UPDATE upload_rows
+                        SET queue_section = 'analysis',
+                            handoff_stage = NULL,
+                            current_event_at = ?
+                        WHERE id = ?
+                        """,
+                        (now, row.row_id),
+                    )
+                    metadata = json.dumps({
+                        "status": row.status,
+                        "handoff_stage": None,
+                        "queue_section": "analysis",
+                    })
+                    connection.execute(
+                        """
+                        INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (row.row_id, "handoff_deferred", now, metadata),
+                    )
 
                 if result.get("review_required"):
                     review_reason = (
@@ -512,6 +582,8 @@ def send_ready_rows_to_print(
                             """
                             UPDATE upload_rows
                             SET status = 'Needs Review',
+                                queue_section = 'analysis',
+                                handoff_stage = NULL,
                                 review_required = 1,
                                 review_reason = ?,
                                 current_event_at = ?
@@ -546,7 +618,7 @@ def send_ready_rows_to_print(
                     manifest_json=result.get("manifest_json"),
                 )
 
-                connection.execute(
+                cursor = connection.execute(
                     """
                     INSERT INTO print_jobs (
                         job_name,
@@ -589,20 +661,34 @@ def send_ready_rows_to_print(
                         print_job.error_message,
                     ),
                 )
+                created_print_job_id = int(cursor.lastrowid)
                 batch_number += 1
 
                 for row in accepted_rows:
                     connection.execute(
                         """
                         UPDATE upload_rows
-                        SET status = 'Submitted', current_event_at = ?
+                        SET status = 'Submitted',
+                            queue_section = 'history',
+                            handoff_stage = 'Queued',
+                            linked_job_name = ?,
+                            linked_print_job_id = ?,
+                            current_event_at = ?
                         WHERE id = ?
                         """,
-                        (now, row.row_id),
+                        (
+                            result["job_name"],
+                            created_print_job_id,
+                            now,
+                            row.row_id,
+                        ),
                     )
                     metadata = json.dumps({
                         "status": "Submitted",
+                        "queue_section": "history",
+                        "handoff_stage": "Queued",
                         "job_name": result["job_name"],
+                        "linked_print_job_id": created_print_job_id,
                         "scene_id": result["scene_id"],
                         "print_job_id": result["print_job_id"],
                         "manifest": result["manifest_json"],

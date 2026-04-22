@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Queue Mockup</title>
+    <style>
+        :root {
+            --bg: #f4efe6;
+            --paper: #fffdfa;
+            --paper-soft: #f9f4ec;
+            --ink: #191714;
+            --muted: #6f675d;
+            --line: #ddd2c2;
+            --accent: #e46422;
+            --accent-deep: #b94b13;
+            --ready-bg: #eef7f0;
+            --ready-ink: #257249;
+            --progress-bg: #fff3e5;
+            --progress-ink: #a05900;
+            --review-bg: #fff0ec;
+            --review-ink: #b93b24;
+            --history-bg: #eef3fb;
+            --history-ink: #3665ad;
+            --shadow: 0 10px 30px rgba(38, 25, 8, 0.08);
+            --radius: 18px;
+            --font-display: Georgia, "Times New Roman", serif;
+            --font-ui: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background:
+                radial-gradient(circle at top left, rgba(228, 100, 34, 0.12), transparent 28%),
+                linear-gradient(180deg, #f8f3ea 0%, var(--bg) 100%);
+            color: var(--ink);
+            font-family: var(--font-ui);
+        }
+
+        .shell {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 32px 28px 48px;
+        }
+
+        .hero {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 26px;
+        }
+
+        .eyebrow {
+            margin: 0;
+            color: var(--accent);
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            font-family: var(--font-display);
+            font-size: clamp(2.4rem, 4vw, 4.1rem);
+            line-height: 1.02;
+        }
+
+        .lede {
+            max-width: 860px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.65;
+        }
+
+        .canvas {
+            display: grid;
+            gap: 18px;
+        }
+
+        .panel {
+            background: rgba(255, 253, 250, 0.96);
+            border: 1px solid rgba(221, 210, 194, 0.92);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .workflow-strip {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            padding: 18px;
+        }
+
+        .workflow-step {
+            padding: 14px 16px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: linear-gradient(180deg, #fffdfa 0%, #faf4eb 100%);
+        }
+
+        .workflow-step strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+        }
+
+        .workflow-step span {
+            color: var(--muted);
+            font-size: 0.86rem;
+            line-height: 1.45;
+        }
+
+        .workflow-step.active {
+            border-color: rgba(228, 100, 34, 0.35);
+            background:
+                radial-gradient(circle at top right, rgba(228, 100, 34, 0.12), transparent 46%),
+                linear-gradient(180deg, #fffaf3 0%, #fff2e3 100%);
+        }
+
+        .workspace {
+            overflow: hidden;
+        }
+
+        .workspace-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 22px 24px 0;
+        }
+
+        .workspace-copy h2 {
+            margin: 0;
+            font-size: 1.45rem;
+            letter-spacing: -0.02em;
+        }
+
+        .workspace-copy p {
+            max-width: 720px;
+            margin: 10px 0 0;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .toast {
+            min-width: 320px;
+            max-width: 420px;
+            padding: 14px 16px;
+            border: 1px solid rgba(37, 114, 73, 0.24);
+            border-radius: 14px;
+            background: linear-gradient(180deg, #f3fbf6 0%, #e8f7ee 100%);
+        }
+
+        .toast strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--ready-ink);
+            font-size: 0.92rem;
+        }
+
+        .toast span {
+            color: #365542;
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 18px 24px;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .selection-note {
+            color: var(--muted);
+            font-size: 0.84rem;
+        }
+
+        .button {
+            padding: 11px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .button-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .button-secondary {
+            background: #f4eadc;
+            color: var(--ink);
+        }
+
+        .section-stack {
+            display: grid;
+            gap: 18px;
+            padding: 0 24px 24px;
+        }
+
+        .queue-section {
+            overflow: hidden;
+            border: 1px solid #e9dece;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #fffdfa 0%, #fbf6ee 100%);
+        }
+
+        .queue-section.progress-section {
+            border-color: rgba(228, 100, 34, 0.2);
+            background:
+                radial-gradient(circle at top right, rgba(228, 100, 34, 0.08), transparent 38%),
+                linear-gradient(180deg, #fffaf3 0%, #fdf6eb 100%);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 18px 20px 14px;
+            border-bottom: 1px solid #efe5d7;
+        }
+
+        .section-header h3 {
+            margin: 0;
+            font-size: 1.12rem;
+            letter-spacing: -0.02em;
+        }
+
+        .section-header p {
+            max-width: 740px;
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.55;
+        }
+
+        .section-badges {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .section-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 7px 11px;
+            border-radius: 999px;
+            background: #f0e7d9;
+            color: #5e5242;
+            font-size: 0.76rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .section-badge-accent {
+            background: #fff0e2;
+            color: var(--accent-deep);
+        }
+
+        .section-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 20px;
+            border-bottom: 1px solid #f1e8db;
+            background: rgba(255, 255, 255, 0.58);
+        }
+
+        .section-toolbar-copy {
+            color: var(--muted);
+            font-size: 0.83rem;
+        }
+
+        .table-wrap {
+            padding: 0 20px 20px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            min-width: 1080px;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            padding: 14px 12px;
+            border-bottom: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.11em;
+            text-align: left;
+            text-transform: uppercase;
+        }
+
+        tbody td {
+            padding: 16px 12px;
+            border-bottom: 1px solid #efe6d9;
+            vertical-align: top;
+            font-size: 0.9rem;
+        }
+
+        tbody tr {
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        tbody tr:nth-child(2) {
+            background: linear-gradient(180deg, #fff7eb 0%, #fffaf4 100%);
+        }
+
+        .file-name {
+            margin: 0 0 6px;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .file-meta {
+            color: var(--muted);
+            font-size: 0.81rem;
+            line-height: 1.45;
+        }
+
+        .status-stack {
+            display: grid;
+            gap: 6px;
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: fit-content;
+            padding: 7px 11px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .status-progress {
+            background: var(--progress-bg);
+            color: var(--progress-ink);
+        }
+
+        .status-ready {
+            background: var(--ready-bg);
+            color: var(--ready-ink);
+        }
+
+        .status-review {
+            background: var(--review-bg);
+            color: var(--review-ink);
+        }
+
+        .status-detail {
+            color: var(--muted);
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .spinner {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 0 0 rgba(160, 89, 0, 0.3);
+            animation: pulse 1.1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(0.85);
+                opacity: 0.55;
+                box-shadow: 0 0 0 0 rgba(160, 89, 0, 0.22);
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+                box-shadow: 0 0 0 7px rgba(160, 89, 0, 0);
+            }
+        }
+
+        .case-badge,
+        .job-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #f1ede4;
+            color: #584e42;
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+
+        .job-badge {
+            background: var(--history-bg);
+            color: var(--history-ink);
+        }
+
+        .cell-stack {
+            display: grid;
+            gap: 8px;
+        }
+
+        .subtle {
+            color: var(--muted);
+            font-size: 0.82rem;
+            line-height: 1.45;
+        }
+
+        .queue-preview {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 18px;
+            padding: 0 24px 24px;
+        }
+
+        .mini-panel {
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: linear-gradient(180deg, #fffdfa 0%, var(--paper-soft) 100%);
+        }
+
+        .mini-panel h3 {
+            margin: 0 0 8px;
+            font-size: 1rem;
+        }
+
+        .mini-panel p {
+            margin: 0 0 14px;
+            color: var(--muted);
+            line-height: 1.55;
+            font-size: 0.86rem;
+        }
+
+        .mini-job {
+            display: grid;
+            grid-template-columns: 84px 1fr;
+            gap: 14px;
+            padding: 14px;
+            border-radius: 14px;
+            background: #fff;
+            border: 1px solid #e6dccd;
+        }
+
+        .thumb {
+            display: grid;
+            place-items: center;
+            height: 84px;
+            border-radius: 12px;
+            background:
+                linear-gradient(135deg, rgba(228, 100, 34, 0.16), rgba(54, 101, 173, 0.12)),
+                #f5ede2;
+            color: var(--muted);
+            font-size: 0.74rem;
+            text-align: center;
+        }
+
+        .legend-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: grid;
+            grid-template-columns: 110px 1fr;
+            gap: 10px;
+            align-items: start;
+            font-size: 0.84rem;
+            line-height: 1.45;
+        }
+
+        .legend-item strong {
+            color: var(--ink);
+        }
+
+        @media (max-width: 1120px) {
+            .workflow-strip,
+            .queue-preview {
+                grid-template-columns: 1fr;
+            }
+
+            .workspace-header,
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .toast {
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <section class="hero">
+            <p class="eyebrow">Visual Mockup</p>
+            <h1>Work Queue Proposal</h1>
+            <p class="lede">
+                This refresh shows one queue page with clearer section breaks: <strong>File Analysis</strong>
+                first for rows that still need user attention, then an expanded <strong>In Progress</strong>
+                section below it using the same columns so users can see what is moving without feeling
+                responsible to act on it.
+            </p>
+        </section>
+
+        <section class="canvas">
+            <section class="panel workflow-strip">
+                <div class="workflow-step">
+                    <strong>1. Ready</strong>
+                    <span>Operators review and select files that are ready to send.</span>
+                </div>
+                <div class="workflow-step active">
+                    <strong>2. In Progress</strong>
+                    <span>Rows move out of Ready immediately after send and show backend step updates in the Status cell.</span>
+                </div>
+                <div class="workflow-step">
+                    <strong>3. Print Queue</strong>
+                    <span>Once a real job exists, it appears as a job-level row with preview and print details.</span>
+                </div>
+                <div class="workflow-step">
+                    <strong>4. History</strong>
+                    <span>Completed file-level records stay traceable after handoff finishes.</span>
+                </div>
+            </section>
+
+            <section class="panel workspace">
+                <div class="workspace-header">
+                    <div class="workspace-copy">
+                        <p class="eyebrow">Main Workspace</p>
+                        <h2>Work Queue</h2>
+                        <p>
+                            One queue page, split by purpose. The upper section stays close to today&apos;s
+                            Active tab. The lower section mirrors the same table shape, but acts as a
+                            visual divider that tells the operator these files are already being handled.
+                        </p>
+                    </div>
+                    <div class="toast">
+                        <strong>Sent to Print Queue</strong>
+                        <span>
+                            3 files moved into <strong>In Progress</strong>. They no longer need user attention
+                            while backend handoff continues.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="section-stack">
+                    <section class="queue-section">
+                        <div class="section-header">
+                            <div>
+                                <h3>File Analysis</h3>
+                                <p>
+                                    This is the familiar working area from today&apos;s Active tab. Files here still
+                                    need operator review, correction, or submission.
+                                </p>
+                            </div>
+                            <div class="section-badges">
+                                <span class="section-badge">Needs Attention</span>
+                                <span class="section-badge">14 Rows</span>
+                            </div>
+                        </div>
+
+                        <div class="section-toolbar">
+                            <div class="section-toolbar-copy">
+                                Review files, fix anything that needs attention, then send selected ready rows to print.
+                            </div>
+                            <div class="toolbar-actions">
+                                <button class="button button-secondary">Clear Selection</button>
+                                <button class="button button-primary">Send to Print (3)</button>
+                            </div>
+                        </div>
+
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Preview</th>
+                                        <th>File</th>
+                                        <th>Case ID</th>
+                                        <th>Model Type</th>
+                                        <th>Preset</th>
+                                        <th>Status</th>
+                                        <th>Dimensions</th>
+                                        <th>Volume</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><div class="thumb">3D<br>Preview</div></td>
+                                        <td>
+                                            <p class="file-name">20260422_CASE510_UpperJaw_Model.stl</p>
+                                            <div class="file-meta">Ready for handoff</div>
+                                        </td>
+                                        <td><span class="case-badge">CASE510</span></td>
+                                        <td>Ortho - Solid</td>
+                                        <td>Ortho Solid - Flat, No Supports</td>
+                                        <td>
+                                            <div class="status-stack">
+                                                <span class="status-chip status-ready">Ready</span>
+                                                <span class="status-detail">No further review needed before send.</span>
+                                            </div>
+                                        </td>
+                                        <td>101.8 x 80.3 x 25.1 mm</td>
+                                        <td>11.94 mL</td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><div class="thumb">3D<br>Preview</div></td>
+                                        <td>
+                                            <p class="file-name">20260422_CASE777_Splint.stl</p>
+                                            <div class="file-meta">User action required before handoff</div>
+                                        </td>
+                                        <td><span class="case-badge">CASE777</span></td>
+                                        <td>Splint</td>
+                                        <td>Splint - Flat, No Supports</td>
+                                        <td>
+                                            <div class="status-stack">
+                                                <span class="status-chip status-review">Needs Review</span>
+                                                <span class="status-detail">Validation mismatch needs operator correction.</span>
+                                            </div>
+                                        </td>
+                                        <td>74.3 x 62.1 x 17.9 mm</td>
+                                        <td>6.73 mL</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="queue-section progress-section">
+                        <div class="section-header">
+                            <div>
+                                <h3>In Progress</h3>
+                                <p>
+                                    Expanded by default after send. Same columns, same row shape, but this section
+                                    communicates that backend handoff is already underway and does not need user attention.
+                                </p>
+                            </div>
+                            <div class="section-badges">
+                                <span class="section-badge section-badge-accent">Expanded by Default</span>
+                                <span class="section-badge">3 Rows</span>
+                            </div>
+                        </div>
+
+                        <div class="section-toolbar">
+                            <div class="section-toolbar-copy">
+                                These rows moved here immediately after <strong>Send to Print</strong>. Operators can monitor progress, but usually do not need to act.
+                            </div>
+                            <div class="toolbar-actions">
+                                <span class="selection-note">Rows will leave this section after handoff completes.</span>
+                            </div>
+                        </div>
+
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Preview</th>
+                                        <th>File</th>
+                                        <th>Case ID</th>
+                                        <th>Model Type</th>
+                                        <th>Preset</th>
+                                        <th>Status</th>
+                                        <th>Dimensions</th>
+                                        <th>Volume</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><div class="thumb">3D<br>Preview</div></td>
+                                        <td>
+                                            <p class="file-name">20260422_CASE144_UpperJaw_Model.stl</p>
+                                            <div class="file-meta">Moved here 18s after send</div>
+                                        </td>
+                                        <td>
+                                            <div class="cell-stack">
+                                                <span class="case-badge">CASE144</span>
+                                                <span class="job-badge">Job 260422-014</span>
+                                            </div>
+                                        </td>
+                                        <td>Ortho - Solid</td>
+                                        <td>Ortho Solid - Flat, No Supports</td>
+                                        <td>
+                                            <div class="status-stack">
+                                                <span class="status-chip status-progress">
+                                                    <span class="spinner"></span>
+                                                    Layout
+                                                </span>
+                                                <span class="status-detail">Positioning models on the build platform.</span>
+                                            </div>
+                                        </td>
+                                        <td>98.1 x 78.5 x 24.0 mm</td>
+                                        <td>11.42 mL</td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><div class="thumb">3D<br>Preview</div></td>
+                                        <td>
+                                            <p class="file-name">20260422_CASE144_LowerJaw_Model.stl</p>
+                                            <div class="file-meta">Same backend handoff group as upper jaw file</div>
+                                        </td>
+                                        <td>
+                                            <div class="cell-stack">
+                                                <span class="case-badge">CASE144</span>
+                                                <span class="job-badge">Job 260422-014</span>
+                                            </div>
+                                        </td>
+                                        <td>Ortho - Solid</td>
+                                        <td>Ortho Solid - Flat, No Supports</td>
+                                        <td>
+                                            <div class="status-stack">
+                                                <span class="status-chip status-progress">
+                                                    <span class="spinner"></span>
+                                                    Layout
+                                                </span>
+                                                <span class="status-detail">Shares progress state with the related CASE144 file.</span>
+                                            </div>
+                                        </td>
+                                        <td>99.4 x 77.8 x 23.7 mm</td>
+                                        <td>11.08 mL</td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><div class="thumb">3D<br>Preview</div></td>
+                                        <td>
+                                            <p class="file-name">20260422_CASE900_Tooth_46.stl</p>
+                                            <div class="file-meta">Single-file case in its own handoff path</div>
+                                        </td>
+                                        <td>
+                                            <div class="cell-stack">
+                                                <span class="case-badge">CASE900</span>
+                                                <span class="job-badge">Job Pending</span>
+                                            </div>
+                                        </td>
+                                        <td>Tooth</td>
+                                        <td>Tooth - With Supports</td>
+                                        <td>
+                                            <div class="status-stack">
+                                                <span class="status-chip status-progress">
+                                                    <span class="spinner"></span>
+                                                    Validating
+                                                </span>
+                                                <span class="status-detail">Running final scene checks before job creation.</span>
+                                            </div>
+                                        </td>
+                                        <td>39.0 x 24.8 x 18.1 mm</td>
+                                        <td>2.84 mL</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="queue-preview">
+                    <div class="mini-panel">
+                        <h3>Why This Layout Changes</h3>
+                        <p>
+                            The page now uses <strong>section breaks instead of filter chips</strong>. The visual
+                            separation tells the operator what still needs attention and what is already moving
+                            through backend work, while keeping the same table language in both places.
+                        </p>
+                        <div class="legend-list">
+                            <div class="legend-item">
+                                <strong>File Analysis</strong>
+                                <span>Upper section stays close to the current Active tab and remains action-oriented.</span>
+                            </div>
+                            <div class="legend-item">
+                                <strong>In Progress</strong>
+                                <span>Lower section mirrors the same columns, but the placement signals "watch only, no action needed."</span>
+                            </div>
+                            <div class="legend-item">
+                                <strong>Status Cell</strong>
+                                <span>Progress still lives inside the existing Status cell rather than adding a new column.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mini-panel">
+                        <h3>Print Queue Preview</h3>
+                        <p>
+                            Once a real job exists, the job-level entry appears in <strong>Print Queue</strong>
+                            with a clickable thumbnail and combined print details.
+                        </p>
+                        <div class="mini-job">
+                            <div class="thumb">Thumbnail<br>Preview</div>
+                            <div class="cell-stack">
+                                <strong>260422-014</strong>
+                                <span class="subtle">Cases: CASE144, CASE900</span>
+                                <span class="status-chip status-progress">
+                                    <span class="spinner"></span>
+                                    Queued
+                                </span>
+                                <span class="subtle">Form 4BL | Precision Model Resin | 100 um</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </main>
+</body>
+</html>

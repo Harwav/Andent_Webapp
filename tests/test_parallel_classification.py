@@ -67,3 +67,22 @@ endsolid test
         # Invalid file should have review_required=True
         invalid_result = next(r for r in results if r.file_name == "invalid.stl")
         assert invalid_result.review_required is True
+
+    def test_parallel_classification_error_row_preserves_filename_case_id(self, monkeypatch, tmp_path):
+        """Error rows should still retain a case ID that is clear from the filename."""
+        from app.services import classification
+
+        def raise_classifier(stored_path: Path, original_filename: str):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(classification, "classify_saved_upload", raise_classifier)
+        stl_path = tmp_path / "20260408_8425357__Kaleen_Shium_Antag.stl"
+        stl_path.write_text("not actually classified", encoding="utf-8")
+
+        results = classify_uploaded_files_parallel(
+            [(stl_path, "20260408_8425357__Kaleen_Shium_Antag.stl")],
+            max_workers=1,
+        )
+
+        assert results[0].case_id == "8425357"
+        assert results[0].status == "Needs Review"

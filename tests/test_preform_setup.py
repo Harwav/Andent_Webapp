@@ -162,3 +162,12 @@ def test_send_to_print_returns_409_when_preform_not_ready(tmp_path):
 
     assert response.status_code == 409
     assert "PreFormServer setup is required" in response.json()["detail"]
+
+
+def test_setup_center_static_ui_does_not_display_sensitive_install_path():
+    index_html = Path("app/static/index.html").read_text(encoding="utf-8")
+    app_js = Path("app/static/app.js").read_text(encoding="utf-8")
+
+    assert "Install Path" not in index_html
+    assert "preform-install-path" not in index_html
+    assert "status.install_path" not in app_js

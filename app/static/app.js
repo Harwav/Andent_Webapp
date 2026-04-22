@@ -4,6 +4,7 @@ const MODEL_TYPES = [
     "Die",
     "Tooth",
     "Splint",
+    "Antagonist",
 ];
 
 const DEFAULT_PRESET_BY_MODEL = {
@@ -12,9 +13,10 @@ const DEFAULT_PRESET_BY_MODEL = {
     Die: "Die - Flat, No Supports",
     Tooth: "Tooth - With Supports",
     Splint: "Splint - Flat, No Supports",
+    Antagonist: "Ortho Solid - Flat, No Supports",
 };
 
-const PRESET_OPTIONS = Object.values(DEFAULT_PRESET_BY_MODEL);
+const PRESET_OPTIONS = [...new Set(Object.values(DEFAULT_PRESET_BY_MODEL))];
 
 const ACTIVE_STATUSES = [
     "Queued",
@@ -31,9 +33,10 @@ const PAGE_SIZE = 50;
 const MAX_CONCURRENT_UPLOADS = 3;
 const DELETE_UNDO_MS = 10000;
 const PRINT_QUEUE_POLL_INTERVAL = 5000; // 5 seconds
+const THUMBNAIL_SNAPSHOT_STORAGE_PREFIX = "andent:thumbnail-snapshot:";
 
 const state = {
-    activeTab: "active",
+    activeTab: "work-queue",
     activeRows: [],
     processedRows: [],
     pendingRows: [],
@@ -54,11 +57,20 @@ const state = {
         frameId: null,
         cleanup: null,
     },
+    thumbnailSnapshots: {
+        cache: new Map(),
+        pending: new Set(),
+        queue: [],
+        active: 0,
+        maxActive: 2,
+    },
     printQueue: {
         jobs: [],
         page: 1,
         expandedCases: new Set(),
+        highlightedJobId: null,
     },
+    transientQueuedRows: new Map(),
     preformSetup: {
         status: null,
         loading: false,
@@ -68,24 +80,20 @@ const state = {
 
 const elements = {
     activeBody: document.getElementById("active-body"),
-    activeCount: document.getElementById("active-count"),
-    activePanel: document.getElementById("active-panel"),
+    inProgressBody: document.getElementById("in-progress-body"),
     activePaginationBottom: document.getElementById("active-pagination-bottom"),
     activePaginationTop: document.getElementById("active-pagination-top"),
-    activeTab: document.getElementById("active-tab"),
     bulkActions: document.getElementById("bulk-actions"),
     closePreview: document.getElementById("close-preview"),
     dropzone: document.getElementById("dropzone"),
     emptyState: document.getElementById("empty-state"),
     fileInput: document.getElementById("file-input"),
-    folderInput: document.getElementById("folder-input"),
     previewCaption: document.getElementById("preview-caption"),
     previewModal: document.getElementById("preview-modal"),
     previewTitle: document.getElementById("preview-title"),
     previewViewer: document.getElementById("preview-viewer"),
     preformBanner: document.getElementById("preform-banner"),
     preformInstallButton: document.getElementById("preform-install-button"),
-    preformInstallPath: document.getElementById("preform-install-path"),
     preformLastCheck: document.getElementById("preform-last-check"),
     preformReadinessPill: document.getElementById("preform-readiness-pill"),
     preformRecheckButton: document.getElementById("preform-recheck-button"),
@@ -98,21 +106,24 @@ const elements = {
     preformVersionRange: document.getElementById("preform-version-range"),
     preformWizard: document.getElementById("preform-wizard"),
     preformZipInput: document.getElementById("preform-zip-input"),
-    processedBody: document.getElementById("processed-body"),
-    processedCount: document.getElementById("processed-count"),
-    processedPanel: document.getElementById("processed-panel"),
-    processedPaginationBottom: document.getElementById("processed-pagination-bottom"),
-    processedPaginationTop: document.getElementById("processed-pagination-top"),
-    processedTab: document.getElementById("processed-tab"),
+    historyBody: document.getElementById("history-body"),
+    historyCount: document.getElementById("history-count"),
+    historyPanel: document.getElementById("history-panel"),
+    historyPaginationBottom: document.getElementById("history-pagination-bottom"),
+    historyPaginationTop: document.getElementById("history-pagination-top"),
+    historyTab: document.getElementById("history-tab"),
     queueActionButton: document.getElementById("queue-action-button"),
     selectPageCheckbox: document.getElementById("select-page-checkbox"),
     selectionNote: document.getElementById("selection-note"),
     statusLegend: document.getElementById("status-legend"),
     statusText: document.getElementById("status-text"),
+    workQueueCount: document.getElementById("work-queue-count"),
+    workQueuePanel: document.getElementById("work-queue-panel"),
+    workQueueTab: document.getElementById("work-queue-tab"),
     printQueueTab: document.getElementById("print-queue-tab"),
     printQueueCount: document.getElementById("print-queue-count"),
     printQueuePanel: document.getElementById("print-queue-panel"),
-    printQueueCards: document.getElementById("print-queue-cards"),
+    printQueueBody: document.getElementById("print-queue-body"),
     printQueueEmpty: document.getElementById("print-queue-empty"),
     printQueuePaginationTop: document.getElementById("print-queue-pagination-top"),
     printQueuePaginationBottom: document.getElementById("print-queue-pagination-bottom"),
@@ -264,8 +275,8 @@ function renderPreformSetup() {
 
     elements.preformReadinessPill.textContent = label;
     elements.preformReadinessPill.className = `status-pill status-pill-${tone}`;
+    elements.preformSetupPanel.classList.toggle("setup-panel-ready", status?.readiness === "ready");
     elements.preformSummary.textContent = summary;
-    elements.preformInstallPath.textContent = status?.install_path || "-";
     elements.preformVersion.textContent = status?.detected_version || "-";
     elements.preformVersionRange.textContent = formatPreformRange(status);
     elements.preformLastCheck.textContent = formatDate(status?.last_health_check_at || "");
@@ -304,7 +315,6 @@ function renderPreformWizard() {
             </div>
             <p class="setup-summary">${describePreformSetup(status)}</p>
             <div class="wizard-checklist">
-                <div class="wizard-checklist-item">Managed install path: ${status.install_path}</div>
                 <div class="wizard-checklist-item">Supported range: ${formatPreformRange(status)}</div>
                 <div class="wizard-checklist-item">Detected version: ${status.detected_version || "-"}</div>
             </div>
@@ -385,7 +395,21 @@ function sortRows() {
 }
 
 function getCombinedActiveRows() {
-    return [...state.pendingRows, ...state.activeRows];
+    return [
+        ...state.pendingRows,
+        ...state.activeRows.filter((row) => (row.queue_section || "analysis") !== "in_progress"),
+    ];
+}
+
+function getInProgressRows() {
+    return [
+        ...state.activeRows.filter((row) => (row.queue_section || "analysis") === "in_progress"),
+        ...state.transientQueuedRows.values(),
+    ];
+}
+
+function rowStatusLabel(row) {
+    return row.handoff_stage || getRowStatus(row);
 }
 
 function getFilteredActiveRows() {
@@ -403,6 +427,26 @@ function getPagedRows(rows, page) {
 
 function getRowKey(row) {
     return row.is_temp ? row.temp_id : `row-${row.row_id}`;
+}
+
+function getThumbnailSnapshotKey(row) {
+    return row.is_temp ? `temp:${row.temp_id}:${row.file_name}` : `row:${row.row_id}:${row.file_name}`;
+}
+
+function getStoredThumbnailSnapshot(key) {
+    try {
+        return window.localStorage.getItem(`${THUMBNAIL_SNAPSHOT_STORAGE_PREFIX}${key}`);
+    } catch (error) {
+        return null;
+    }
+}
+
+function storeThumbnailSnapshot(key, dataUrl) {
+    try {
+        window.localStorage.setItem(`${THUMBNAIL_SNAPSHOT_STORAGE_PREFIX}${key}`, dataUrl);
+    } catch (error) {
+        // Storage may be full or disabled; in-memory cache still covers the current session.
+    }
 }
 
 function getRowStatus(row) {
@@ -423,6 +467,9 @@ function isEditableActiveRow(row) {
     if (row.is_temp || isRowPendingDelete(row)) {
         return false;
     }
+    if ((row.queue_section || "analysis") === "in_progress") {
+        return false;
+    }
     const status = getRowStatus(row);
     return !["Submitted", "Printed", "Locked"].includes(status);
 }
@@ -433,6 +480,14 @@ function isReadyForPrint(row) {
 
 function isDuplicateActionable(row) {
     return !row.is_temp && !isRowPendingDelete(row) && row.status === "Duplicate";
+}
+
+function getSelectedRows() {
+    return state.activeRows.filter((row) => state.selectedIds.has(row.row_id));
+}
+
+function getRowIds(rows) {
+    return rows.map((row) => row.row_id);
 }
 
 function syncSelection() {
@@ -486,7 +541,7 @@ function formatDimensions(dimensions) {
 
 function formatVolume(row) {
     if (typeof row.volume_ml !== "number") {
-        return "-";
+        return "Calculating...";
     }
     return `${row.volume_ml.toFixed(2)} mL`;
 }
@@ -739,20 +794,134 @@ function createThumbnail(row) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "thumbnail-button";
-    button.disabled = Boolean(row.is_temp && !row.file);
+    const canPreview = Boolean((row.is_temp && row.file) || row.file_url);
+    button.disabled = !canPreview;
     button.addEventListener("click", () => openPreview(row));
-    if (!row.is_temp && row.thumbnail_url) {
+    const snapshotKey = getThumbnailSnapshotKey(row);
+    let snapshot = state.thumbnailSnapshots.cache.get(snapshotKey);
+    if (!snapshot) {
+        snapshot = getStoredThumbnailSnapshot(snapshotKey);
+        if (snapshot) {
+            state.thumbnailSnapshots.cache.set(snapshotKey, snapshot);
+        }
+    }
+    if (snapshot) {
         const image = document.createElement("img");
-        image.src = row.thumbnail_url;
+        image.src = snapshot;
         image.alt = `${row.file_name} preview`;
         button.appendChild(image);
     } else {
         const placeholder = document.createElement("div");
         placeholder.className = "thumbnail-placeholder";
-        placeholder.textContent = row.is_temp ? row.status : "STL";
+        placeholder.textContent = canPreview ? "Rendering" : "STL";
         button.appendChild(placeholder);
+        queueThumbnailSnapshot(row);
     }
     return button;
+}
+
+async function loadStlBuffer(row) {
+    if (row.is_temp) {
+        return row.file.arrayBuffer();
+    }
+    const response = await fetch(row.file_url);
+    if (!response.ok) {
+        throw new Error("STL could not be loaded.");
+    }
+    return response.arrayBuffer();
+}
+
+async function renderStlSnapshotPng(row, size = 160) {
+    const { THREE, STLLoader } = await ensurePreviewDependencies();
+    const buffer = await loadStlBuffer(row);
+    const loader = new STLLoader();
+    const geometry = loader.parse(buffer);
+    geometry.computeBoundingBox();
+    geometry.center();
+    geometry.computeVertexNormals();
+
+    const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        preserveDrawingBuffer: true,
+    });
+    renderer.setPixelRatio(1);
+    renderer.setSize(size, size, false);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf8f3ec);
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 5000);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.15));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.7);
+    keyLight.position.set(45, 60, 110);
+    scene.add(keyLight);
+    const fillLight = new THREE.DirectionalLight(0xfff2df, 0.9);
+    fillLight.position.set(-60, -40, 80);
+    scene.add(fillLight);
+
+    const material = new THREE.MeshStandardMaterial({
+        color: 0xff7a2b,
+        metalness: 0.08,
+        roughness: 0.5,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    const group = new THREE.Group();
+    group.rotation.set(-0.58, -0.62, 0.08);
+    group.add(mesh);
+    scene.add(group);
+
+    const bounds = geometry.boundingBox;
+    const modelSize = new THREE.Vector3();
+    bounds.getSize(modelSize);
+    const maxDimension = Math.max(modelSize.x, modelSize.y, modelSize.z) || 1;
+    camera.position.set(0, maxDimension * 0.16, maxDimension * 2.35);
+    camera.lookAt(0, 0, 0);
+
+    renderer.render(scene, camera);
+    const dataUrl = renderer.domElement.toDataURL("image/png");
+
+    geometry.dispose();
+    material.dispose();
+    renderer.dispose();
+    return dataUrl;
+}
+
+function queueThumbnailSnapshot(row) {
+    const canPreview = Boolean((row.is_temp && row.file) || row.file_url);
+    if (!canPreview) {
+        return;
+    }
+    const key = getThumbnailSnapshotKey(row);
+    if (state.thumbnailSnapshots.cache.has(key) || state.thumbnailSnapshots.pending.has(key)) {
+        return;
+    }
+    state.thumbnailSnapshots.pending.add(key);
+    state.thumbnailSnapshots.queue.push({ key, row });
+    pumpThumbnailSnapshotQueue();
+}
+
+function pumpThumbnailSnapshotQueue() {
+    while (
+        state.thumbnailSnapshots.active < state.thumbnailSnapshots.maxActive
+        && state.thumbnailSnapshots.queue.length > 0
+    ) {
+        const job = state.thumbnailSnapshots.queue.shift();
+        state.thumbnailSnapshots.active += 1;
+        renderStlSnapshotPng(job.row)
+            .then((dataUrl) => {
+                state.thumbnailSnapshots.cache.set(job.key, dataUrl);
+                storeThumbnailSnapshot(job.key, dataUrl);
+            })
+            .catch(() => {
+                state.thumbnailSnapshots.cache.delete(job.key);
+            })
+            .finally(() => {
+                state.thumbnailSnapshots.pending.delete(job.key);
+                state.thumbnailSnapshots.active = Math.max(0, state.thumbnailSnapshots.active - 1);
+                render();
+                pumpThumbnailSnapshotQueue();
+            });
+    }
 }
 
 function startDeleteCountdown(row) {
@@ -898,7 +1067,7 @@ function renderActiveRows() {
         tr.appendChild(presetCell);
 
         const statusCell = document.createElement("td");
-        const chip = createChip(getRowStatus(row));
+        const chip = createChip(rowStatusLabel(row));
         chip.dataset.testid = "status-chip";
         statusCell.appendChild(chip);
         tr.appendChild(statusCell);
@@ -923,7 +1092,7 @@ function renderActiveRows() {
         const td = document.createElement("td");
         td.colSpan = 10;
         td.className = "table-empty";
-        td.textContent = "No active rows match the current filters.";
+        td.textContent = "No files currently need attention.";
         tr.appendChild(td);
         elements.activeBody.appendChild(tr);
     }
@@ -933,48 +1102,143 @@ function renderActiveRows() {
     elements.selectPageCheckbox.disabled = info.rowIds.length === 0;
 }
 
-function renderProcessedRows() {
+function renderWorkQueueSections() {
+    renderActiveRows();
+
+    const rows = getInProgressRows();
+    elements.inProgressBody.innerHTML = "";
+
+    rows.forEach((row) => {
+        const tr = document.createElement("tr");
+
+        const previewCell = document.createElement("td");
+        previewCell.appendChild(createThumbnail(row));
+        tr.appendChild(previewCell);
+
+        const fileCell = document.createElement("td");
+        const fileName = document.createElement("div");
+        fileName.className = "file-name";
+        fileName.textContent = row.file_name;
+        fileCell.appendChild(fileName);
+        tr.appendChild(fileCell);
+
+        const caseCell = document.createElement("td");
+        caseCell.textContent = row.case_id || "Missing";
+        tr.appendChild(caseCell);
+
+        const modelCell = document.createElement("td");
+        modelCell.textContent = row.model_type || "-";
+        tr.appendChild(modelCell);
+
+        const presetCell = document.createElement("td");
+        presetCell.textContent = row.preset || "-";
+        tr.appendChild(presetCell);
+
+        const statusCell = document.createElement("td");
+        const chip = createChip(rowStatusLabel(row));
+        chip.dataset.testid = "status-chip";
+        statusCell.appendChild(chip);
+        tr.appendChild(statusCell);
+
+        const dimensionsCell = document.createElement("td");
+        dimensionsCell.textContent = formatDimensions(row.dimensions);
+        tr.appendChild(dimensionsCell);
+
+        const volumeCell = document.createElement("td");
+        volumeCell.textContent = formatVolume(row);
+        tr.appendChild(volumeCell);
+
+        elements.inProgressBody.appendChild(tr);
+    });
+
+    if (rows.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 8;
+        td.className = "table-empty";
+        td.textContent = "No files are currently being processed.";
+        tr.appendChild(td);
+        elements.inProgressBody.appendChild(tr);
+    }
+}
+
+function openHistoryJobLink(row) {
+    if (!row.linked_job_name) {
+        return;
+    }
+    state.activeTab = "print-queue";
+    const job = state.printQueue.jobs.find((item) => item.job_name === row.linked_job_name);
+    state.printQueue.highlightedJobId = job?.id || null;
+    render();
+}
+
+function renderHistoryRows() {
     const pageRows = getPagedRows(state.processedRows, state.processedPage);
-    elements.processedBody.innerHTML = "";
+    elements.historyBody.innerHTML = "";
 
     pageRows.forEach((row) => {
         const tr = document.createElement("tr");
-        const values = [
-            createChip(row.status),
-            row.file_name,
-            row.case_id || "Missing",
-            row.model_type || "-",
-            row.preset || "-",
-            formatVolume(row),
-            row.printer || "-",
-            formatDate(row.current_event_at),
-            row.person || "-",
-        ];
+        const statusCell = document.createElement("td");
+        statusCell.appendChild(createChip(rowStatusLabel(row)));
+        tr.appendChild(statusCell);
 
-        values.forEach((value, index) => {
-            const td = document.createElement("td");
-            if (value instanceof Node) {
-                td.appendChild(value);
-            } else {
-                td.textContent = value;
-                if (index === 1) {
-                    td.className = "file-name";
-                }
-            }
-            tr.appendChild(td);
-        });
+        const fileCell = document.createElement("td");
+        fileCell.className = "file-name";
+        fileCell.textContent = row.file_name;
+        tr.appendChild(fileCell);
 
-        elements.processedBody.appendChild(tr);
+        const caseCell = document.createElement("td");
+        caseCell.textContent = row.case_id || "Missing";
+        tr.appendChild(caseCell);
+
+        const modelCell = document.createElement("td");
+        modelCell.textContent = row.model_type || "-";
+        tr.appendChild(modelCell);
+
+        const presetCell = document.createElement("td");
+        presetCell.textContent = row.preset || "-";
+        tr.appendChild(presetCell);
+
+        const jobCell = document.createElement("td");
+        if (row.linked_job_name) {
+            const linkButton = document.createElement("button");
+            linkButton.type = "button";
+            linkButton.className = "history-job-link";
+            linkButton.textContent = row.linked_job_name;
+            linkButton.addEventListener("click", () => openHistoryJobLink(row));
+            jobCell.appendChild(linkButton);
+        } else {
+            jobCell.textContent = "-";
+        }
+        tr.appendChild(jobCell);
+
+        const volumeCell = document.createElement("td");
+        volumeCell.textContent = formatVolume(row);
+        tr.appendChild(volumeCell);
+
+        const printerCell = document.createElement("td");
+        printerCell.textContent = row.printer || "-";
+        tr.appendChild(printerCell);
+
+        const dateCell = document.createElement("td");
+        dateCell.textContent = formatDate(row.current_event_at);
+        tr.appendChild(dateCell);
+
+        const personCell = document.createElement("td");
+        personCell.textContent = row.person || "-";
+        tr.appendChild(personCell);
+
+        elements.historyBody.appendChild(tr);
     });
 
     if (pageRows.length === 0) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 9;
+        td.colSpan = 10;
         td.className = "table-empty";
-        td.textContent = "No processed rows yet.";
+        td.textContent = "No history rows yet.";
         tr.appendChild(td);
-        elements.processedBody.appendChild(tr);
+        elements.historyBody.appendChild(tr);
     }
 }
 
@@ -1004,10 +1268,74 @@ function createJobDetailItem(label, value) {
     return item;
 }
 
+function createPrintQueueRow(job) {
+    const tr = document.createElement("tr");
+    tr.dataset.jobId = String(job.id);
+    if (state.printQueue.highlightedJobId === job.id) {
+        tr.classList.add("print-job-row-highlight");
+    }
+
+    const previewCell = document.createElement("td");
+    const screenshotButton = document.createElement("button");
+    screenshotButton.type = "button";
+    screenshotButton.className = "job-screenshot-button";
+
+    if (job.screenshot_url) {
+        screenshotButton.addEventListener("click", () => openScreenshotModal(job));
+        const img = document.createElement("img");
+        img.src = job.screenshot_url;
+        img.alt = `${job.job_name} screenshot`;
+        img.loading = "lazy";
+        screenshotButton.appendChild(img);
+    } else {
+        screenshotButton.disabled = true;
+        const placeholder = document.createElement("div");
+        placeholder.className = "job-screenshot-placeholder";
+        placeholder.textContent = "Generating preview";
+        screenshotButton.appendChild(placeholder);
+    }
+
+    previewCell.appendChild(screenshotButton);
+    tr.appendChild(previewCell);
+
+    const jobCell = document.createElement("td");
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "file-name";
+    nameDiv.textContent = job.job_name;
+    const presetDiv = document.createElement("div");
+    presetDiv.className = "file-meta";
+    presetDiv.textContent = (job.preset_names || []).length > 0 ? job.preset_names.join(", ") : job.preset;
+    jobCell.appendChild(nameDiv);
+    jobCell.appendChild(presetDiv);
+    tr.appendChild(jobCell);
+
+    const casesCell = document.createElement("td");
+    casesCell.textContent = (job.case_ids || []).length > 0 ? job.case_ids.join(", ") : "-";
+    tr.appendChild(casesCell);
+
+    const statusCell = document.createElement("td");
+    statusCell.appendChild(createJobStatusChip(job.status));
+    tr.appendChild(statusCell);
+
+    const detailsCell = document.createElement("td");
+    detailsCell.textContent = [
+        job.printer_type || "-",
+        job.resin || "-",
+        job.layer_height_microns ? `${job.layer_height_microns} um` : "-",
+    ].join(" | ");
+    tr.appendChild(detailsCell);
+
+    return tr;
+}
+
 function createJobCard(job) {
     const card = document.createElement("div");
     card.className = "job-card";
     card.dataset.jobId = job.id;
+    if (state.printQueue.highlightedJobId === job.id) {
+        card.classList.add("job-card-highlight");
+    }
+    card.tabIndex = -1;
 
     // Screenshot thumbnail
     const screenshotDiv = document.createElement("div");
@@ -1112,7 +1440,7 @@ function createJobCard(job) {
 
 function renderPrintQueueJobs() {
     const pageJobs = getPagedRows(state.printQueue.jobs, state.printQueue.page);
-    elements.printQueueCards.innerHTML = "";
+    elements.printQueueBody.innerHTML = "";
 
     if (pageJobs.length === 0) {
         elements.printQueueEmpty.classList.remove("hidden");
@@ -1121,8 +1449,63 @@ function renderPrintQueueJobs() {
 
     elements.printQueueEmpty.classList.add("hidden");
     pageJobs.forEach((job) => {
-        elements.printQueueCards.appendChild(createJobCard(job));
+        elements.printQueueBody.appendChild(createPrintQueueRow(job));
     });
+
+    if (state.activeTab === "print-queue" && state.printQueue.highlightedJobId !== null) {
+        const highlightedRow = elements.printQueueBody.querySelector(".print-job-row-highlight");
+        if (highlightedRow) {
+            window.requestAnimationFrame(() => {
+                highlightedRow.scrollIntoView({ block: "center", behavior: "smooth" });
+            });
+        }
+    }
+}
+
+function findNewestPrintJob(previousJobIds) {
+    return state.printQueue.jobs.find((job) => !previousJobIds.has(job.id))
+        || state.printQueue.jobs[0]
+        || null;
+}
+
+function markRowsInProgress(rows, stage = "Processing") {
+    const rowIds = new Set(rows.map((row) => row.row_id));
+    state.activeRows = state.activeRows.map((row) => {
+        if (!rowIds.has(row.row_id)) {
+            return row;
+        }
+        const nextStage = row.volume_ml == null ? "Calculating Volume" : stage;
+        return {
+            ...row,
+            queue_section: "in_progress",
+            handoff_stage: nextStage,
+        };
+    });
+}
+
+function brieflyQueueRows(rows) {
+    rows.forEach((row) => {
+        state.transientQueuedRows.set(row.row_id, {
+            ...row,
+            queue_section: "in_progress",
+            handoff_stage: "Queued",
+        });
+        window.setTimeout(() => {
+            state.transientQueuedRows.delete(row.row_id);
+            render();
+        }, 2500);
+    });
+}
+
+function describePrintReceipt(job, submittedCount) {
+    if (!job) {
+        return `Moved ${submittedCount} file(s) into In Progress.`;
+    }
+
+    const caseSummary = (job.case_ids || []).length > 0
+        ? ` for ${job.case_ids.join(", ")}`
+        : "";
+    return `Moved ${submittedCount} file(s) into In Progress. Job ${job.job_name}${caseSummary} is available in Print Queue.`;
 }
 
 function openScreenshotModal(job) {
@@ -1200,7 +1583,7 @@ function renderBulkActions() {
         return;
     }
 
-    const selectedRows = state.activeRows.filter((row) => state.selectedIds.has(row.row_id));
+    const selectedRows = getSelectedRows();
     if (selectedRows.length === 0) {
         const hint = document.createElement("p");
         hint.className = "bulk-hint";
@@ -1224,12 +1607,14 @@ function renderBulkActions() {
     deleteButton.addEventListener("click", () => startBulkDelete(selectedRows));
     elements.bulkActions.appendChild(deleteButton);
 
-    const modelWrap = document.createElement("div");
-    modelWrap.className = "bulk-editor";
     const modelSelect = document.createElement("select");
+    modelSelect.className = "bulk-select";
+    modelSelect.setAttribute("aria-label", "Change Model Type");
+    modelSelect.dataset.testid = "bulk-model-type-select";
     const modelPlaceholder = document.createElement("option");
     modelPlaceholder.value = "";
-    modelPlaceholder.textContent = "Bulk Model Type";
+    modelPlaceholder.textContent = "Change Model Type";
+    modelPlaceholder.disabled = true;
     modelPlaceholder.selected = !state.bulkModelTypeValue;
     modelSelect.appendChild(modelPlaceholder);
     MODEL_TYPES.forEach((optionValue) => {
@@ -1239,81 +1624,75 @@ function renderBulkActions() {
         option.selected = state.bulkModelTypeValue === optionValue;
         modelSelect.appendChild(option);
     });
-    modelSelect.addEventListener("change", (event) => {
-        state.bulkModelTypeValue = event.target.value;
-        modelButton.disabled = !state.bulkModelTypeValue;
-    });
-    const modelButton = document.createElement("button");
-    modelButton.type = "button";
-    modelButton.className = "secondary-button";
-    modelButton.textContent = "Change Model Type";
-    modelButton.disabled = !state.bulkModelTypeValue;
-    modelButton.addEventListener("click", async () => {
+    modelSelect.addEventListener("change", async (event) => {
+        const modelType = event.target.value;
+        const rows = getSelectedRows();
+        if (!modelType || rows.length === 0) {
+            return;
+        }
+        state.bulkModelTypeValue = modelType;
+        modelSelect.disabled = true;
         await applyBulkUpdate({
-            row_ids: selectedRows.map((row) => row.row_id),
-            model_type: state.bulkModelTypeValue,
-        }, `Updated model type for ${selectedRows.length} row(s).`);
+            row_ids: getRowIds(rows),
+            model_type: modelType,
+        }, `Updated model type for ${rows.length} row(s).`, () => {
+            state.bulkModelTypeValue = "";
+        });
     });
-    modelWrap.appendChild(modelSelect);
-    modelWrap.appendChild(modelButton);
-    elements.bulkActions.appendChild(modelWrap);
+    elements.bulkActions.appendChild(modelSelect);
 
-    const presetWrap = document.createElement("div");
-    presetWrap.className = "bulk-editor";
     const presetSelect = document.createElement("select");
+    presetSelect.className = "bulk-select";
+    presetSelect.setAttribute("aria-label", "Change Preset");
+    presetSelect.dataset.testid = "bulk-preset-select";
     const presetPlaceholder = document.createElement("option");
     presetPlaceholder.value = "";
-    presetPlaceholder.textContent = "Bulk Preset";
+    presetPlaceholder.textContent = "Change Preset";
+    presetPlaceholder.disabled = true;
     presetPlaceholder.selected = !state.bulkPresetValue;
     presetSelect.appendChild(presetPlaceholder);
-    MODEL_TYPES.forEach((optionValue) => {
+    PRESET_OPTIONS.forEach((optionValue) => {
         const option = document.createElement("option");
         option.value = optionValue;
         option.textContent = optionValue;
         option.selected = state.bulkPresetValue === optionValue;
         presetSelect.appendChild(option);
     });
-    presetSelect.addEventListener("change", (event) => {
-        state.bulkPresetValue = event.target.value;
-        presetButton.disabled = !state.bulkPresetValue;
-    });
-    const presetButton = document.createElement("button");
-    presetButton.type = "button";
-    presetButton.className = "secondary-button";
-    presetButton.textContent = "Change Preset";
-    presetButton.disabled = !state.bulkPresetValue;
-    presetButton.addEventListener("click", async () => {
+    presetSelect.addEventListener("change", async (event) => {
+        const preset = event.target.value;
+        const rows = getSelectedRows();
+        if (!preset || rows.length === 0) {
+            return;
+        }
+        state.bulkPresetValue = preset;
+        presetSelect.disabled = true;
         await applyBulkUpdate({
-            row_ids: selectedRows.map((row) => row.row_id),
-            preset: state.bulkPresetValue,
-        }, `Updated preset for ${selectedRows.length} row(s).`);
+            row_ids: getRowIds(rows),
+            preset,
+        }, `Updated preset for ${rows.length} row(s).`, () => {
+            state.bulkPresetValue = "";
+        });
     });
-    presetWrap.appendChild(presetSelect);
-    presetWrap.appendChild(presetButton);
-    elements.bulkActions.appendChild(presetWrap);
+    elements.bulkActions.appendChild(presetSelect);
 
     if (duplicateRows.length > 0) {
         const allowButton = document.createElement("button");
         allowButton.type = "button";
         allowButton.className = "secondary-button";
         allowButton.textContent = `Allow Duplicate (${duplicateRows.length})`;
-        allowButton.addEventListener("click", async () => {
-            try {
-                const response = await fetch("/api/uploads/rows/allow-duplicate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ row_ids: duplicateRows.map((row) => row.row_id) }),
-                });
-                const payload = await response.json();
-                if (!response.ok) {
-                    throw new Error(payload.detail || "Could not allow duplicates.");
-                }
-                await fetchQueue();
-                setStatus(`Allowed ${duplicateRows.length} duplicate row(s).`);
+        allowButton.addEventListener("click", async (event) => {
+            const rows = getSelectedRows().filter(isDuplicateActionable);
+            if (rows.length === 0) {
                 render();
-            } catch (error) {
-                setStatus(error.message, true);
+                return;
             }
+            event.currentTarget.disabled = true;
+            await postRowsAction(
+                "/api/uploads/rows/allow-duplicate",
+                rows,
+                `Allowed ${rows.length} duplicate row(s).`,
+                "Could not allow duplicates."
+            );
         });
         elements.bulkActions.appendChild(allowButton);
     }
@@ -1326,28 +1705,19 @@ function renderBulkActions() {
         submitButton.textContent = canPrint()
             ? `Send to Print (${readyRows.length})`
             : `Setup Required (${readyRows.length})`;
-        submitButton.addEventListener("click", async () => {
+        submitButton.addEventListener("click", async (event) => {
             if (!canPrint()) {
                 openPreformWizard();
                 setStatus("Complete PreFormServer setup before sending rows to print.", true);
                 return;
             }
-            try {
-                const response = await fetch("/api/uploads/rows/send-to-print", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ row_ids: readyRows.map((row) => row.row_id) }),
-                });
-                const payload = await response.json();
-                if (!response.ok) {
-                    throw new Error(payload.detail || "Could not submit rows.");
-                }
-                await fetchQueue();
-                setStatus(`Moved ${readyRows.length} row(s) into Processed as Submitted.`);
+            const rows = getSelectedRows().filter(isReadyForPrint);
+            if (rows.length === 0) {
                 render();
-            } catch (error) {
-                setStatus(error.message, true);
+                return;
             }
+            event.currentTarget.disabled = true;
+            await sendRowsToPrint(rows);
         });
         elements.bulkActions.appendChild(submitButton);
     }
@@ -1396,21 +1766,21 @@ function renderPagination(container, totalRows, currentPage, setPage) {
 }
 
 function renderTabs() {
-    const activeCount = state.activeRows.length + state.pendingRows.length;
-    elements.activeCount.textContent = activeCount;
-    elements.processedCount.textContent = state.processedRows.length;
+    const workQueueCount = state.activeRows.length + state.pendingRows.length;
+    elements.workQueueCount.textContent = workQueueCount;
+    elements.historyCount.textContent = state.processedRows.length;
     elements.printQueueCount.textContent = state.printQueue.jobs.length;
 
-    const showEmpty = activeCount === 0 && state.processedRows.length === 0 && state.printQueue.jobs.length === 0;
+    const showEmpty = workQueueCount === 0 && state.processedRows.length === 0 && state.printQueue.jobs.length === 0;
     elements.emptyState.classList.toggle("hidden", !showEmpty);
-    elements.activePanel.classList.toggle("hidden", showEmpty || state.activeTab !== "active");
-    elements.processedPanel.classList.toggle("hidden", showEmpty || state.activeTab !== "processed");
+    elements.workQueuePanel.classList.toggle("hidden", showEmpty || state.activeTab !== "work-queue");
+    elements.historyPanel.classList.toggle("hidden", showEmpty || state.activeTab !== "history");
     elements.printQueuePanel.classList.toggle("hidden", showEmpty || state.activeTab !== "print-queue");
-    elements.activeTab.classList.toggle("tab-button-active", state.activeTab === "active");
-    elements.processedTab.classList.toggle("tab-button-active", state.activeTab === "processed");
+    elements.workQueueTab.classList.toggle("tab-button-active", state.activeTab === "work-queue");
+    elements.historyTab.classList.toggle("tab-button-active", state.activeTab === "history");
     elements.printQueueTab.classList.toggle("tab-button-active", state.activeTab === "print-queue");
-    elements.activeTab.setAttribute("aria-selected", String(state.activeTab === "active"));
-    elements.processedTab.setAttribute("aria-selected", String(state.activeTab === "processed"));
+    elements.workQueueTab.setAttribute("aria-selected", String(state.activeTab === "work-queue"));
+    elements.historyTab.setAttribute("aria-selected", String(state.activeTab === "history"));
     elements.printQueueTab.setAttribute("aria-selected", String(state.activeTab === "print-queue"));
 }
 
@@ -1421,8 +1791,8 @@ function render() {
     renderTabs();
     renderLegend();
     renderBulkActions();
-    renderActiveRows();
-    renderProcessedRows();
+    renderWorkQueueSections();
+    renderHistoryRows();
     renderPrintQueueJobs();
     renderPagination(elements.activePaginationTop, getFilteredActiveRows().length, state.activePage, (page) => {
         state.activePage = page;
@@ -1430,10 +1800,10 @@ function render() {
     renderPagination(elements.activePaginationBottom, getFilteredActiveRows().length, state.activePage, (page) => {
         state.activePage = page;
     });
-    renderPagination(elements.processedPaginationTop, state.processedRows.length, state.processedPage, (page) => {
+    renderPagination(elements.historyPaginationTop, state.processedRows.length, state.processedPage, (page) => {
         state.processedPage = page;
     });
-    renderPagination(elements.processedPaginationBottom, state.processedRows.length, state.processedPage, (page) => {
+    renderPagination(elements.historyPaginationBottom, state.processedRows.length, state.processedPage, (page) => {
         state.processedPage = page;
     });
     renderPagination(elements.printQueuePaginationTop, state.printQueue.jobs.length, state.printQueue.page, (page) => {
@@ -1442,7 +1812,7 @@ function render() {
     renderPagination(elements.printQueuePaginationBottom, state.printQueue.jobs.length, state.printQueue.page, (page) => {
         state.printQueue.page = page;
     });
-    elements.queueActionButton.textContent = "Select Folder";
+    elements.queueActionButton.textContent = "Select STL Files";
     elements.printQueueEmpty.textContent = canPrint()
         ? "No print jobs in queue."
         : "Print queue unavailable until PreFormServer setup is ready.";
@@ -1475,7 +1845,7 @@ function addPendingFiles(files) {
     }
 
     stlFiles.forEach((file) => state.pendingRows.push(createPendingRow(file)));
-    state.activeTab = "active";
+    state.activeTab = "work-queue";
     setStatus(`Queued ${stlFiles.length} STL file(s) for upload.`);
     render();
     drainUploadQueue();
@@ -1536,22 +1906,92 @@ function undoBulkDelete() {
     render();
 }
 
-async function applyBulkUpdate(payload, successMessage) {
+async function readResponseJson(response) {
+    try {
+        return await response.json();
+    } catch (error) {
+        return {};
+    }
+}
+
+async function applyBulkUpdate(payload, successMessage, onSuccess = null) {
     try {
         const response = await fetch("/api/uploads/rows/bulk-update", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
         });
-        const data = await response.json();
+        const data = await readResponseJson(response);
         if (!response.ok) {
             throw new Error(data.detail || "Could not update rows.");
         }
         await fetchQueue();
+        if (onSuccess) {
+            onSuccess();
+        }
         setStatus(successMessage);
         render();
+        return true;
     } catch (error) {
         setStatus(error.message, true);
+        render();
+        return false;
+    }
+}
+
+async function postRowsAction(endpoint, rows, successMessage, fallbackMessage) {
+    try {
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ row_ids: getRowIds(rows) }),
+        });
+        const payload = await readResponseJson(response);
+        if (!response.ok) {
+            throw new Error(payload.detail || fallbackMessage);
+        }
+        await fetchQueue();
+        setStatus(successMessage);
+        render();
+        return true;
+    } catch (error) {
+        setStatus(error.message, true);
+        render();
+        return false;
+    }
+}
+
+async function sendRowsToPrint(rows) {
+    const previousJobIds = new Set(state.printQueue.jobs.map((job) => job.id));
+    state.activeTab = "work-queue";
+    markRowsInProgress(rows, "Processing");
+    render();
+
+    try {
+        const response = await fetch("/api/uploads/rows/send-to-print", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ row_ids: getRowIds(rows) }),
+        });
+        const payload = await readResponseJson(response);
+        if (!response.ok) {
+            throw new Error(payload.detail || "Could not submit rows.");
+        }
+
+        await fetchQueue();
+        await fetchPrintQueue();
+
+        const newJob = findNewestPrintJob(previousJobIds);
+        state.printQueue.highlightedJobId = newJob?.id || null;
+        state.printQueue.page = 1;
+        brieflyQueueRows(payload.filter((row) => row.status === "Submitted"));
+        setStatus(describePrintReceipt(newJob, rows.length));
+        render();
+        return true;
+    } catch (error) {
+        setStatus(error.message, true);
+        render();
+        return false;
     }
 }
 
@@ -1662,12 +2102,14 @@ async function openPreview(row) {
     elements.previewModal.classList.remove("hidden");
     elements.previewModal.setAttribute("aria-hidden", "false");
     elements.previewTitle.textContent = row.file_name;
-    elements.previewCaption.textContent = row.is_temp ? "Preview opens after upload completes." : `${formatDimensions(row.dimensions)} | ${formatVolume(row)}`;
+    elements.previewCaption.textContent = row.is_temp
+        ? `${row.status} | local file preview`
+        : `${formatDimensions(row.dimensions)} | ${formatVolume(row)}`;
 
-    if (row.is_temp) {
+    if (row.is_temp && !row.file) {
         const placeholder = document.createElement("div");
         placeholder.className = "preview-empty";
-        placeholder.textContent = `Preview unavailable while status is ${row.status}.`;
+        placeholder.textContent = "Preview opens after upload completes.";
         elements.previewViewer.appendChild(placeholder);
         return;
     }
@@ -1705,8 +2147,7 @@ async function openPreview(row) {
     scene.add(group);
     const loader = new STLLoader();
     try {
-        const response = await fetch(row.file_url);
-        const buffer = await response.arrayBuffer();
+        const buffer = await loadStlBuffer(row);
         const geometry = loader.parse(buffer);
         geometry.computeBoundingBox();
         geometry.center();
@@ -1792,13 +2233,13 @@ function closePreview() {
     elements.previewModal.setAttribute("aria-hidden", "true");
 }
 
-elements.activeTab.addEventListener("click", () => {
-    state.activeTab = "active";
+elements.workQueueTab.addEventListener("click", () => {
+    state.activeTab = "work-queue";
     render();
 });
 
-elements.processedTab.addEventListener("click", () => {
-    state.activeTab = "processed";
+elements.historyTab.addEventListener("click", () => {
+    state.activeTab = "history";
     render();
 });
 
@@ -1809,7 +2250,7 @@ elements.printQueueTab.addEventListener("click", () => {
 
 elements.queueActionButton.addEventListener("click", (event) => {
     event.stopPropagation();
-    openPicker(elements.folderInput);
+    openPicker(elements.fileInput);
 });
 
 elements.dropzone.addEventListener("click", (event) => {
@@ -1824,12 +2265,6 @@ elements.dropzone.addEventListener("keydown", (event) => {
 });
 
 elements.fileInput.addEventListener("change", (event) => {
-    addPendingFiles(Array.from(event.target.files || []));
-    event.target.value = "";
-    releasePickerGuard();
-});
-
-elements.folderInput.addEventListener("change", (event) => {
     addPendingFiles(Array.from(event.target.files || []));
     event.target.value = "";
     releasePickerGuard();

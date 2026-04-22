@@ -36,7 +36,9 @@ test('straight-through same-case multi-file handoff reaches live PreForm', async
   const upperRow = page.locator('[data-file-name="20260409_CASE123_UnsectionedModel_UpperJaw.stl"]');
   await upperRow.locator('[data-testid="row-select"]').check();
   await page.locator('[data-testid="send-to-print-button"]').click();
-  await expect(page.locator('#status-text')).toContainText('Moved 2 row(s) into Processed as Submitted.');
+  await expect(page.locator('#status-text')).toContainText('Submitted to Print Queue:');
+  await expect(page.locator('#print-queue-tab')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.job-card-highlight')).toBeVisible();
 
   const job = await latestPrintJob(liveApp.databasePath);
   expect(job.case_ids).toContain('CASE123');
@@ -74,7 +76,9 @@ test('manual model and preset edits still hand off to live PreForm', async ({ pa
 
   await row.locator('[data-testid="row-select"]').check();
   await page.locator('[data-testid="send-to-print-button"]').click();
-  await expect(page.locator('#status-text')).toContainText('Moved 1 row(s) into Processed as Submitted.');
+  await expect(page.locator('#status-text')).toContainText('Submitted to Print Queue:');
+  await expect(page.locator('#print-queue-tab')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.job-card-highlight')).toBeVisible();
 
   const job = await latestPrintJob(liveApp.databasePath);
   expect(job.case_ids).toContain('CASE555');

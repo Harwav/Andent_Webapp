@@ -43,10 +43,6 @@
             </p>
             <div class="setup-meta-grid">
                 <div class="setup-meta-item">
-                    <span>Install Path</span>
-                    <strong id="preform-install-path">-</strong>
-                </div>
-                <div class="setup-meta-item">
                     <span>Detected Version</span>
                     <strong id="preform-version">-</strong>
                 </div>
@@ -72,10 +68,9 @@
         <section class="panel uploader-panel">
             <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload STL files or folders">
                 <input id="file-input" type="file" accept=".stl" multiple hidden>
-                <input id="folder-input" type="file" accept=".stl" webkitdirectory directory multiple hidden>
                 <p class="dropzone-title">Drop STL files or folders here</p>
-                <p class="dropzone-copy">Click the dropzone to select files, or use the action button for folders.</p>
-                <button id="queue-action-button" type="button" class="primary-button">Select Folder</button>
+                <p class="dropzone-copy">Click to select STL files, or drag a folder here.</p>
+                <button id="queue-action-button" type="button" class="primary-button">Select STL Files</button>
             </div>
             <div class="actions">
                 <p id="status-text" class="status-text">Queue is ready.</p>
@@ -90,13 +85,13 @@
                     <h2>Shared Installation Queue</h2>
                 </div>
                 <div class="tab-list" role="tablist" aria-label="Queue tabs">
-                    <button id="active-tab" class="tab-button tab-button-active" type="button" role="tab" aria-selected="true">
-                        Active
-                        <span id="active-count" class="tab-count">0</span>
+                    <button id="work-queue-tab" class="tab-button tab-button-active" type="button" role="tab" aria-selected="true">
+                        Work Queue
+                        <span id="work-queue-count" class="tab-count">0</span>
                     </button>
-                    <button id="processed-tab" class="tab-button" type="button" role="tab" aria-selected="false">
-                        Processed
-                        <span id="processed-count" class="tab-count">0</span>
+                    <button id="history-tab" class="tab-button" type="button" role="tab" aria-selected="false">
+                        History
+                        <span id="history-count" class="tab-count">0</span>
                     </button>
                     <button id="print-queue-tab" class="tab-button" type="button" role="tab" aria-selected="false">
                         Print Queue
@@ -109,38 +104,74 @@
                 Add STL files or folders to start the queue.
             </div>
 
-            <div id="active-panel" class="queue-panel hidden">
-                <div class="toolbar">
-                    <div id="status-legend" class="legend"></div>
-                    <div id="bulk-actions" class="bulk-actions"></div>
-                </div>
-                <div id="active-pagination-top" class="pagination"></div>
-                <div class="results-wrapper">
-                    <table class="data-table active-table">
-                        <thead>
-                            <tr>
-                                <th class="col-select">
-                                    <input id="select-page-checkbox" type="checkbox" aria-label="Select current page">
-                                </th>
-                                <th class="col-preview">Preview</th>
-                                <th class="col-file">File</th>
-                                <th class="col-case">Case ID</th>
-                                <th class="col-model">Model Type</th>
-                                <th class="col-preset">Preset</th>
-                                <th class="col-status">Status</th>
-                                <th class="col-dimensions">Dimensions</th>
-                                <th class="col-volume">Volume</th>
-                                <th class="col-remove">Remove</th>
-                            </tr>
-                        </thead>
-                        <tbody id="active-body"></tbody>
-                    </table>
-                </div>
-                <div id="active-pagination-bottom" class="pagination"></div>
+            <div id="work-queue-panel" class="queue-panel hidden">
+                <section class="queue-section">
+                    <div class="section-header">
+                        <div>
+                            <p class="eyebrow">Work Queue</p>
+                            <h3>File Analysis</h3>
+                            <p class="section-copy">Files here still need user attention before or after print handoff.</p>
+                        </div>
+                    </div>
+                    <div class="toolbar">
+                        <div id="status-legend" class="legend"></div>
+                        <div id="bulk-actions" class="bulk-actions"></div>
+                    </div>
+                    <div id="active-pagination-top" class="pagination"></div>
+                    <div class="results-wrapper">
+                        <table class="data-table active-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-select">
+                                        <input id="select-page-checkbox" type="checkbox" aria-label="Select current page">
+                                    </th>
+                                    <th class="col-preview">Preview</th>
+                                    <th class="col-file">File</th>
+                                    <th class="col-case">Case ID</th>
+                                    <th class="col-model">Model Type</th>
+                                    <th class="col-preset">Preset</th>
+                                    <th class="col-status">Status</th>
+                                    <th class="col-dimensions">Dimensions</th>
+                                    <th class="col-volume">Volume</th>
+                                    <th class="col-remove">Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody id="active-body"></tbody>
+                        </table>
+                    </div>
+                    <div id="active-pagination-bottom" class="pagination"></div>
+                </section>
+
+                <section class="queue-section queue-section-readonly">
+                    <div class="section-header">
+                        <div>
+                            <p class="eyebrow">Work Queue</p>
+                            <h3>In Progress</h3>
+                            <p class="section-copy">These files are already being processed and do not need user attention.</p>
+                        </div>
+                    </div>
+                    <div class="results-wrapper">
+                        <table class="data-table progress-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-preview">Preview</th>
+                                    <th class="col-file">File</th>
+                                    <th class="col-case">Case ID</th>
+                                    <th class="col-model">Model Type</th>
+                                    <th class="col-preset">Preset</th>
+                                    <th class="col-status">Status</th>
+                                    <th class="col-dimensions">Dimensions</th>
+                                    <th class="col-volume">Volume</th>
+                                </tr>
+                            </thead>
+                            <tbody id="in-progress-body"></tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
 
-            <div id="processed-panel" class="queue-panel hidden">
-                <div id="processed-pagination-top" class="pagination"></div>
+            <div id="history-panel" class="queue-panel hidden">
+                <div id="history-pagination-top" class="pagination"></div>
                 <div class="results-wrapper">
                     <table class="data-table processed-table">
                         <thead>
@@ -150,24 +181,42 @@
                                 <th class="col-case">Case ID</th>
                                 <th class="col-model">Model Type</th>
                                 <th class="col-preset">Preset</th>
+                                <th class="col-meta">Job</th>
                                 <th class="col-volume">Volume</th>
                                 <th class="col-meta">Printer</th>
                                 <th class="col-date">Date</th>
                                 <th class="col-meta">Person</th>
                             </tr>
                         </thead>
-                        <tbody id="processed-body"></tbody>
+                        <tbody id="history-body"></tbody>
                     </table>
                 </div>
-                <div id="processed-pagination-bottom" class="pagination"></div>
+                <div id="history-pagination-bottom" class="pagination"></div>
             </div>
 
             <div id="print-queue-panel" class="queue-panel hidden">
+                <div class="queue-help panel-lite">
+                    <p class="eyebrow">How Print Handoff Works</p>
+                    <p class="section-copy">Files are sent from Work Queue, backend handoff runs, real jobs appear here, and screenshot previews become clickable when available.</p>
+                </div>
                 <div id="print-queue-pagination-top" class="pagination"></div>
                 <div id="print-queue-empty" class="empty-state hidden">
                     No print jobs in queue.
                 </div>
-                <div id="print-queue-cards" class="job-cards-grid"></div>
+                <div class="results-wrapper">
+                    <table class="data-table print-queue-table">
+                        <thead>
+                            <tr>
+                                <th>Preview</th>
+                                <th>Job</th>
+                                <th>Cases</th>
+                                <th>Status</th>
+                                <th>Print Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="print-queue-body"></tbody>
+                    </table>
+                </div>
                 <div id="print-queue-pagination-bottom" class="pagination"></div>
             </div>
         </section>

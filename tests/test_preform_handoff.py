@@ -93,6 +93,7 @@ def _row_payload(
     dimension_x_mm: float = 40.0,
     dimension_y_mm: float = 30.0,
     dimension_z_mm: float = 10.0,
+    volume_ml: float | None = 1.0,
 ) -> dict:
     return {
         "file_name": file_path.name,
@@ -107,7 +108,7 @@ def _row_payload(
         "dimension_x_mm": dimension_x_mm,
         "dimension_y_mm": dimension_y_mm,
         "dimension_z_mm": dimension_z_mm,
-        "volume_ml": None,
+        "volume_ml": volume_ml,
         "structure": None,
         "structure_confidence": None,
         "structure_reason": None,
@@ -436,6 +437,83 @@ def test_send_to_print_defaults_to_form4bl_when_no_printer_selected(tmp_path):
 
     assert response.status_code == 200
     assert stub_client.print_jobs == [("scene-1", "Form 4")]
+
+
+def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "ortho-history.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-HISTORY",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-history",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert row["status"] == "Submitted"
+    assert row["queue_section"] == "history"
+    assert row["handoff_stage"] == "Queued"
+    assert row["linked_job_name"] == "260422-001"
+
+
+def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeypatch):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "volume-pending.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-VOLUME",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-volume-pending",
+                volume_ml=None,
+            ),
+        ],
+    )
+
+    from app.services import volume_enrichment
+
+    monkeypatch.setattr(volume_enrichment, "get_stl_volume_ml", lambda path: 2.75)
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert row["status"] == "Submitted"
+    assert row["queue_section"] == "history"
+    assert row["handoff_stage"] == "Queued"
+    assert stub_client.created_scenes == [("CASE-VOLUME", "260422-001")]
+    updated = get_upload_row_by_id(settings, row_ids[0])
+    assert updated is not None
+    assert updated.volume_ml == 2.75
 
 
 def test_send_to_print_returns_502_when_preform_unavailable(tmp_path):

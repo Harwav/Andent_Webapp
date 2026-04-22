@@ -53,6 +53,11 @@ class TestPresetConfiguration:
         preset = default_preset("Antagonist - Hollow")
         assert preset == "Antagonist Hollow - Flat, No Supports"
 
+    def test_default_preset_antagonist_uses_ortho_solid(self):
+        """Antagonist files should default to the Ortho Solid preset."""
+        preset = default_preset("Antagonist")
+        assert preset == "Ortho Solid - Flat, No Supports"
+
     def test_default_preset_none(self):
         """None model type should return None preset."""
         preset = default_preset(None)

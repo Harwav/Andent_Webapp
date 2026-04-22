@@ -173,6 +173,27 @@ h2 {
         linear-gradient(180deg, #ffffff 0%, #faf8f3 100%);
 }
 
+.setup-panel-ready {
+    gap: 12px;
+    padding-block: 18px;
+}
+
+.setup-panel-ready .setup-summary {
+    display: none;
+}
+
+.setup-panel-ready .setup-meta-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.setup-panel-ready .setup-meta-item {
+    padding: 10px 12px;
+}
+
+.setup-panel-ready .setup-actions {
+    justify-content: flex-end;
+}
+
 .setup-panel-header,
 .setup-actions,
 .wizard-header,
@@ -424,15 +445,11 @@ h2 {
     font-weight: 600;
 }
 
-.bulk-editor {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.bulk-editor select {
-    min-width: 160px;
+.bulk-select {
+    flex: 0 1 250px;
+    width: auto;
+    min-width: 220px;
+    max-width: 100%;
 }
 
 .bulk-undo {
@@ -447,6 +464,50 @@ h2 {
     display: block;
     height: 100%;
     background: var(--accent);
+}
+
+.queue-section {
+    margin-top: 18px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: linear-gradient(180deg, #fffdfa 0%, #faf6ef 100%);
+    overflow: hidden;
+}
+
+.queue-section-readonly {
+    background:
+        radial-gradient(circle at top right, rgba(255, 90, 0, 0.08), transparent 28%),
+        linear-gradient(180deg, #fffaf3 0%, #fdf6ec 100%);
+}
+
+.section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px 10px;
+    border-bottom: 1px solid var(--line);
+}
+
+.section-header h3 {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 1.05rem;
+}
+
+.section-copy {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+.panel-lite {
+    margin-bottom: 16px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-soft);
 }
 
 .results-wrapper {
@@ -553,6 +614,7 @@ select:focus {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     min-width: 92px;
     padding: 6px 10px;
     border-radius: 999px;
@@ -569,9 +631,40 @@ select:focus {
 
 .status-check,
 .status-analyzing,
-.status-uploading {
+.status-uploading,
+.status-calculating-volume,
+.status-processing,
+.status-importing,
+.status-layout,
+.status-validating {
     background: var(--warn-soft);
     color: var(--warn);
+}
+
+.status-analyzing::before,
+.status-calculating-volume::before,
+.status-processing::before,
+.status-importing::before,
+.status-layout::before,
+.status-validating::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: analyzing-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes analyzing-pulse {
+    0%,
+    100% {
+        opacity: 0.35;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.25);
+    }
 }
 
 .status-needs-review,
@@ -595,14 +688,14 @@ select:focus {
     padding: 0;
     overflow: hidden;
     border-radius: 12px;
-    background: var(--surface-soft);
+    background: #f8f3ec;
     border: 1px solid var(--line);
 }
 
 .thumbnail-button img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .thumbnail-placeholder {
@@ -615,6 +708,21 @@ select:focus {
     font-family: var(--font-ui);
     font-size: 0.72rem;
     text-align: center;
+}
+
+.thumbnail-placeholder {
+    background: linear-gradient(100deg, #f5eee4 20%, #fff8ee 45%, #f5eee4 70%);
+    background-size: 220% 100%;
+    animation: thumbnail-rendering 1.4s ease-in-out infinite;
+}
+
+@keyframes thumbnail-rendering {
+    0% {
+        background-position: 120% 0;
+    }
+    100% {
+        background-position: -120% 0;
+    }
 }
 
 .remove-cell {
@@ -656,6 +764,22 @@ select:focus {
     display: block;
     height: 100%;
     background: var(--accent);
+}
+
+.history-job-link {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--info);
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 0.84rem;
+    font-weight: 700;
+    text-decoration: underline;
+}
+
+.print-job-row-highlight td {
+    background: var(--clear-soft);
 }
 
 .row-pending-delete td {
@@ -741,6 +865,11 @@ select:focus {
 .job-card:hover {
     border-color: var(--accent);
     box-shadow: 0 2px 6px rgba(255, 90, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+.job-card.job-card-highlight {
+    border-color: var(--clear);
+    box-shadow: 0 0 0 3px var(--clear-soft), var(--shadow);
 }
 
 .job-screenshot {

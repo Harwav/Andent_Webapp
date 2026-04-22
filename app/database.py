@@ -163,6 +163,10 @@ def init_db(settings: Settings) -> None:
         _ensure_column(connection, "upload_rows", "printer", "TEXT")
         _ensure_column(connection, "upload_rows", "person", "TEXT")
         _ensure_column(connection, "upload_rows", "current_event_at", "TEXT")
+        _ensure_column(connection, "upload_rows", "handoff_stage", "TEXT")
+        _ensure_column(connection, "upload_rows", "queue_section", "TEXT NOT NULL DEFAULT 'analysis'")
+        _ensure_column(connection, "upload_rows", "linked_job_name", "TEXT")
+        _ensure_column(connection, "upload_rows", "linked_print_job_id", "INTEGER")
         _ensure_column(connection, "print_jobs", "preset_names_json", "TEXT")
         _ensure_column(connection, "print_jobs", "manifest_json", "TEXT")
         _ensure_column(connection, "print_jobs", "compatibility_key", "TEXT")
@@ -581,9 +585,13 @@ def persist_upload_session(settings: Settings, session_id: str, rows: Iterable[d
                     printer,
                     person,
                     current_event_at,
+                    handoff_stage,
+                    queue_section,
+                    linked_job_name,
+                    linked_print_job_id,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -610,6 +618,10 @@ def persist_upload_session(settings: Settings, session_id: str, rows: Iterable[d
                     row.get("printer"),
                     row.get("person"),
                     created_at,
+                    row.get("handoff_stage"),
+                    row.get("queue_section", "analysis"),
+                    row.get("linked_job_name"),
+                    row.get("linked_print_job_id"),
                     created_at,
                 ),
             )
@@ -657,6 +669,10 @@ def _row_to_classification_row(row: sqlite3.Row) -> ClassificationRow:
         person=row["person"],
         thumbnail_url=f"/api/uploads/rows/{row_id}/thumbnail.svg",
         file_url=f"/api/uploads/rows/{row_id}/file",
+        handoff_stage=row["handoff_stage"],
+        queue_section=row["queue_section"] or "analysis",
+        linked_job_name=row["linked_job_name"],
+        linked_print_job_id=row["linked_print_job_id"],
         file_path=row["stored_path"],
     )
 
@@ -683,10 +699,12 @@ def list_queue_rows(settings: Settings) -> tuple[list[ClassificationRow], list[C
             """
             SELECT *
             FROM upload_rows
-            WHERE status NOT IN ('Submitted', 'Printed')
+            WHERE COALESCE(queue_section, 'analysis') != 'history'
             ORDER BY
-                CASE WHEN case_id IS NULL OR case_id = '' THEN 1 ELSE 0 END,
+                CASE WHEN COALESCE(queue_section, 'analysis') = 'in_progress' THEN 1 ELSE 0 END,
+                CASE WHEN status = 'Needs Review' THEN 0 ELSE 1 END,
                 case_id COLLATE NOCASE,
+                current_event_at DESC,
                 created_at,
                 id
             """
@@ -695,7 +713,7 @@ def list_queue_rows(settings: Settings) -> tuple[list[ClassificationRow], list[C
             """
             SELECT *
             FROM upload_rows
-            WHERE status IN ('Submitted', 'Printed')
+            WHERE COALESCE(queue_section, 'analysis') = 'history'
             ORDER BY current_event_at DESC, id DESC
             """
         ).fetchall()
@@ -1079,6 +1097,43 @@ def get_stored_file_path(settings: Settings, row_id: int) -> Path | None:
 
 def get_upload_row_by_id(settings: Settings, row_id: int) -> ClassificationRow | None:
     with closing(connect(settings)) as connection:
+        row = connection.execute(
+            "SELECT * FROM upload_rows WHERE id = ?",
+            (row_id,),
+        ).fetchone()
+        return _row_to_classification_row(row) if row else None
+
+
+def update_upload_row_volume(settings: Settings, row_id: int, volume_ml: float) -> ClassificationRow | None:
+    now = _now_iso()
+    with closing(connect(settings)) as connection:
+        existing = connection.execute(
+            """
+            SELECT *
+            FROM upload_rows
+            WHERE id = ?
+            """,
+            (row_id,),
+        ).fetchone()
+        if existing is None:
+            return None
+
+        connection.execute(
+            """
+            UPDATE upload_rows
+            SET volume_ml = ?
+            WHERE id = ?
+            """,
+            (volume_ml, row_id),
+        )
+        _record_event(
+            connection,
+            row_id,
+            "volume_enriched",
+            now,
+            {"volume_ml": volume_ml},
+        )
+        connection.commit()
         row = connection.execute(
             "SELECT * FROM upload_rows WHERE id = ?",
             (row_id,),

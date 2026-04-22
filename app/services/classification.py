@@ -30,6 +30,7 @@ from core.andent_classification import (
     WORKFLOW_ORTHO_IMPLANT,
     WORKFLOW_SPLINT,
     classify_artifact,
+    extract_case_id,
     measure_mesh_thickness_stats,
     resolve_ortho_structure,
 )
@@ -80,10 +81,7 @@ def infer_phase0_model_type(file_name: str, artifact, structure=None) -> str | N
     if artifact.artifact_type == ARTIFACT_TOOTH:
         return "Tooth"
     if artifact.artifact_type == ARTIFACT_ANTAGONIST:
-        # Default antagonist to hollow (most common for bite guards)
-        if structure and structure.structure == STRUCTURE_SOLID:
-            return "Antagonist - Solid"
-        return "Antagonist - Hollow"  # Default
+        return "Antagonist"
     if structure and structure.structure == STRUCTURE_HOLLOW:
         return "Ortho - Hollow"
     if structure and structure.structure == STRUCTURE_SOLID:
@@ -105,6 +103,7 @@ def default_preset(model_type: str | None) -> str | None:
         "Die": "Die - Flat, No Supports",
         "Tooth": "Tooth - With Supports",
         "Splint": "Splint - Flat, No Supports",
+        "Antagonist": "Ortho Solid - Flat, No Supports",
         "Antagonist - Solid": "Antagonist Solid - Flat, No Supports",
         "Antagonist - Hollow": "Antagonist Hollow - Flat, No Supports",
     }
@@ -172,15 +171,21 @@ def classify_saved_upload(stored_path: Path, original_filename: str) -> Classifi
         raise ValueError(validation.message)
 
     dimensions = get_stl_dimensions(str(stored_path))
-    volume_ml = get_stl_volume_ml(str(stored_path))
     artifact = classify_artifact(original_filename, dims=dimensions)
-    thickness_stats = measure_mesh_thickness_stats(str(stored_path))
-    structure = resolve_ortho_structure(
-        artifact,
-        dims=dimensions,
-        volume_ml=volume_ml,
-        thickness_stats=thickness_stats,
+    structure = None
+    needs_structure_sampling = (
+        artifact.artifact_type in {ARTIFACT_MODEL, ARTIFACT_MODEL_BASE}
+        and "unsectionedmodel" not in original_filename.lower()
     )
+    volume_ml = get_stl_volume_ml(str(stored_path)) if needs_structure_sampling else None
+    if needs_structure_sampling:
+        thickness_stats = measure_mesh_thickness_stats(str(stored_path))
+        structure = resolve_ortho_structure(
+            artifact,
+            dims=dimensions,
+            volume_ml=volume_ml,
+            thickness_stats=thickness_stats,
+        )
     model_type = infer_phase0_model_type(original_filename, artifact, structure)
     preset = default_preset(model_type)
     review_required = bool(artifact.review_required or artifact.review_reason or model_type is None)
@@ -233,7 +238,7 @@ def serialize_row_for_storage(row: ClassificationRow, stored_path: Path, content
         "file_name": row.file_name,
         "stored_path": str(stored_path),
         "content_hash": content_hash,
-        "thumbnail_svg": generate_thumbnail_svg(stored_path),
+        "thumbnail_svg": None,
         "case_id": row.case_id,
         "model_type": row.model_type,
         "preset": row.preset,
@@ -574,7 +579,7 @@ def classify_uploaded_files_parallel(
                 # Add error row instead of failing entire batch
                 results[index] = ClassificationRow(
                     file_name=filename,
-                    case_id=None,
+                    case_id=extract_case_id(filename),
                     model_type=None,
                     preset=None,
                     confidence="low",
