@@ -5,12 +5,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.services import build_planning
 from app.schemas import ClassificationRow, DimensionSummary
-from app.services.build_planning import (
-    _effective_row_xy_area,
-    _is_full_arch_dimensions,
-    plan_build_manifests,
-)
+from app.services.build_planning import plan_build_manifests
 from app.services.preset_catalog import PRESET_CATALOG, PresetProfile
 
 _DEFAULT_DIMENSIONS = object()
@@ -48,22 +45,33 @@ def _row(
     )
 
 
+def _build_planning_attr(name: str):
+    attr = getattr(build_planning, name, None)
+    assert attr is not None, f"build_planning should define {name}"
+    return attr
+
+
 def test_is_full_arch_dimensions_detects_large_arch_geometry():
-    assert _is_full_arch_dimensions(
+    is_full_arch_dimensions = _build_planning_attr("_is_full_arch_dimensions")
+
+    assert is_full_arch_dimensions(
         DimensionSummary(x_mm=72.0, y_mm=68.0, z_mm=18.0)
     ) is True
 
 
 def test_is_full_arch_dimensions_rejects_quad_like_geometry():
-    assert _is_full_arch_dimensions(
+    is_full_arch_dimensions = _build_planning_attr("_is_full_arch_dimensions")
+
+    assert is_full_arch_dimensions(
         DimensionSummary(x_mm=42.0, y_mm=31.0, z_mm=16.0)
     ) is False
 
 
 def test_effective_row_xy_area_keeps_tooth_on_raw_bounding_box_area():
+    effective_row_xy_area = _build_planning_attr("_effective_row_xy_area")
     tooth_row = _row(1, "CASE-T", "Tooth - With Supports", 12.0, 10.0)
 
-    assert _effective_row_xy_area(tooth_row) == 120.0
+    assert effective_row_xy_area(tooth_row) == 120.0
 
 
 def test_plan_build_manifests_preserves_case_cohesion():
@@ -447,13 +455,30 @@ def test_plan_build_manifests_preserves_selected_case_priority_in_file_order():
     assert [spec.row_id for spec in ordered_files] == [10, 11, 20]
 
 
-def test_plan_build_manifests_applies_full_arch_reduction_without_tooth_inflation():
+def test_plan_build_manifests_needs_full_arch_reduction_and_raw_tooth_area_to_fit():
+    """Eight full-arch cases plus one tooth only fit under the Form 4BL budget after calibration."""
     rows = [
-        _row(1, "CASE-ARCH-1", "Ortho Solid - Flat, No Supports", 72.0, 68.0),
-        _row(2, "CASE-ARCH-2", "Ortho Solid - Flat, No Supports", 71.0, 67.0),
-        _row(3, "CASE-TOOTH", "Tooth - With Supports", 12.0, 10.0),
+        _row(1, "CASE-ARCH-01", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(2, "CASE-ARCH-02", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(3, "CASE-ARCH-03", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(4, "CASE-ARCH-04", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(5, "CASE-ARCH-05", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(6, "CASE-ARCH-06", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(7, "CASE-ARCH-07", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(8, "CASE-ARCH-08", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(9, "CASE-TOOTH", "Tooth - With Supports", 42.0, 31.0),
     ]
 
     manifests = plan_build_manifests(rows)
 
-    assert manifests[0].case_ids == ["CASE-ARCH-1", "CASE-ARCH-2", "CASE-TOOTH"]
+    assert manifests[0].case_ids == [
+        "CASE-ARCH-01",
+        "CASE-ARCH-02",
+        "CASE-ARCH-03",
+        "CASE-ARCH-04",
+        "CASE-ARCH-05",
+        "CASE-ARCH-06",
+        "CASE-ARCH-07",
+        "CASE-ARCH-08",
+        "CASE-TOOTH",
+    ]
