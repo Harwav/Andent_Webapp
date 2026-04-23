@@ -247,8 +247,18 @@ def test_plan_build_manifests_switches_to_fillers_after_first_descending_fit_fai
 
     manifests = plan_build_manifests(rows)
 
-    assert "CASE-SMALL" in manifests[0].case_ids
-    assert "CASE-I" not in manifests[0].case_ids
+    assert manifests[0].case_ids == [
+        "CASE-A",
+        "CASE-B",
+        "CASE-C",
+        "CASE-D",
+        "CASE-E",
+        "CASE-F",
+        "CASE-G",
+        "CASE-H",
+        "CASE-SMALL",
+    ]
+    assert manifests[1].case_ids == ["CASE-I"]
 
 
 def test_plan_build_manifests_respects_form4b_xy_budget(monkeypatch):
