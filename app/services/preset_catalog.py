@@ -78,6 +78,7 @@ _PRINTER_BUILD_AREAS_MM2: dict[str, float] = {
     "Form 4L": 335.0 * 200.0,
     "Form 4BL": 335.0 * 200.0,
 }
+_SMALLEST_KNOWN_BUILD_AREA_MM2 = min(_PRINTER_BUILD_AREAS_MM2.values())
 _FORM4BL_BASELINE_XY_BUDGET = 29000.0
 _FORM4BL_BASELINE_AREA_MM2 = _PRINTER_BUILD_AREAS_MM2["Form 4BL"]
 
@@ -116,7 +117,7 @@ def get_printer_xy_budget(printer_name: str | None) -> float:
         return _FORM4BL_BASELINE_XY_BUDGET
     area_mm2 = _PRINTER_BUILD_AREAS_MM2.get(printer_name)
     if area_mm2 is None:
-        return _FORM4BL_BASELINE_XY_BUDGET
+        area_mm2 = _SMALLEST_KNOWN_BUILD_AREA_MM2
     return round(
         _FORM4BL_BASELINE_XY_BUDGET * (area_mm2 / _FORM4BL_BASELINE_AREA_MM2),
         2,

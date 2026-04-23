@@ -49,7 +49,11 @@ def test_get_printer_xy_budget_scales_form4b_below_form4bl():
     form4b_budget = get_printer_xy_budget("Form 4B")
 
     assert form4bl_budget == 29000.0
-    assert form4b_budget < form4bl_budget
+    assert form4b_budget == 10820.9
+
+
+def test_get_printer_xy_budget_fails_closed_for_unknown_printer():
+    assert get_printer_xy_budget("Unknown Printer") == 10820.9
 
 
 def test_get_preform_preset_hint_maps_ui_preset_to_preform_hint():
