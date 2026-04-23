@@ -114,7 +114,11 @@ def get_preform_preset_hint(preset_name: str | None) -> str | None:
 
 def get_printer_xy_budget(printer_name: str | None) -> float:
     if not printer_name:
-        return _FORM4BL_BASELINE_XY_BUDGET
+        area_mm2 = _SMALLEST_KNOWN_BUILD_AREA_MM2
+        return round(
+            _FORM4BL_BASELINE_XY_BUDGET * (area_mm2 / _FORM4BL_BASELINE_AREA_MM2),
+            2,
+        )
     area_mm2 = _PRINTER_BUILD_AREAS_MM2.get(printer_name)
     if area_mm2 is None:
         area_mm2 = _SMALLEST_KNOWN_BUILD_AREA_MM2
