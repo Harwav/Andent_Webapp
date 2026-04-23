@@ -137,10 +137,10 @@ def test_plan_build_manifests_form4b_attempts_three_largest_cases_before_fillers
     )
 
     rows = [
-        _row(1, "CASE-A", "Form 4B Experimental", 90.0, 60.0),
+        _row(1, "CASE-A", "Form 4B Experimental", 90.0, 58.0),
         _row(2, "CASE-B", "Form 4B Experimental", 85.0, 60.0),
         _row(3, "CASE-C", "Form 4B Experimental", 80.0, 60.0),
-        _row(4, "CASE-D", "Form 4B Experimental", 35.0, 20.0),
+        _row(4, "CASE-D", "Form 4B Experimental", 25.0, 20.0),
     ]
 
     manifests = plan_build_manifests(rows)
@@ -164,16 +164,16 @@ def test_plan_build_manifests_form4bl_attempts_eight_largest_cases_before_filler
     )
 
     rows = [
-        _row(1, "CASE-01", "Form 4BL Experimental", 90.0, 45.0),
-        _row(2, "CASE-02", "Form 4BL Experimental", 88.0, 45.0),
-        _row(3, "CASE-03", "Form 4BL Experimental", 86.0, 45.0),
-        _row(4, "CASE-04", "Form 4BL Experimental", 84.0, 45.0),
-        _row(5, "CASE-05", "Form 4BL Experimental", 82.0, 45.0),
-        _row(6, "CASE-06", "Form 4BL Experimental", 80.0, 45.0),
-        _row(7, "CASE-07", "Form 4BL Experimental", 78.0, 45.0),
-        _row(8, "CASE-08", "Form 4BL Experimental", 76.0, 45.0),
-        _row(9, "CASE-09", "Form 4BL Experimental", 74.0, 45.0),
-        _row(10, "CASE-10", "Form 4BL Experimental", 20.0, 20.0),
+        _row(1, "CASE-01", "Form 4BL Experimental", 80.0, 50.0),
+        _row(2, "CASE-02", "Form 4BL Experimental", 78.0, 50.0),
+        _row(3, "CASE-03", "Form 4BL Experimental", 76.0, 50.0),
+        _row(4, "CASE-04", "Form 4BL Experimental", 74.0, 50.0),
+        _row(5, "CASE-05", "Form 4BL Experimental", 72.0, 50.0),
+        _row(6, "CASE-06", "Form 4BL Experimental", 70.0, 50.0),
+        _row(7, "CASE-07", "Form 4BL Experimental", 68.0, 50.0),
+        _row(8, "CASE-08", "Form 4BL Experimental", 64.0, 50.0),
+        _row(9, "CASE-09", "Form 4BL Experimental", 62.0, 50.0),
+        _row(10, "CASE-10", "Form 4BL Experimental", 20.0, 50.0),
     ]
 
     manifests = plan_build_manifests(rows)
@@ -186,10 +186,9 @@ def test_plan_build_manifests_form4bl_attempts_eight_largest_cases_before_filler
         "CASE-05",
         "CASE-06",
         "CASE-07",
-        "CASE-08",
         "CASE-10",
     ]
-    assert manifests[1].case_ids == ["CASE-09"]
+    assert manifests[1].case_ids == ["CASE-08", "CASE-09"]
 
 
 def test_plan_build_manifests_form4bl_below_threshold_keeps_seed_with_largest_behavior(monkeypatch):
@@ -215,6 +214,30 @@ def test_plan_build_manifests_form4bl_below_threshold_keeps_seed_with_largest_be
     manifests = plan_build_manifests(rows)
 
     assert manifests[0].case_ids == ["CASE-A", "CASE-B", "CASE-C"]
+
+
+def test_plan_build_manifests_respects_form4b_xy_budget(monkeypatch):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Form 4B Experimental",
+        PresetProfile(
+            preset_name="Form 4B Experimental",
+            printer="Form 4B",
+            resin="Precision Model Resin",
+            layer_height_microns=100,
+            requires_supports=False,
+            preform_hint="form4b_experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-A", "Form 4B Experimental", 80.0, 75.0),
+        _row(2, "CASE-B", "Form 4B Experimental", 80.0, 75.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert [manifest.case_ids for manifest in manifests] == [["CASE-A"], ["CASE-B"]]
 
 
 def test_plan_build_manifests_marks_oversized_single_case_as_non_plannable():
