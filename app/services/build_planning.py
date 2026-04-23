@@ -34,15 +34,11 @@ def _is_full_arch_dimensions(dimensions: DimensionSummary | None) -> bool:
         return False
     long_side = max(float(dimensions.x_mm), float(dimensions.y_mm))
     short_side = min(float(dimensions.x_mm), float(dimensions.y_mm))
-    if long_side == 0.0:
-        return False
     xy_area = float(dimensions.x_mm * dimensions.y_mm)
-    minimum_arch_compactness = FULL_ARCH_MIN_SHORT_SIDE_MM / FULL_ARCH_MAX_SPAN_MM
     return (
         long_side >= FULL_ARCH_MAX_SPAN_MM
         and short_side >= FULL_ARCH_MIN_SHORT_SIDE_MM
         and xy_area >= FULL_ARCH_MIN_XY_AREA
-        and (short_side / long_side) >= minimum_arch_compactness
     )
 
 
@@ -51,8 +47,20 @@ def _effective_row_xy_area(row: ClassificationRow) -> float:
     if raw_xy == 0.0:
         return 0.0
     profile = get_preset_profile(row.preset)
-    if profile is not None and profile.printer == "Form 4BL" and _is_full_arch_dimensions(row.dimensions):
-        return raw_xy * FULL_ARCH_FACTOR
+    dimensions = row.dimensions
+    if (
+        profile is not None
+        and profile.printer == "Form 4BL"
+        and dimensions is not None
+        and _is_full_arch_dimensions(dimensions)
+    ):
+        long_side = max(float(dimensions.x_mm), float(dimensions.y_mm))
+        short_side = min(float(dimensions.x_mm), float(dimensions.y_mm))
+        if (
+            long_side <= (FULL_ARCH_MAX_SPAN_MM / FULL_ARCH_FACTOR)
+            and short_side <= (FULL_ARCH_MIN_SHORT_SIDE_MM / FULL_ARCH_FACTOR)
+        ):
+            return raw_xy * FULL_ARCH_FACTOR
     return raw_xy
 
 
