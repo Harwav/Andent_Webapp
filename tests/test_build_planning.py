@@ -216,6 +216,41 @@ def test_plan_build_manifests_form4bl_below_threshold_keeps_seed_with_largest_be
     assert manifests[0].case_ids == ["CASE-A", "CASE-B", "CASE-C"]
 
 
+def test_plan_build_manifests_switches_to_fillers_after_first_descending_fit_failure(
+    monkeypatch,
+):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Form 4BL Experimental",
+        PresetProfile(
+            preset_name="Form 4BL Experimental",
+            printer="Form 4BL",
+            resin="Precision Model Resin",
+            layer_height_microns=100,
+            requires_supports=False,
+            preform_hint="form4bl_experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-A", "Form 4BL Experimental", 190.0, 50.0),
+        _row(2, "CASE-B", "Form 4BL Experimental", 56.0, 50.0),
+        _row(3, "CASE-C", "Form 4BL Experimental", 55.0, 50.0),
+        _row(4, "CASE-D", "Form 4BL Experimental", 54.0, 50.0),
+        _row(5, "CASE-E", "Form 4BL Experimental", 53.0, 50.0),
+        _row(6, "CASE-F", "Form 4BL Experimental", 52.0, 50.0),
+        _row(7, "CASE-G", "Form 4BL Experimental", 51.0, 50.0),
+        _row(8, "CASE-H", "Form 4BL Experimental", 50.0, 50.0),
+        _row(9, "CASE-I", "Form 4BL Experimental", 49.0, 50.0),
+        _row(10, "CASE-SMALL", "Form 4BL Experimental", 20.0, 20.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert "CASE-SMALL" in manifests[0].case_ids
+    assert "CASE-I" not in manifests[0].case_ids
+
+
 def test_plan_build_manifests_respects_form4b_xy_budget(monkeypatch):
     monkeypatch.setitem(
         PRESET_CATALOG,
