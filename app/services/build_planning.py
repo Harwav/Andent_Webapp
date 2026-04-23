@@ -5,6 +5,7 @@ from ..schemas import (
     BuildManifestImportGroup,
     CasePackProfile,
     ClassificationRow,
+    DimensionSummary,
     FilePrepSpec,
 )
 from .preset_catalog import (
@@ -14,7 +15,11 @@ from .preset_catalog import (
     get_preset_profile,
     resolve_preset_name,
 )
-SUPPORT_INFLATION = 1.18
+FULL_ARCH_MAX_SPAN_MM = 65.0
+FULL_ARCH_MIN_SHORT_SIDE_MM = 55.0
+FULL_ARCH_MIN_XY_AREA = 3400.0
+FULL_ARCH_FACTOR = 0.58
+
 ManifestOrderKey = tuple[float, float, str]
 
 
@@ -24,11 +29,31 @@ def _row_xy_area(row: ClassificationRow) -> float:
     return float(row.dimensions.x_mm * row.dimensions.y_mm)
 
 
-def _support_factor(preset_name: str) -> float:
-    profile = get_preset_profile(preset_name)
-    if profile is None:
-        return 1.0
-    return SUPPORT_INFLATION if profile.requires_supports else 1.0
+def _is_full_arch_dimensions(dimensions: DimensionSummary | None) -> bool:
+    if dimensions is None:
+        return False
+    long_side = max(float(dimensions.x_mm), float(dimensions.y_mm))
+    short_side = min(float(dimensions.x_mm), float(dimensions.y_mm))
+    if long_side == 0.0:
+        return False
+    xy_area = float(dimensions.x_mm * dimensions.y_mm)
+    minimum_arch_compactness = FULL_ARCH_MIN_SHORT_SIDE_MM / FULL_ARCH_MAX_SPAN_MM
+    return (
+        long_side >= FULL_ARCH_MAX_SPAN_MM
+        and short_side >= FULL_ARCH_MIN_SHORT_SIDE_MM
+        and xy_area >= FULL_ARCH_MIN_XY_AREA
+        and (short_side / long_side) >= minimum_arch_compactness
+    )
+
+
+def _effective_row_xy_area(row: ClassificationRow) -> float:
+    raw_xy = _row_xy_area(row)
+    if raw_xy == 0.0:
+        return 0.0
+    profile = get_preset_profile(row.preset)
+    if profile is not None and profile.printer == "Form 4BL" and _is_full_arch_dimensions(row.dimensions):
+        return raw_xy * FULL_ARCH_FACTOR
+    return raw_xy
 
 
 def _canonical_preset_name(preset_name: str | None) -> str | None:
@@ -66,8 +91,8 @@ def _build_file_prep_spec(
         file_path=file_path,
         preset_name=canonical_preset_name,
         compatibility_key=compatibility_key,
-        xy_footprint_estimate=_row_xy_area(row),
-        support_inflation_factor=_support_factor(canonical_preset_name),
+        xy_footprint_estimate=_effective_row_xy_area(row),
+        support_inflation_factor=1.0,
         preform_hint=profile.preform_hint,
     ), None
 
@@ -91,8 +116,8 @@ def _build_non_plannable_manifest(
 
 def _case_metrics(rows: list[ClassificationRow]) -> tuple[float, float]:
     measurable_rows = [row for row in rows if row.dimensions is not None]
-    total_xy = sum(_row_xy_area(row) * _support_factor(row.preset or "") for row in measurable_rows)
-    difficulty = max((_row_xy_area(row) for row in measurable_rows), default=0.0) + total_xy
+    total_xy = sum(_effective_row_xy_area(row) for row in measurable_rows)
+    difficulty = max((_effective_row_xy_area(row) for row in measurable_rows), default=0.0) + total_xy
     return total_xy, difficulty
 
 
