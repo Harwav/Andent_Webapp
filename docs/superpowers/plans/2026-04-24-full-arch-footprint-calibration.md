@@ -8,6 +8,16 @@
 
 **Tech Stack:** Python, pytest, existing classification/build-planning services, live local PreFormServer, JSON + Markdown verification artifacts
 
+## Current Checkpoint
+
+Checkpoint pushed on 2026-04-24 for later continuation:
+
+- Task 1 baseline harness/artifacts are committed.
+- Task 2 tests are committed and now pass after implementation.
+- Task 3 implementation is committed, with a follow-up checkpoint fixing the full-arch factor so it applies to every qualifying `Form 4BL` full-arch row without an undocumented upper-size gate.
+- Focused verification passes: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_build_planning.py tests/test_batching.py -q` -> `32 passed`.
+- Remaining work starts at Task 4: broader regression suite, after benchmark, comparison report, architecture doc update, final verification, and final publish-readiness check.
+
 ---
 
 ## File Structure
@@ -32,7 +42,7 @@
 - Create: `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-summary.json`
 - Create: `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-live.md`
 
-- [ ] **Step 1: Write the benchmark harness before changing planner logic**
+- [x] **Step 1: Write the benchmark harness before changing planner logic**
 
 ```python
 from __future__ import annotations
@@ -92,7 +102,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 2: Run the harness against the evaluation dataset to lock the baseline**
+- [x] **Step 2: Run the harness against the evaluation dataset to lock the baseline**
 
 Run:
 
@@ -107,7 +117,7 @@ Expected:
 - JSON file is created
 - output includes the current baseline manifest count
 
-- [ ] **Step 3: Record the existing live benchmark outcome in a short Markdown artifact**
+- [x] **Step 3: Record the existing live benchmark outcome in a short Markdown artifact**
 
 ```md
 # Before Benchmark Notes
@@ -123,7 +133,7 @@ Expected:
   - average processing time: `62.604s`
 ```
 
-- [ ] **Step 4: Commit the baseline harness and baseline artifacts**
+- [x] **Step 4: Commit the baseline harness and baseline artifacts**
 
 Run:
 
@@ -143,7 +153,7 @@ Expected:
 - Modify: `tests/test_build_planning.py`
 - Modify: `tests/test_batching.py`
 
-- [ ] **Step 1: Add failing unit tests for full-arch detection and raw tooth math**
+- [x] **Step 1: Add failing unit tests for full-arch detection and raw tooth math**
 
 Add to `tests/test_build_planning.py`:
 
@@ -172,7 +182,7 @@ def test_effective_row_xy_area_keeps_tooth_on_raw_bounding_box_area():
     assert _effective_row_xy_area(tooth_row) == 120.0
 ```
 
-- [ ] **Step 2: Add a failing planner regression proving full-arch reduction changes fit while non-full-arch rows stay raw**
+- [x] **Step 2: Add a failing planner regression proving full-arch reduction changes fit while non-full-arch rows stay raw**
 
 Add to `tests/test_build_planning.py`:
 
@@ -189,7 +199,7 @@ def test_plan_build_manifests_applies_full_arch_reduction_without_tooth_inflatio
     assert manifests[0].case_ids == ["CASE-ARCH-1", "CASE-ARCH-2", "CASE-TOOTH"]
 ```
 
-- [ ] **Step 3: Update manifest file-spec expectations to remove support inflation**
+- [x] **Step 3: Update manifest file-spec expectations to remove support inflation**
 
 In `tests/test_batching.py`, change the expected tooth file specs from:
 
@@ -203,7 +213,7 @@ to:
 "support_inflation_factor": 1.0,
 ```
 
-- [ ] **Step 4: Run the focused tests to verify they fail before implementation**
+- [x] **Step 4: Run the focused tests to verify they fail before implementation**
 
 Run:
 
@@ -217,7 +227,7 @@ Expected:
 - new full-arch tests fail because helpers or behavior do not exist yet
 - batching expectations fail because support inflation is still `1.18`
 
-- [ ] **Step 5: Commit the failing tests**
+- [x] **Step 5: Commit the failing tests**
 
 Run:
 
@@ -231,7 +241,7 @@ git commit -m "Lock full-arch calibration behavior with failing planner tests"
 **Files:**
 - Modify: `app/services/build_planning.py`
 
-- [ ] **Step 1: Replace support inflation with planner-local full-arch constants and helpers**
+- [x] **Step 1: Replace support inflation with planner-local full-arch constants and helpers**
 
 In `app/services/build_planning.py`, replace the inflation constant and add helpers near the top:
 
@@ -264,7 +274,7 @@ def _effective_row_xy_area(row: ClassificationRow) -> float:
     return raw_xy
 ```
 
-- [ ] **Step 2: Remove support inflation from file specs and case metrics**
+- [x] **Step 2: Remove support inflation from file specs and case metrics**
 
 Update the existing functions in `app/services/build_planning.py`:
 
@@ -294,7 +304,7 @@ def _case_metrics(rows: list[ClassificationRow]) -> tuple[float, float]:
     return total_xy, difficulty
 ```
 
-- [ ] **Step 3: Run the focused tests to verify the new heuristic works**
+- [x] **Step 3: Run the focused tests to verify the new heuristic works**
 
 Run:
 
@@ -307,7 +317,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest `
 Expected:
 - all targeted tests pass
 
-- [ ] **Step 4: Commit the heuristic implementation**
+- [x] **Step 4: Commit the heuristic implementation**
 
 Run:
 

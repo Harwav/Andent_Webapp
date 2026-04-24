@@ -74,6 +74,13 @@ def test_effective_row_xy_area_keeps_tooth_on_raw_bounding_box_area():
     assert effective_row_xy_area(tooth_row) == 120.0
 
 
+def test_effective_row_xy_area_reduces_any_form4bl_full_arch_geometry():
+    effective_row_xy_area = _build_planning_attr("_effective_row_xy_area")
+    full_arch_row = _row(1, "CASE-A", "Ortho Solid - Flat, No Supports", 116.0, 96.0)
+
+    assert effective_row_xy_area(full_arch_row) == 116.0 * 96.0 * 0.58
+
+
 def test_plan_build_manifests_preserves_case_cohesion():
     """Planner keeps all rows from the same case together in one build."""
     rows = [
@@ -108,10 +115,10 @@ def test_plan_build_manifests_allows_mixed_compatible_presets_to_share_one_build
 def test_plan_build_manifests_uses_smallest_case_fillers_after_large_cases_do_not_fit():
     """Once the next-largest case does not fit, the planner fills with smaller cases."""
     rows = [
-        _row(1, "CASE-L", "Ortho Solid - Flat, No Supports", 200.0, 130.0),
+        _row(1, "CASE-L", "Ortho Solid - Flat, No Supports", 420.0, 107.0),
         _row(2, "CASE-M", "Ortho Solid - Flat, No Supports", 70.0, 50.0),
         _row(3, "CASE-S1", "Ortho Solid - Flat, No Supports", 40.0, 25.0),
-        _row(4, "CASE-S2", "Ortho Solid - Flat, No Supports", 50.0, 40.0),
+        _row(4, "CASE-S2", "Ortho Solid - Flat, No Supports", 45.0, 40.0),
     ]
 
     manifests = plan_build_manifests(rows)
@@ -139,8 +146,8 @@ def test_plan_build_manifests_keeps_row_id_validation_local_to_case_profiles():
 
 def test_plan_build_manifests_prefers_next_largest_fit_before_small_fillers():
     rows = [
-        _row(1, "CASE-15K", "Ortho Solid - Flat, No Supports", 150.0, 100.0),
-        _row(2, "CASE-14K", "Ortho Solid - Flat, No Supports", 140.0, 100.0),
+        _row(1, "CASE-15K", "Ortho Solid - Flat, No Supports", 270.0, 54.0),
+        _row(2, "CASE-14K", "Ortho Solid - Flat, No Supports", 250.0, 54.0),
         _row(3, "CASE-1K", "Ortho Solid - Flat, No Supports", 40.0, 25.0),
     ]
 
@@ -317,7 +324,7 @@ def test_plan_build_manifests_respects_form4b_xy_budget(monkeypatch):
 
 def test_plan_build_manifests_marks_oversized_single_case_as_non_plannable():
     rows = [
-        _row(1, "CASE-HUGE", "Ortho Solid - Flat, No Supports", 200.0, 150.0),
+        _row(1, "CASE-HUGE", "Ortho Solid - Flat, No Supports", 300.0, 170.0),
     ]
 
     manifests = plan_build_manifests(rows)
@@ -331,7 +338,7 @@ def test_plan_build_manifests_marks_oversized_single_case_as_non_plannable():
 
 def test_plan_build_manifests_orders_non_plannable_cases_by_same_priority_scheme():
     rows = [
-        _row(1, "CASE-OVERSIZED", "Ortho Solid - Flat, No Supports", 200.0, 150.0),
+        _row(1, "CASE-OVERSIZED", "Ortho Solid - Flat, No Supports", 300.0, 170.0),
         _row(2, "CASE-EASY", "Ortho Solid - Flat, No Supports", 20.0, 20.0),
     ]
 

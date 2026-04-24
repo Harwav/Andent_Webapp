@@ -1,8 +1,19 @@
 # Full-Arch Footprint Calibration Design
 
 Date: 2026-04-24
-Status: Draft for review
+Status: Implementation checkpoint committed for later continuation
 Scope: `Andent_Webapp` planner-only change plus before/after benchmark report
+
+## Current Checkpoint
+
+As of the GitHub checkpoint on 2026-04-24:
+
+- Baseline planner benchmark harness and before-artifacts are committed.
+- Planner tests now lock geometry-based full-arch detection, raw tooth footprint math, and the new full-arch reduction behavior.
+- `app/services/build_planning.py` removes planner support inflation and applies `FULL_ARCH_FACTOR = 0.58` to `Form 4BL` rows whose bounding boxes satisfy the full-arch thresholds.
+- The extra hidden upper-size cutoff that briefly existed during implementation was removed; once a `Form 4BL` row qualifies as full arch, the reduction factor applies directly.
+- Focused verification passes: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_build_planning.py tests/test_batching.py -q` -> `32 passed`.
+- Broader planner verification, after-benchmark generation, live after-run, comparison report, and architecture doc update are still pending.
 
 ## Requirements Summary
 

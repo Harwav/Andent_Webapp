@@ -54,13 +54,7 @@ def _effective_row_xy_area(row: ClassificationRow) -> float:
         and dimensions is not None
         and _is_full_arch_dimensions(dimensions)
     ):
-        long_side = max(float(dimensions.x_mm), float(dimensions.y_mm))
-        short_side = min(float(dimensions.x_mm), float(dimensions.y_mm))
-        if (
-            long_side <= (FULL_ARCH_MAX_SPAN_MM / FULL_ARCH_FACTOR)
-            and short_side <= (FULL_ARCH_MIN_SHORT_SIDE_MM / FULL_ARCH_FACTOR)
-        ):
-            return raw_xy * FULL_ARCH_FACTOR
+        return raw_xy * FULL_ARCH_FACTOR
     return raw_xy
 
 
