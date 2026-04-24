@@ -77,3 +77,9 @@ Their density was calculated with the same `0.25 mm` mesh-projection method, exc
 Average Human Pack mesh-projection XY density: `56.13%`.
 
 Conclusion: the generated 9-build set was substantially under-packed. The planner budget has been recalibrated to the live Form 4BL XY platform area (`69,188 mm^2`), producing 4 planned builds with model counts `[29, 34, 35, 24]`.
+
+## Calibrated 4-Build Follow-Up
+
+The fresh calibrated artifacts are in the sibling folder `../form4bl_form_exports_calibrated_4build/`.
+
+That rerun saved all 4 planned Form 4BL builds as `.form` and `.png` files. It used explicit `model_spacing_mm = 0` and `allow_overlapping_supports = false`; build 2 failed with default/implicit spacing and succeeded after zero spacing was applied. The calibrated generated average mesh-projection XY density is `48.46%`.

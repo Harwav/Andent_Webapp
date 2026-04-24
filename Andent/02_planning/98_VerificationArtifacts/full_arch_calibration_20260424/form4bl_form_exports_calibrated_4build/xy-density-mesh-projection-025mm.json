@@ -1,0 +1,875 @@
+{
+  "method": "transformed STL vertex projection with one-cell close/fill/open per model",
+  "grid_mm": 0.25,
+  "platform": {
+    "printer": "Form 4BL",
+    "x_mm": 353.0,
+    "y_mm": 196.0,
+    "area_mm2": 69188.0
+  },
+  "build_count": 4,
+  "average_mesh_projection_density_pct": 48.46,
+  "average_summed_bbox_density_pct": 108.0,
+  "results": [
+    {
+      "manifest_index": 1,
+      "scene_id": "fabdff33-c912-44b6-ba82-0e613246341d",
+      "case_ids": [
+        "10936293",
+        "8425323",
+        "8425435",
+        "9690917",
+        "10932522",
+        "8425205",
+        "8425424",
+        "8425442",
+        "10935421",
+        "8425405",
+        "10935175"
+      ],
+      "case_count": 11,
+      "expected_model_count": 29,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports_calibrated_4build\\form4bl_calibrated_build_01_11cases_29models.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports_calibrated_4build\\form4bl_calibrated_build_01_11cases_29models.png",
+      "model_count": 29,
+      "measured_model_count": 29,
+      "missing_original_files": [],
+      "mesh_projection_union_area_mm2": 30989.938,
+      "mesh_projection_density_pct": 44.79,
+      "summed_bbox_area_mm2": 73193.406,
+      "summed_bbox_density_pct": 105.79,
+      "transform_max_bbox_error_mm": 0.001628,
+      "model_projection_summaries": [
+        {
+          "model_id": "{11687b1f-0a51-498c-9c23-65a41ab2d9d1}",
+          "name": "20260407_8425424_Sydenham_Zelko__UT_A3_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425424_Sydenham_Zelko__UT_A3_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1251.5
+        },
+        {
+          "model_id": "{4b443c6d-0ab5-4f26-a6f2-15d33cda8191}",
+          "name": "20260407_8425405_Hobsons__Julie_MT_A3_Tooth_46",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425405_Hobsons__Julie_MT_A3_Tooth_46.stl",
+          "mesh_projection_area_mm2": 92.062
+        },
+        {
+          "model_id": "{d80396ba-d452-4385-be4a-3ac1ef52e85a}",
+          "name": "20260407_8425435_Jetty_Rob_UT_A35_Tooth_16",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425435_Jetty_Rob_UT_A35_Tooth_16.stl",
+          "mesh_projection_area_mm2": 125.125
+        },
+        {
+          "model_id": "{9331fff3-2e88-4b4d-a169-2eb533376326}",
+          "name": "20260407_10936293_SCDL_10936293_DD_A3_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10936293_SCDL_10936293_DD_A3_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1814.375
+        },
+        {
+          "model_id": "{56dff1da-3157-42ee-8449-a0a41ce2ac8a}",
+          "name": "20260407_10932522__SCDL__C1_T_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10932522__SCDL__C1_T_Antag.stl",
+          "mesh_projection_area_mm2": 848.438
+        },
+        {
+          "model_id": "{278a3495-8a3b-4306-8a94-7a1e7e115861}",
+          "name": "20260407_8425323_Precision_Riah_MT_A2_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425323_Precision_Riah_MT_A2_Antag.stl",
+          "mesh_projection_area_mm2": 757.562
+        },
+        {
+          "model_id": "{7ef81b0d-1740-4ebe-b7ba-640600be34c6}",
+          "name": "20260407_10936293_SCDL_10936293_DD_A3_Tooth_17",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10936293_SCDL_10936293_DD_A3_Tooth_17.stl",
+          "mesh_projection_area_mm2": 108.125
+        },
+        {
+          "model_id": "{7e5591a1-8e40-4911-937e-902974892426}",
+          "name": "20260407_8425205_VALE__HARRY_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425205_VALE__HARRY_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1744.125
+        },
+        {
+          "model_id": "{14cd9ae4-e7b3-4b3f-b974-09feba573829}",
+          "name": "20260407_10935421_SCDL__10935421_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10935421_SCDL__10935421_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2521.562
+        },
+        {
+          "model_id": "{361a4588-f813-406b-b523-115342fabfb6}",
+          "name": "20260407_10932522__SCDL__C1_T_Tooth_26",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10932522__SCDL__C1_T_Tooth_26.stl",
+          "mesh_projection_area_mm2": 114.812
+        },
+        {
+          "model_id": "{bb612a9b-c8c7-4feb-846c-eb185a7a9166}",
+          "name": "20260407_8425405_Hobsons__Julie_MT_A3_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425405_Hobsons__Julie_MT_A3_Antag.stl",
+          "mesh_projection_area_mm2": 1302.812
+        },
+        {
+          "model_id": "{f904b304-02a9-42a2-9d4c-16cd7bfa3075}",
+          "name": "20260407_8425424_Sydenham_Zelko__UT_A3_Tooth_37",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425424_Sydenham_Zelko__UT_A3_Tooth_37.stl",
+          "mesh_projection_area_mm2": 105.438
+        },
+        {
+          "model_id": "{809a63a6-dbbb-404d-b1fe-b84bc367060f}",
+          "name": "20260407_8425424_Sydenham_Zelko__UT_A3_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425424_Sydenham_Zelko__UT_A3_Antag.stl",
+          "mesh_projection_area_mm2": 1330.062
+        },
+        {
+          "model_id": "{05839cc1-fd79-4eca-a1f4-c72b5e0e60c3}",
+          "name": "20260407_10935421_SCDL__10935421_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10935421_SCDL__10935421_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1640.5
+        },
+        {
+          "model_id": "{5920dbef-6824-4041-9fbb-926f884be1dd}",
+          "name": "20260407_10935175_SCDL__10935175_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10935175_SCDL__10935175_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2037.0
+        },
+        {
+          "model_id": "{1654dfd2-a1b4-4244-a59d-ec5a7d856ef0}",
+          "name": "20260407_8425435_Jetty_Rob_UT_A35_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425435_Jetty_Rob_UT_A35_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1058.688
+        },
+        {
+          "model_id": "{189090f1-50d3-4056-9507-6b1ae2736df4}",
+          "name": "20260407_8425442_Maven_Lynn_UT_A3_Tooth_26",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425442_Maven_Lynn_UT_A3_Tooth_26.stl",
+          "mesh_projection_area_mm2": 98.125
+        },
+        {
+          "model_id": "{2000e639-4b1f-4305-9cb1-a7a60ba26141}",
+          "name": "20260407_10932522__SCDL__C1_T_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10932522__SCDL__C1_T_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1046.688
+        },
+        {
+          "model_id": "{a9871119-571e-4bf2-b9bf-4fd3e331cb8f}",
+          "name": "20260407_8425205_VALE__HARRY_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425205_VALE__HARRY_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2400.25
+        },
+        {
+          "model_id": "{fd4c029a-9b74-49d1-b2bb-afb8043b46ee}",
+          "name": "20260407_8425435_Jetty_Rob_UT_A35_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425435_Jetty_Rob_UT_A35_Antag.stl",
+          "mesh_projection_area_mm2": 940.375
+        },
+        {
+          "model_id": "{c96955e5-8bd8-497b-acef-22665bc0cd0d}",
+          "name": "20260407_8425323_Precision_Riah_MT_A2_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425323_Precision_Riah_MT_A2_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1164.5
+        },
+        {
+          "model_id": "{8d91e5ff-dae4-42c0-bdcf-2fe70c1591b2}",
+          "name": "20260407_8425442_Maven_Lynn_UT_A3_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425442_Maven_Lynn_UT_A3_Antag.stl",
+          "mesh_projection_area_mm2": 1148.562
+        },
+        {
+          "model_id": "{61de77ed-fb6a-48f7-b29b-9df519c26c72}",
+          "name": "20260407_8425323_Precision_Riah_MT_A2_Tooth_15",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425323_Precision_Riah_MT_A2_Tooth_15.stl",
+          "mesh_projection_area_mm2": 45.875
+        },
+        {
+          "model_id": "{111c07a3-2112-45a6-a5f0-31b68e7c9732}",
+          "name": "20260407_8425442_Maven_Lynn_UT_A3_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425442_Maven_Lynn_UT_A3_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1441.625
+        },
+        {
+          "model_id": "{08b19444-ef52-4b05-ad93-23c13d188946}",
+          "name": "20260407_10932522__SCDL__C1_T_Tooth_25",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10932522__SCDL__C1_T_Tooth_25.stl",
+          "mesh_projection_area_mm2": 52.0
+        },
+        {
+          "model_id": "{667ea8a3-c3d8-476c-b678-5a51de1ab49c}",
+          "name": "20260407_9690917_SCDL__9690917_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_9690917_SCDL__9690917_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2061.938
+        },
+        {
+          "model_id": "{770e8b43-b679-478f-b913-ea8afb7a4d96}",
+          "name": "20260407_10936293_SCDL_10936293_DD_A3_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10936293_SCDL_10936293_DD_A3_Antag.stl",
+          "mesh_projection_area_mm2": 1268.312
+        },
+        {
+          "model_id": "{66c91236-0837-45d8-975e-c3b99d554aaa}",
+          "name": "20260407_8425405_Hobsons__Julie_MT_A3_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425405_Hobsons__Julie_MT_A3_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 974.625
+        },
+        {
+          "model_id": "{d27d79f6-74ab-4b37-8c2d-853cedf10979}",
+          "name": "20260407_9690917_SCDL__9690917_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_9690917_SCDL__9690917_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1510.562
+        }
+      ]
+    },
+    {
+      "manifest_index": 2,
+      "scene_id": "326d0e94-0888-4284-8411-32f3f83316f0",
+      "case_ids": [
+        "8425223",
+        "8425254",
+        "8425350",
+        "8425356",
+        "10936455",
+        "8425357",
+        "8425209",
+        "8425271",
+        "8425360",
+        "10936926",
+        "8425322",
+        "10934575"
+      ],
+      "case_count": 12,
+      "expected_model_count": 34,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports_calibrated_4build\\form4bl_calibrated_build_02_12cases_34models.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports_calibrated_4build\\form4bl_calibrated_build_02_12cases_34models.png",
+      "model_count": 34,
+      "measured_model_count": 34,
+      "missing_original_files": [],
+      "mesh_projection_union_area_mm2": 42724.062,
+      "mesh_projection_density_pct": 61.75,
+      "summed_bbox_area_mm2": 80758.639,
+      "summed_bbox_density_pct": 116.72,
+      "transform_max_bbox_error_mm": 0.001303,
+      "model_projection_summaries": [
+        {
+          "model_id": "{c986aaf4-256f-42a8-b107-4bb8d5d9ace1}",
+          "name": "20260407_10936455_SCDL_DD_A3_Tooth_14",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10936455_SCDL_DD_A3_Tooth_14.stl",
+          "mesh_projection_area_mm2": 57.75
+        },
+        {
+          "model_id": "{aed46426-2883-44ca-8621-5b8bf472f4d3}",
+          "name": "20260407_8425209_Dental_Nigel_Tooth_47",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425209_Dental_Nigel_Tooth_47.stl",
+          "mesh_projection_area_mm2": 101.938
+        },
+        {
+          "model_id": "{6fb2ceee-0abf-452c-bacc-8aa50d470ad6}",
+          "name": "20260407_8425223_DICKSON__HARRY_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425223_DICKSON__HARRY_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1775.812
+        },
+        {
+          "model_id": "{b3a1f76a-70cd-41c3-9024-7f3037379f95}",
+          "name": "20260407_10936455_SCDL_DD_A3_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10936455_SCDL_DD_A3_Antag.stl",
+          "mesh_projection_area_mm2": 952.562
+        },
+        {
+          "model_id": "{a90e1937-f8a7-4cda-a4d6-11e8bd5b6189}",
+          "name": "20260408_8425357__Kaleen_Shium_Tooth_47",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8425357__Kaleen_Shium_Tooth_47.stl",
+          "mesh_projection_area_mm2": 64.25
+        },
+        {
+          "model_id": "{66a85e74-6842-4f64-af53-c999f83023a7}",
+          "name": "20260407_10934575_SCDL__10934575_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10934575_SCDL__10934575_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2134.375
+        },
+        {
+          "model_id": "{2527928a-fca3-44de-bd65-f682dc75ad43}",
+          "name": "20260407_8425271_doM_Julian_UT_A4_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425271_doM_Julian_UT_A4_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1243.938
+        },
+        {
+          "model_id": "{fa0690d5-5668-49b3-9d1c-53868439fa84}",
+          "name": "20260407_8425360_One_Ian_UT_A3_Tooth_26",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425360_One_Ian_UT_A3_Tooth_26.stl",
+          "mesh_projection_area_mm2": 90.562
+        },
+        {
+          "model_id": "{c386bb0b-7075-4597-8dae-2a8966fd884b}",
+          "name": "20260407_8425223_DICKSON__HARRY_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425223_DICKSON__HARRY_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2398.562
+        },
+        {
+          "model_id": "{fdbe305b-ca05-4a36-8161-fe00407fcddf}",
+          "name": "20260407_8425360_One_Ian_UT_A3_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425360_One_Ian_UT_A3_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 3256.125
+        },
+        {
+          "model_id": "{c3247ee4-9e44-4744-9073-67bd2f69fc4a}",
+          "name": "20260407_8425350_First_Kevin_UT_C4_Tooth_17",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425350_First_Kevin_UT_C4_Tooth_17.stl",
+          "mesh_projection_area_mm2": 105.188
+        },
+        {
+          "model_id": "{9ce9c177-b78c-4743-a4b3-85907a17a48a}",
+          "name": "20260407_8425322_James__Lili_UT_A3_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425322_James__Lili_UT_A3_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 961.75
+        },
+        {
+          "model_id": "{79055295-b10a-47ce-a62d-309851f02071}",
+          "name": "20260407_8425356_Meadow_Muhammed_UT_A2_Tooth_36",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425356_Meadow_Muhammed_UT_A2_Tooth_36.stl",
+          "mesh_projection_area_mm2": 96.438
+        },
+        {
+          "model_id": "{b688c181-76fe-46ab-97f3-8f124e37a3f4}",
+          "name": "20260407_8425356_Meadow_Muhammed_UT_A2_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425356_Meadow_Muhammed_UT_A2_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1089.312
+        },
+        {
+          "model_id": "{878b3a3e-7acc-4b28-92e4-aac1b71e791c}",
+          "name": "20260407_8425254_Women_William_Tooth_26",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425254_Women_William_Tooth_26.stl",
+          "mesh_projection_area_mm2": 91.562
+        },
+        {
+          "model_id": "{f8343a7d-5313-48e2-aff0-4018ccba9da3}",
+          "name": "20260407_8425322_James__Lili_UT_A3_Tooth_47",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425322_James__Lili_UT_A3_Tooth_47.stl",
+          "mesh_projection_area_mm2": 76.438
+        },
+        {
+          "model_id": "{2b28da2b-e85b-40c8-8acc-58ddc7d3406c}",
+          "name": "20260407_8425350_First_Kevin_UT_C4_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425350_First_Kevin_UT_C4_Antag.stl",
+          "mesh_projection_area_mm2": 3564.188
+        },
+        {
+          "model_id": "{81b38097-c571-47da-ba9f-060d77b02bc3}",
+          "name": "20260407_8425356_Meadow_Muhammed_UT_A2_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425356_Meadow_Muhammed_UT_A2_Antag.stl",
+          "mesh_projection_area_mm2": 1209.125
+        },
+        {
+          "model_id": "{4e5b4026-1297-40de-ae07-030508854816}",
+          "name": "20260407_8425322_James__Lili_UT_A3_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425322_James__Lili_UT_A3_Antag.stl",
+          "mesh_projection_area_mm2": 1254.688
+        },
+        {
+          "model_id": "{d846049b-9ae8-4547-810c-7745d45abd49}",
+          "name": "20260407_8425254_Women_William_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425254_Women_William_Antag.stl",
+          "mesh_projection_area_mm2": 782.188
+        },
+        {
+          "model_id": "{374e1862-7fc8-45de-8ced-63825e0c21cf}",
+          "name": "20260408_10936926__SCDL__DD__A2_Tooth_45",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_10936926__SCDL__DD__A2_Tooth_45.stl",
+          "mesh_projection_area_mm2": 55.438
+        },
+        {
+          "model_id": "{c64cc4bb-654f-4eb5-9b13-05dadfff448d}",
+          "name": "20260407_8425360_One_Ian_UT_A3_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425360_One_Ian_UT_A3_Antag.stl",
+          "mesh_projection_area_mm2": 3552.812
+        },
+        {
+          "model_id": "{d8a28518-18d0-440a-be5a-23b0fd340f95}",
+          "name": "20260407_8425350_First_Kevin_UT_C4_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425350_First_Kevin_UT_C4_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 3531.25
+        },
+        {
+          "model_id": "{2329447a-e87f-434f-a1c7-6fab8585b083}",
+          "name": "20260407_8425209_Dental_Nigel_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425209_Dental_Nigel_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1147.875
+        },
+        {
+          "model_id": "{13670a26-3982-4a42-9216-b9079319d721}",
+          "name": "20260408_10936926__SCDL__DD__A2_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_10936926__SCDL__DD__A2_Antag.stl",
+          "mesh_projection_area_mm2": 3651.875
+        },
+        {
+          "model_id": "{2e53e657-b4b6-475d-9d0b-ce45a51d3cdd}",
+          "name": "20260408_8425357__Kaleen_Shium_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8425357__Kaleen_Shium_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 782.062
+        },
+        {
+          "model_id": "{998cd714-f0d2-45b1-9934-c58e9b64a389}",
+          "name": "20260407_8425254_Women_William_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425254_Women_William_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 938.938
+        },
+        {
+          "model_id": "{91b6dd31-88de-4e56-9123-435df8654ce8}",
+          "name": "20260408_8425357__Kaleen_Shium_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8425357__Kaleen_Shium_Antag.stl",
+          "mesh_projection_area_mm2": 925.875
+        },
+        {
+          "model_id": "{43330dd2-3cea-48a3-84c1-f273c807819c}",
+          "name": "20260407_8425271_doM_Julian_UT_A4_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425271_doM_Julian_UT_A4_Antag.stl",
+          "mesh_projection_area_mm2": 974.0
+        },
+        {
+          "model_id": "{ae4bee4e-387c-4cfe-b1c0-db48f91e2d55}",
+          "name": "20260408_10936926__SCDL__DD__A2_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_10936926__SCDL__DD__A2_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 3166.938
+        },
+        {
+          "model_id": "{66c65f84-43b0-41b0-bb3f-d91b48d83e12}",
+          "name": "20260407_10936455_SCDL_DD_A3_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10936455_SCDL_DD_A3_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1056.875
+        },
+        {
+          "model_id": "{c72f03ec-263e-433a-b9aa-f2cffd8ab69f}",
+          "name": "20260407_8425271_doM_Julian_UT_A4_Tooth_17",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425271_doM_Julian_UT_A4_Tooth_17.stl",
+          "mesh_projection_area_mm2": 97.75
+        },
+        {
+          "model_id": "{fc228f29-7f7f-485a-becc-b942e21208c3}",
+          "name": "20260407_8425209_Dental_Nigel_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425209_Dental_Nigel_Antag.stl",
+          "mesh_projection_area_mm2": 1459.75
+        },
+        {
+          "model_id": "{6be86d3a-c323-4421-a748-5180ef54d431}",
+          "name": "20260407_8425350_First_Kevin_UT_C4_Tooth_16",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425350_First_Kevin_UT_C4_Tooth_16.stl",
+          "mesh_projection_area_mm2": 88.125
+        }
+      ]
+    },
+    {
+      "manifest_index": 3,
+      "scene_id": "1b5be58f-42ff-4f00-b170-e6da976e0bc5",
+      "case_ids": [
+        "8425308",
+        "8425256",
+        "10936643",
+        "10936507",
+        "8425299",
+        "8425071",
+        "8425259",
+        "8425393",
+        "8425342",
+        "10935386",
+        "8425314",
+        "8425306",
+        "8424903",
+        "8425251"
+      ],
+      "case_count": 14,
+      "expected_model_count": 35,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports_calibrated_4build\\form4bl_calibrated_build_03_14cases_35models.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports_calibrated_4build\\form4bl_calibrated_build_03_14cases_35models.png",
+      "model_count": 35,
+      "measured_model_count": 35,
+      "missing_original_files": [],
+      "mesh_projection_union_area_mm2": 37051.562,
+      "mesh_projection_density_pct": 53.55,
+      "summed_bbox_area_mm2": 89468.147,
+      "summed_bbox_density_pct": 129.31,
+      "transform_max_bbox_error_mm": 0.001207,
+      "model_projection_summaries": [
+        {
+          "model_id": "{7462f3de-661e-451a-a0b1-0d5cd3593c0f}",
+          "name": "20260407_8425314_1300_Smiles_Lorissa_UT_B2_Tooth_46",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425314_1300_Smiles_Lorissa_UT_B2_Tooth_46.stl",
+          "mesh_projection_area_mm2": 113.25
+        },
+        {
+          "model_id": "{0cdb15b7-8769-47fe-8450-331349034d7d}",
+          "name": "20260407_8425393_Phillip_Deborah_MT_A2_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425393_Phillip_Deborah_MT_A2_Antag.stl",
+          "mesh_projection_area_mm2": 812.312
+        },
+        {
+          "model_id": "{73aed15a-c3f8-4698-930c-65052a5d0a10}",
+          "name": "20260407_10935386_SCDL__10935386_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10935386_SCDL__10935386_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2949.625
+        },
+        {
+          "model_id": "{2c0e2fac-dec0-47fa-85a9-64e2304a2cb6}",
+          "name": "20260407_8425259_CONTEMPORARY__SAM_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425259_CONTEMPORARY__SAM_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 3346.5
+        },
+        {
+          "model_id": "{8359fef2-23c3-4628-8227-2862c134cf2c}",
+          "name": "20260407_8425299_Dental_Robert_UT_A35_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425299_Dental_Robert_UT_A35_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 912.125
+        },
+        {
+          "model_id": "{2797eced-3973-481d-9165-60e21497a222}",
+          "name": "20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_Tooth_45",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_Tooth_45.stl",
+          "mesh_projection_area_mm2": 25.625
+        },
+        {
+          "model_id": "{cd24149b-0717-4d1a-8570-b4cb865fa5b1}",
+          "name": "20260407_8425299_Dental_Robert_UT_A35_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425299_Dental_Robert_UT_A35_Antag.stl",
+          "mesh_projection_area_mm2": 1086.812
+        },
+        {
+          "model_id": "{623043c4-a258-4c2d-af11-ad5328fc0967}",
+          "name": "20260407_8425071_NORTH__HAMISH_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425071_NORTH__HAMISH_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1208.5
+        },
+        {
+          "model_id": "{f4cb88d0-4ff2-49f0-be39-547327b08e20}",
+          "name": "20260408_8424903_Dentists_Efstratia_UT_C2_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424903_Dentists_Efstratia_UT_C2_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 695.25
+        },
+        {
+          "model_id": "{5301defe-dd96-449c-bce2-ccdaa7b04832}",
+          "name": "20260407_10936507_SCDL_OPAQUE_UT_B4_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10936507_SCDL_OPAQUE_UT_B4_Antag.stl",
+          "mesh_projection_area_mm2": 927.0
+        },
+        {
+          "model_id": "{a7fda5ce-2a48-47e9-9fc0-3cb96d42a3ca}",
+          "name": "20260407_8425306_Healesville_Ken_UT_A35_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425306_Healesville_Ken_UT_A35_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 988.0
+        },
+        {
+          "model_id": "{e3dfc0e6-1864-4b77-92d3-565875d08ab0}",
+          "name": "20260407_10935386_SCDL__10935386_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10935386_SCDL__10935386_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1982.188
+        },
+        {
+          "model_id": "{ebadf7f7-51b3-4509-9292-5b8d8dc975fa}",
+          "name": "20260407_8425308_ARMADALE__ELI_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425308_ARMADALE__ELI_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1604.75
+        },
+        {
+          "model_id": "{ea7da019-4fb5-4581-87f6-fe1154423314}",
+          "name": "20260407_8425314_1300_Smiles_Lorissa_UT_B2_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425314_1300_Smiles_Lorissa_UT_B2_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 820.625
+        },
+        {
+          "model_id": "{d1992dbf-cba7-4293-8a4c-d651a0ae82fd}",
+          "name": "20260407_8425314_1300_Smiles_Lorissa_UT_B2_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425314_1300_Smiles_Lorissa_UT_B2_Antag.stl",
+          "mesh_projection_area_mm2": 1068.375
+        },
+        {
+          "model_id": "{f61f376f-475e-4be8-a9b1-f460f8789da3}",
+          "name": "20260408_8424903_Dentists_Efstratia_UT_C2_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424903_Dentists_Efstratia_UT_C2_Antag.stl",
+          "mesh_projection_area_mm2": 939.688
+        },
+        {
+          "model_id": "{773776f4-3b2a-4ccc-8d29-5026312e9947}",
+          "name": "20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_Antag.stl",
+          "mesh_projection_area_mm2": 637.188
+        },
+        {
+          "model_id": "{89048e33-3fa3-477d-a328-2bd1d22b43b1}",
+          "name": "20260407_8425306_Healesville_Ken_UT_A35_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425306_Healesville_Ken_UT_A35_Antag.stl",
+          "mesh_projection_area_mm2": 990.688
+        },
+        {
+          "model_id": "{21e23f51-ad14-4784-9e4e-bfe1bb1fc93a}",
+          "name": "20260408_10936643_SCDL_10936643_DDA3_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_10936643_SCDL_10936643_DDA3_Antag.stl",
+          "mesh_projection_area_mm2": 610.188
+        },
+        {
+          "model_id": "{68860a3e-30ae-4d28-bf6c-345e074b4dbb}",
+          "name": "20260408_10936643_SCDL_10936643_DDA3_Tooth_27",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_10936643_SCDL_10936643_DDA3_Tooth_27.stl",
+          "mesh_projection_area_mm2": 84.75
+        },
+        {
+          "model_id": "{c00b77c0-3d5a-4b9b-9cac-d58dce83be6a}",
+          "name": "20260407_8425071_NORTH__HAMISH_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425071_NORTH__HAMISH_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1859.812
+        },
+        {
+          "model_id": "{f87835e8-aeeb-4bb7-8fdb-2b190f116476}",
+          "name": "20260408_8424903_Dentists_Efstratia_UT_C2_Tooth_37",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424903_Dentists_Efstratia_UT_C2_Tooth_37.stl",
+          "mesh_projection_area_mm2": 76.562
+        },
+        {
+          "model_id": "{9eb3f10a-41f4-4a27-866d-3cd84f9a9c6f}",
+          "name": "20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 537.688
+        },
+        {
+          "model_id": "{3923f92a-04fc-434c-9bd5-59b371ba9735}",
+          "name": "20260407_10936507_SCDL_OPAQUE_UT_B4_Tooth_14",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10936507_SCDL_OPAQUE_UT_B4_Tooth_14.stl",
+          "mesh_projection_area_mm2": 54.688
+        },
+        {
+          "model_id": "{46601d56-eb7f-42ff-80e4-036b7193176b}",
+          "name": "20260407_10936507_SCDL_OPAQUE_UT_B4_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10936507_SCDL_OPAQUE_UT_B4_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 960.188
+        },
+        {
+          "model_id": "{5f394ca0-d711-4149-a0d3-aec35cc23874}",
+          "name": "20260407_8425342_GREEN__JEM_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425342_GREEN__JEM_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1084.25
+        },
+        {
+          "model_id": "{c0b42396-f847-4e96-9000-9874505d98a7}",
+          "name": "20260407_8425251_HEASLEY__MITCHELL_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425251_HEASLEY__MITCHELL_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2680.875
+        },
+        {
+          "model_id": "{fdc89c74-a1db-416d-86f2-3681e4b46deb}",
+          "name": "20260407_8425259_CONTEMPORARY__SAM_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425259_CONTEMPORARY__SAM_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1727.438
+        },
+        {
+          "model_id": "{51de0ec5-afd3-4539-80e2-5d12b023c135}",
+          "name": "20260407_8425342_GREEN__JEM_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425342_GREEN__JEM_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2305.0
+        },
+        {
+          "model_id": "{09673140-1e12-4101-a4cb-a24929f38adc}",
+          "name": "20260407_8425393_Phillip_Deborah_MT_A2_Tooth_46",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425393_Phillip_Deborah_MT_A2_Tooth_46.stl",
+          "mesh_projection_area_mm2": 96.75
+        },
+        {
+          "model_id": "{a68ab000-5b6c-46de-8acd-fee57277db19}",
+          "name": "20260407_8425308_ARMADALE__ELI_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425308_ARMADALE__ELI_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2216.25
+        },
+        {
+          "model_id": "{94b02328-99c2-4149-ad7b-c52122d9fd8d}",
+          "name": "20260407_8425306_Healesville_Ken_UT_A35_Tooth_45",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425306_Healesville_Ken_UT_A35_Tooth_45.stl",
+          "mesh_projection_area_mm2": 67.625
+        },
+        {
+          "model_id": "{624e66a3-ca47-4fa9-b182-030952ddda3c}",
+          "name": "20260407_8425393_Phillip_Deborah_MT_A2_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425393_Phillip_Deborah_MT_A2_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 803.438
+        },
+        {
+          "model_id": "{fe5c0dee-8008-4c7a-ba72-8f1f77189e4c}",
+          "name": "20260407_8425299_Dental_Robert_UT_A35_Tooth_45",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425299_Dental_Robert_UT_A35_Tooth_45.stl",
+          "mesh_projection_area_mm2": 35.875
+        },
+        {
+          "model_id": "{e08baf42-0705-4fe2-89f2-6ad735dbf250}",
+          "name": "20260408_10936643_SCDL_10936643_DDA3_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_10936643_SCDL_10936643_DDA3_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 772.438
+        }
+      ]
+    },
+    {
+      "manifest_index": 4,
+      "scene_id": "3637f8a5-cfc7-4a1f-b67d-f19a6b1590de",
+      "case_ids": [
+        "8425339",
+        "8425217",
+        "8424565",
+        "8424709",
+        "8425417",
+        "8425408",
+        "8424921",
+        "8425255",
+        "10935787",
+        "8425317",
+        "8425250"
+      ],
+      "case_count": 11,
+      "expected_model_count": 24,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports_calibrated_4build\\form4bl_calibrated_build_04_11cases_24models.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports_calibrated_4build\\form4bl_calibrated_build_04_11cases_24models.png",
+      "model_count": 24,
+      "measured_model_count": 24,
+      "missing_original_files": [],
+      "mesh_projection_union_area_mm2": 23346.75,
+      "mesh_projection_density_pct": 33.74,
+      "summed_bbox_area_mm2": 55465.803,
+      "summed_bbox_density_pct": 80.17,
+      "transform_max_bbox_error_mm": 0.001154,
+      "model_projection_summaries": [
+        {
+          "model_id": "{361cae0d-61f6-4e99-9f35-19df6bbcc86b}",
+          "name": "20260408_8424709_Raymond_Marita_pfm_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424709_Raymond_Marita_pfm_Antag.stl",
+          "mesh_projection_area_mm2": 696.375
+        },
+        {
+          "model_id": "{a57f7e93-dd7b-474c-90de-1df7e7b9e3b7}",
+          "name": "20260407_10935787_SCDL__10935787_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_10935787_SCDL__10935787_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1576.812
+        },
+        {
+          "model_id": "{918671f7-a086-4782-833c-428dfd004127}",
+          "name": "20260408_8424565_Geelong_Lee_UT_A3_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424565_Geelong_Lee_UT_A3_Antag.stl",
+          "mesh_projection_area_mm2": 870.625
+        },
+        {
+          "model_id": "{90912321-a4bc-4500-abc6-4cf7bd85f48a}",
+          "name": "20260407_8425217_DICKSON__LIAM_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425217_DICKSON__LIAM_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2899.438
+        },
+        {
+          "model_id": "{8f769e1a-dbdc-42d1-ba36-90bee83988bd}",
+          "name": "20260407_8425339_Meadow_Mouna_UT_A35_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425339_Meadow_Mouna_UT_A35_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 874.0
+        },
+        {
+          "model_id": "{3cdb8f86-c7c1-4f93-bd20-5001f346c667}",
+          "name": "20260408_8424709_Raymond_Marita_pfm_Tooth_14",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424709_Raymond_Marita_pfm_Tooth_14.stl",
+          "mesh_projection_area_mm2": 31.188
+        },
+        {
+          "model_id": "{7da71db0-21fa-4735-b55f-e83c850ec459}",
+          "name": "20260407_8425339_Meadow_Mouna_UT_A35_Tooth_36",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425339_Meadow_Mouna_UT_A35_Tooth_36.stl",
+          "mesh_projection_area_mm2": 97.125
+        },
+        {
+          "model_id": "{b3c015f0-95fc-468e-b2c0-417540d1b92f}",
+          "name": "20260407_8425417_Sunrise__Natasha_UT_A2_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425417_Sunrise__Natasha_UT_A2_Antag.stl",
+          "mesh_projection_area_mm2": 1072.0
+        },
+        {
+          "model_id": "{d9e63d5b-0017-4022-9ce7-81e19a10e894}",
+          "name": "20260408_8424565_Geelong_Lee_UT_A3_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424565_Geelong_Lee_UT_A3_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 734.375
+        },
+        {
+          "model_id": "{64affb5f-2c27-4158-bbbb-a99acab46551}",
+          "name": "20260407_8425317_SOUTH__HENRY_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425317_SOUTH__HENRY_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2063.812
+        },
+        {
+          "model_id": "{7162e257-5d50-418c-9865-d1393579e395}",
+          "name": "20260408_8424921_Googong_Lynette_M_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424921_Googong_Lynette_M_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 1004.0
+        },
+        {
+          "model_id": "{68a7598d-2d83-4424-af78-ad4734d20482}",
+          "name": "20260407_8425408_Erica__Sam_UT_TBC_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425408_Erica__Sam_UT_TBC_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 755.812
+        },
+        {
+          "model_id": "{1bbd77e8-b4bf-4a81-8f98-9f1d29f49698}",
+          "name": "20260407_8425417_Sunrise__Natasha_UT_A2_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425417_Sunrise__Natasha_UT_A2_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 785.875
+        },
+        {
+          "model_id": "{61502f72-e0e9-4fe1-a5e6-736dd4d57938}",
+          "name": "20260408_8424921_Googong_Lynette_M_Tooth_25",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424921_Googong_Lynette_M_Tooth_25.stl",
+          "mesh_projection_area_mm2": 53.0
+        },
+        {
+          "model_id": "{332d0b5e-4c89-4c4c-8455-93211e515208}",
+          "name": "20260407_8425408_Erica__Sam_UT_TBC_Tooth_15",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425408_Erica__Sam_UT_TBC_Tooth_15.stl",
+          "mesh_projection_area_mm2": 34.0
+        },
+        {
+          "model_id": "{1acba1ed-f448-4588-a31c-49aea207646c}",
+          "name": "20260407_8425217_DICKSON__LIAM_UnsectionedModel_LowerJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425217_DICKSON__LIAM_UnsectionedModel_LowerJaw.stl",
+          "mesh_projection_area_mm2": 1888.062
+        },
+        {
+          "model_id": "{e1f987cc-58da-4ab4-bcbf-09c637840447}",
+          "name": "20260407_8425339_Meadow_Mouna_UT_A35_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425339_Meadow_Mouna_UT_A35_Antag.stl",
+          "mesh_projection_area_mm2": 1070.125
+        },
+        {
+          "model_id": "{cc315a6d-6cc1-4951-ad33-90ecc14b16ab}",
+          "name": "20260407_8425250_KEDRON__NOAH_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425250_KEDRON__NOAH_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2363.688
+        },
+        {
+          "model_id": "{f4c3a9e6-bf92-4653-b62a-cf36bd6bc2c7}",
+          "name": "20260407_8425417_Sunrise__Natasha_UT_A2_Tooth_45",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425417_Sunrise__Natasha_UT_A2_Tooth_45.stl",
+          "mesh_projection_area_mm2": 32.688
+        },
+        {
+          "model_id": "{5eaf4ebc-963a-4839-86cf-b1bb8698428e}",
+          "name": "20260408_8424921_Googong_Lynette_M_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424921_Googong_Lynette_M_Antag.stl",
+          "mesh_projection_area_mm2": 690.0
+        },
+        {
+          "model_id": "{7bacf9df-75b2-4add-ada0-2500f47f2194}",
+          "name": "20260407_8425255_NORTHSIDE__HUON_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425255_NORTHSIDE__HUON_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 2059.938
+        },
+        {
+          "model_id": "{e20c65cc-ec6e-4a41-a52a-59fc1f6560c7}",
+          "name": "20260407_8425408_Erica__Sam_UT_TBC_Antag",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260407_8425408_Erica__Sam_UT_TBC_Antag.stl",
+          "mesh_projection_area_mm2": 757.0
+        },
+        {
+          "model_id": "{4adecb95-672c-471d-817c-841be21cfe93}",
+          "name": "20260408_8424565_Geelong_Lee_UT_A3_Tooth_46",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424565_Geelong_Lee_UT_A3_Tooth_46.stl",
+          "mesh_projection_area_mm2": 84.75
+        },
+        {
+          "model_id": "{2acc7386-c818-4093-83f5-9339203c6b0b}",
+          "name": "20260408_8424709_Raymond_Marita_pfm_UnsectionedModel_UpperJaw",
+          "original_file": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data\\20260408_8424709_Raymond_Marita_pfm_UnsectionedModel_UpperJaw.stl",
+          "mesh_projection_area_mm2": 857.562
+        }
+      ]
+    }
+  ]
+}

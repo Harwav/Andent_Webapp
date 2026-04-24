@@ -22,8 +22,13 @@ Checkpoint pushed on 2026-04-24 for later continuation:
 - Human Pack benchmark from `C:\Users\Marcus\Desktop\BM\20260409_Andent_Matt\Human Pack` is recorded in `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/human-pack-xy-density-mesh-projection-025mm.json`: 4 `.form` files, model counts `[31, 36, 36, 22]`, average mesh-projection XY density `56.13%`.
 - The planner under-packing root cause was the conservative `Form 4BL` XY budget (`29,000 mm^2`). `Form 4BL` now uses the live platform area `353 mm x 196 mm = 69,188 mm^2`, and Form 4B uses its physical platform area `200 mm x 125 mm = 25,000 mm^2`; unknown-printer and Form 4 fallback budgets remain conservative at `10,820.9 mm^2`.
 - Regenerated `after-summary.json` now plans the `From 4BL Test Data` dataset into 4 builds with model counts `[29, 34, 35, 24]`, close to the Human Pack `[31, 36, 36, 22]`.
+- Fresh calibrated 4-build Form 4BL inspection artifacts are in `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/form4bl_form_exports_calibrated_4build/`: 4 `.form` files, 4 `.png` screenshots, `export-summary.json`, and `xy-density-mesh-projection-025mm.json`.
+- The calibrated export run used `FRML-4-0`, `FLPMBE01`, `0.100 mm`, `DEFAULT`, `DENTAL` auto-layout, `model_spacing_mm = 0`, and `allow_overlapping_supports = false`. Default/implicit spacing failed build 2; zero spacing allowed all 4 planned builds to auto-layout and export.
+- Calibrated run result: 4 planned builds, 4 saved builds, 0 failed exports, 122 total models, average `30.5` models/build, total PreFormServer processing time `841.88s`, average build processing time `210.469s`.
+- Calibrated mesh-projection XY density on a `0.25 mm` raster averaged `48.46%` across the 4 generated builds. Per-build density was `[44.79%, 61.75%, 53.55%, 33.74%]`.
+- Print validation still reports support/cup issues on every exported build (`47`, `66`, `37`, and `28` validation errors respectively). These artifacts prove import/layout/export packing, not final print-ready support validation.
 - Current verification passes: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q` -> `229 passed, 3 skipped`.
-- Remaining work: regenerate the 4-build Form 4BL `.form` inspection artifacts and run the full verification suite before publishing this tuning pass.
+- Remaining work: rerun final repository verification after documenting this export pass, then publish or commit the tuning pass.
 
 ---
 
