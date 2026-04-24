@@ -1,0 +1,1182 @@
+{
+  "source_folder": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\From 4BL Test Data",
+  "output_folder": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports",
+  "preform_url": "http://127.0.0.1:44388",
+  "scene_settings": {
+    "layer_thickness_mm": 0.1,
+    "machine_type": "FRML-4-0",
+    "material_code": "FLPMBE01",
+    "print_setting": "DEFAULT"
+  },
+  "scan_params": {
+    "units": "DETECTED",
+    "cutoff_height_mm": 0,
+    "extrude_distance_mm": 0,
+    "hollow": false
+  },
+  "layout_params": {
+    "models": "ALL",
+    "mode": "DENTAL",
+    "allow_overlapping_supports": false
+  },
+  "planned_builds": 9,
+  "saved_builds": 9,
+  "results": [
+    {
+      "manifest_index": 1,
+      "case_ids": [
+        "10936293",
+        "8425323",
+        "8425435",
+        "9690917"
+      ],
+      "expected_model_count": 11,
+      "scene_id": "1af02514-dbef-4c72-935b-a2fa680525b8",
+      "imported_model_count": 11,
+      "layout_succeeded": true,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_01_10936293+8425323+8425435+9690917.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_01_10936293+8425323+8425435+9690917.png",
+      "validation": {
+        "valid": false,
+        "errors": [
+          "{43a29f19-cf49-43d3-a3ae-2a0b0560d287}: undersupported",
+          "{5541ef8d-0d67-4830-a571-fd71c8a45f2a}: undersupported",
+          "{5541ef8d-0d67-4830-a571-fd71c8a45f2a}: unsupported minima 3",
+          "{5541ef8d-0d67-4830-a571-fd71c8a45f2a}: cups 1",
+          "{65ae2a2c-5299-47c4-993c-8867ab839819}: undersupported",
+          "{65ae2a2c-5299-47c4-993c-8867ab839819}: unsupported minima 3",
+          "{65ae2a2c-5299-47c4-993c-8867ab839819}: cups 1",
+          "{8e4d2cec-7f8d-40e4-ba70-cdda7d65939e}: undersupported",
+          "{8e4d2cec-7f8d-40e4-ba70-cdda7d65939e}: cups 1",
+          "{9cd26a9d-c91b-4910-8267-921257b8c677}: undersupported",
+          "{a6b9383e-7d8d-4edb-808a-f6f55260eafe}: undersupported",
+          "{a6b9383e-7d8d-4edb-808a-f6f55260eafe}: unsupported minima 2",
+          "{a6b9383e-7d8d-4edb-808a-f6f55260eafe}: cups 1",
+          "{b2f63e10-603e-41fb-97f1-37cf0345502a}: undersupported",
+          "{cb6105ad-2a22-46f9-befb-f7830b2fe082}: unsupported minima 1",
+          "{cb6105ad-2a22-46f9-befb-f7830b2fe082}: cups 1",
+          "{fd6e7296-fd38-4d30-ad21-0b8fe6ca524d}: undersupported",
+          "{fd6e7296-fd38-4d30-ad21-0b8fe6ca524d}: unsupported minima 2",
+          "{fd6e7296-fd38-4d30-ad21-0b8fe6ca524d}: cups 1"
+        ],
+        "raw": {
+          "per_model_results": {
+            "{336ff181-0b1a-45b4-92fb-658302be6c32}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{43a29f19-cf49-43d3-a3ae-2a0b0560d287}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{4c784447-780d-4c81-9bc6-c7b550b9d626}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{5541ef8d-0d67-4830-a571-fd71c8a45f2a}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 3
+            },
+            "{65ae2a2c-5299-47c4-993c-8867ab839819}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 3
+            },
+            "{8e4d2cec-7f8d-40e4-ba70-cdda7d65939e}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{9cd26a9d-c91b-4910-8267-921257b8c677}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{a6b9383e-7d8d-4edb-808a-f6f55260eafe}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            },
+            "{b2f63e10-603e-41fb-97f1-37cf0345502a}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{cb6105ad-2a22-46f9-befb-f7830b2fe082}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 1
+            },
+            "{fd6e7296-fd38-4d30-ad21-0b8fe6ca524d}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            }
+          }
+        }
+      },
+      "errors": [],
+      "processing_time_seconds": 55.614
+    },
+    {
+      "manifest_index": 2,
+      "case_ids": [
+        "10932522",
+        "8425205",
+        "8425424",
+        "8425442",
+        "10935175"
+      ],
+      "expected_model_count": 13,
+      "scene_id": "7509a8dc-9c52-4c2a-8f7a-6f1b78d136d5",
+      "imported_model_count": 13,
+      "layout_succeeded": true,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_02_10932522+8425205+8425424+8425442+10935175.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_02_10932522+8425205+8425424+8425442+10935175.png",
+      "validation": {
+        "valid": false,
+        "errors": [
+          "{2255fc19-72e1-4745-ab79-6efbd9be35de}: undersupported",
+          "{2255fc19-72e1-4745-ab79-6efbd9be35de}: unsupported minima 1",
+          "{2255fc19-72e1-4745-ab79-6efbd9be35de}: cups 1",
+          "{40a098fb-37b6-4039-9e59-e69710727112}: undersupported",
+          "{662034ea-3a43-4ba9-aa24-26c3574d0300}: undersupported",
+          "{662034ea-3a43-4ba9-aa24-26c3574d0300}: unsupported minima 1",
+          "{662034ea-3a43-4ba9-aa24-26c3574d0300}: cups 1",
+          "{6c21b93d-4dc7-49b6-88fe-0e2f091dd76e}: undersupported",
+          "{75da1cd4-53f9-4595-9c20-3604a137045d}: undersupported",
+          "{75da1cd4-53f9-4595-9c20-3604a137045d}: unsupported minima 4",
+          "{75da1cd4-53f9-4595-9c20-3604a137045d}: cups 1",
+          "{8c6bf1b8-44e3-48c6-9f39-4ba0c1560a44}: undersupported",
+          "{8c6bf1b8-44e3-48c6-9f39-4ba0c1560a44}: unsupported minima 1",
+          "{8c6bf1b8-44e3-48c6-9f39-4ba0c1560a44}: cups 1",
+          "{8e45bf73-e804-4644-8d24-f0ebb6579f14}: undersupported",
+          "{a51f0d5e-b7c6-47ab-9295-a56798dcb4c5}: undersupported",
+          "{ad07d10a-9de5-41d5-8180-686bc45d57e8}: unsupported minima 1",
+          "{b2addfb1-c53c-487f-97ee-1389080e9169}: undersupported",
+          "{b2addfb1-c53c-487f-97ee-1389080e9169}: cups 1",
+          "{c4e00d6d-8116-4f7b-9820-b1bf5c668738}: undersupported",
+          "{c4e00d6d-8116-4f7b-9820-b1bf5c668738}: unsupported minima 2",
+          "{c4e00d6d-8116-4f7b-9820-b1bf5c668738}: cups 1"
+        ],
+        "raw": {
+          "per_model_results": {
+            "{07bd3186-b9d7-4a55-a381-0d218c3d524c}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{2255fc19-72e1-4745-ab79-6efbd9be35de}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{40a098fb-37b6-4039-9e59-e69710727112}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{5f4f4906-e7eb-48eb-a731-4c0caee6d696}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{662034ea-3a43-4ba9-aa24-26c3574d0300}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{6c21b93d-4dc7-49b6-88fe-0e2f091dd76e}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{75da1cd4-53f9-4595-9c20-3604a137045d}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 4
+            },
+            "{8c6bf1b8-44e3-48c6-9f39-4ba0c1560a44}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{8e45bf73-e804-4644-8d24-f0ebb6579f14}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{a51f0d5e-b7c6-47ab-9295-a56798dcb4c5}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{ad07d10a-9de5-41d5-8180-686bc45d57e8}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 1
+            },
+            "{b2addfb1-c53c-487f-97ee-1389080e9169}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{c4e00d6d-8116-4f7b-9820-b1bf5c668738}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            }
+          }
+        }
+      },
+      "errors": [],
+      "processing_time_seconds": 69.35
+    },
+    {
+      "manifest_index": 3,
+      "case_ids": [
+        "10935421",
+        "8425405",
+        "8425223",
+        "8425254",
+        "10934575"
+      ],
+      "expected_model_count": 11,
+      "scene_id": "84a5b1d5-e328-4d17-b4f6-c49c8185a2c4",
+      "imported_model_count": 11,
+      "layout_succeeded": true,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_03_10935421+8425405+8425223+8425254+10934575.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_03_10935421+8425405+8425223+8425254+10934575.png",
+      "validation": {
+        "valid": false,
+        "errors": [
+          "{06ecaca2-7129-4800-86d3-b10b646e4b6f}: undersupported",
+          "{06ecaca2-7129-4800-86d3-b10b646e4b6f}: unsupported minima 1",
+          "{06ecaca2-7129-4800-86d3-b10b646e4b6f}: cups 1",
+          "{2731222f-d3d0-4a74-b549-7532d0490a1b}: undersupported",
+          "{4a602b28-1ac2-49e4-a761-ffcefdfe76dd}: undersupported",
+          "{4a602b28-1ac2-49e4-a761-ffcefdfe76dd}: unsupported minima 1",
+          "{4a602b28-1ac2-49e4-a761-ffcefdfe76dd}: cups 1",
+          "{61f9b47f-52bb-4343-8985-3e226359776b}: undersupported",
+          "{61f9b47f-52bb-4343-8985-3e226359776b}: cups 1",
+          "{65751ab3-8291-4d6d-8605-e7ba9869c5e6}: unsupported minima 1",
+          "{bdc25af2-069a-42dd-a37e-e05bf8843f20}: undersupported",
+          "{cc44f46d-a219-46e4-9e37-298ca327fa51}: undersupported",
+          "{cc44f46d-a219-46e4-9e37-298ca327fa51}: unsupported minima 1",
+          "{cc44f46d-a219-46e4-9e37-298ca327fa51}: cups 1"
+        ],
+        "raw": {
+          "per_model_results": {
+            "{06ecaca2-7129-4800-86d3-b10b646e4b6f}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{2731222f-d3d0-4a74-b549-7532d0490a1b}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{3485b7ed-b853-4bba-b5b6-826ea1db512d}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{3a1d95e2-28b9-4fb1-8010-a2546ff611b1}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{4a602b28-1ac2-49e4-a761-ffcefdfe76dd}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{61f9b47f-52bb-4343-8985-3e226359776b}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{65751ab3-8291-4d6d-8605-e7ba9869c5e6}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 1
+            },
+            "{72515f5f-5118-4c89-925c-21eae304e74e}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{bdc25af2-069a-42dd-a37e-e05bf8843f20}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{cc44f46d-a219-46e4-9e37-298ca327fa51}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{e53af9c5-c772-4d1f-a5d4-a6803ff845dd}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            }
+          }
+        }
+      },
+      "errors": [],
+      "processing_time_seconds": 80.014
+    },
+    {
+      "manifest_index": 4,
+      "case_ids": [
+        "8425350",
+        "8425356",
+        "10936455",
+        "8425357",
+        "8425251"
+      ],
+      "expected_model_count": 14,
+      "scene_id": "82e30222-9462-4a7d-8063-2e88ef78a623",
+      "imported_model_count": 14,
+      "layout_succeeded": true,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_04_8425350+8425356+10936455+8425357+8425251.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_04_8425350+8425356+10936455+8425357+8425251.png",
+      "validation": {
+        "valid": false,
+        "errors": [
+          "{036d7551-af50-45e9-9f7a-b00c1221bba2}: undersupported",
+          "{036d7551-af50-45e9-9f7a-b00c1221bba2}: unsupported minima 1",
+          "{036d7551-af50-45e9-9f7a-b00c1221bba2}: cups 1",
+          "{0bdcc258-fed1-4757-a78c-9c3c519cac9b}: undersupported",
+          "{1ce99240-06b8-485f-a005-84b743304edd}: undersupported",
+          "{1ce99240-06b8-485f-a005-84b743304edd}: unsupported minima 2",
+          "{1ce99240-06b8-485f-a005-84b743304edd}: cups 2",
+          "{2dea99df-d6d6-4f95-a4c1-acedeaa2d4ab}: undersupported",
+          "{2dea99df-d6d6-4f95-a4c1-acedeaa2d4ab}: unsupported minima 1",
+          "{41a83d5f-f047-4b2d-b037-9e0ebf3bc5f4}: undersupported",
+          "{60b2545b-b95e-4748-9b25-7e97c2dae2fe}: undersupported",
+          "{60b2545b-b95e-4748-9b25-7e97c2dae2fe}: unsupported minima 2",
+          "{7d478257-cc56-4a3f-b225-d1e73c005368}: undersupported",
+          "{7d478257-cc56-4a3f-b225-d1e73c005368}: unsupported minima 1",
+          "{7d478257-cc56-4a3f-b225-d1e73c005368}: cups 1",
+          "{8827c138-26ea-4d21-a07c-5cd4e487fac0}: undersupported",
+          "{8827c138-26ea-4d21-a07c-5cd4e487fac0}: unsupported minima 2",
+          "{8827c138-26ea-4d21-a07c-5cd4e487fac0}: cups 1",
+          "{a944eb77-89a3-4c0f-bb56-465fd82bb24a}: undersupported",
+          "{b3fc1fa1-0c5b-42b4-b7b1-0c611f388a36}: unsupported minima 1",
+          "{bb998af5-b1dc-4e14-a3cb-fca1a96d44e9}: undersupported",
+          "{bb998af5-b1dc-4e14-a3cb-fca1a96d44e9}: unsupported minima 2",
+          "{bb998af5-b1dc-4e14-a3cb-fca1a96d44e9}: cups 2",
+          "{d947a59a-5a78-4d6b-a970-41025aa36fb3}: undersupported",
+          "{db458dbe-2844-4116-8c66-0c7f5dde8422}: undersupported",
+          "{db458dbe-2844-4116-8c66-0c7f5dde8422}: unsupported minima 2",
+          "{db458dbe-2844-4116-8c66-0c7f5dde8422}: cups 1",
+          "{fdf4df66-154b-4c7c-8a53-283f92d5e22d}: undersupported"
+        ],
+        "raw": {
+          "per_model_results": {
+            "{036d7551-af50-45e9-9f7a-b00c1221bba2}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{0bdcc258-fed1-4757-a78c-9c3c519cac9b}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{1ce99240-06b8-485f-a005-84b743304edd}": {
+              "cups": 2,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            },
+            "{2dea99df-d6d6-4f95-a4c1-acedeaa2d4ab}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{41a83d5f-f047-4b2d-b037-9e0ebf3bc5f4}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{60b2545b-b95e-4748-9b25-7e97c2dae2fe}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            },
+            "{7d478257-cc56-4a3f-b225-d1e73c005368}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{8827c138-26ea-4d21-a07c-5cd4e487fac0}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            },
+            "{a944eb77-89a3-4c0f-bb56-465fd82bb24a}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{b3fc1fa1-0c5b-42b4-b7b1-0c611f388a36}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 1
+            },
+            "{bb998af5-b1dc-4e14-a3cb-fca1a96d44e9}": {
+              "cups": 2,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            },
+            "{d947a59a-5a78-4d6b-a970-41025aa36fb3}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{db458dbe-2844-4116-8c66-0c7f5dde8422}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            },
+            "{fdf4df66-154b-4c7c-8a53-283f92d5e22d}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            }
+          }
+        }
+      },
+      "errors": [],
+      "processing_time_seconds": 84.015
+    },
+    {
+      "manifest_index": 5,
+      "case_ids": [
+        "8425209",
+        "8425271",
+        "8425360",
+        "10936926",
+        "8425322"
+      ],
+      "expected_model_count": 15,
+      "scene_id": "1d75f816-90f0-491c-826a-cc1519855866",
+      "imported_model_count": 15,
+      "layout_succeeded": true,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_05_8425209+8425271+8425360+10936926+8425322.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_05_8425209+8425271+8425360+10936926+8425322.png",
+      "validation": {
+        "valid": false,
+        "errors": [
+          "{017ef2ae-45e3-4f65-b35c-2a25b66cf501}: undersupported",
+          "{1208c35e-3a94-4019-af48-59edd83eb260}: undersupported",
+          "{3229d294-1956-4e29-8180-ebbbf4096b72}: undersupported",
+          "{3229d294-1956-4e29-8180-ebbbf4096b72}: cups 1",
+          "{35287077-91eb-41c5-b019-aa5f47e6164c}: undersupported",
+          "{35287077-91eb-41c5-b019-aa5f47e6164c}: unsupported minima 2",
+          "{35287077-91eb-41c5-b019-aa5f47e6164c}: cups 1",
+          "{5bc2efaa-3750-4630-9aeb-f517dc0d6e58}: undersupported",
+          "{5bc2efaa-3750-4630-9aeb-f517dc0d6e58}: unsupported minima 1",
+          "{5bc2efaa-3750-4630-9aeb-f517dc0d6e58}: cups 1",
+          "{704bceb6-b302-4d9c-9648-16780d84e552}: undersupported",
+          "{704bceb6-b302-4d9c-9648-16780d84e552}: unsupported minima 3",
+          "{704bceb6-b302-4d9c-9648-16780d84e552}: cups 2",
+          "{8022bc93-22cb-4b6e-aaf8-10ba5b47e05c}: undersupported",
+          "{8022bc93-22cb-4b6e-aaf8-10ba5b47e05c}: unsupported minima 1",
+          "{8330b057-4a08-434c-a195-df65374b0230}: undersupported",
+          "{8fcd1804-0244-44cd-9b13-5323cb97ea4d}: undersupported",
+          "{8fcd1804-0244-44cd-9b13-5323cb97ea4d}: unsupported minima 1",
+          "{8fcd1804-0244-44cd-9b13-5323cb97ea4d}: cups 2",
+          "{bf8b58ee-b3d3-4a92-8776-901f4605f5d1}: undersupported",
+          "{bf8b58ee-b3d3-4a92-8776-901f4605f5d1}: unsupported minima 4",
+          "{bf8b58ee-b3d3-4a92-8776-901f4605f5d1}: cups 1",
+          "{dbcd7098-3a2f-432f-9c91-c4bb5e750957}: undersupported",
+          "{e826ee6b-fb81-4174-accf-467cdc5429d5}: undersupported",
+          "{efad152e-1741-46fa-8d39-cbef5d8c5897}: undersupported",
+          "{efad152e-1741-46fa-8d39-cbef5d8c5897}: unsupported minima 1",
+          "{efad152e-1741-46fa-8d39-cbef5d8c5897}: cups 1",
+          "{fa059c8e-1bc3-4699-9da1-2e1d72f82402}: undersupported",
+          "{fa059c8e-1bc3-4699-9da1-2e1d72f82402}: cups 1",
+          "{fa5d4b1d-f0b7-4403-9be3-a57544ed9d01}: undersupported",
+          "{fa5d4b1d-f0b7-4403-9be3-a57544ed9d01}: unsupported minima 3"
+        ],
+        "raw": {
+          "per_model_results": {
+            "{017ef2ae-45e3-4f65-b35c-2a25b66cf501}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{1208c35e-3a94-4019-af48-59edd83eb260}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{3229d294-1956-4e29-8180-ebbbf4096b72}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{35287077-91eb-41c5-b019-aa5f47e6164c}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            },
+            "{5bc2efaa-3750-4630-9aeb-f517dc0d6e58}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{704bceb6-b302-4d9c-9648-16780d84e552}": {
+              "cups": 2,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 3
+            },
+            "{8022bc93-22cb-4b6e-aaf8-10ba5b47e05c}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{8330b057-4a08-434c-a195-df65374b0230}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{8fcd1804-0244-44cd-9b13-5323cb97ea4d}": {
+              "cups": 2,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{bf8b58ee-b3d3-4a92-8776-901f4605f5d1}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 4
+            },
+            "{dbcd7098-3a2f-432f-9c91-c4bb5e750957}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{e826ee6b-fb81-4174-accf-467cdc5429d5}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{efad152e-1741-46fa-8d39-cbef5d8c5897}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{fa059c8e-1bc3-4699-9da1-2e1d72f82402}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{fa5d4b1d-f0b7-4403-9be3-a57544ed9d01}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 3
+            }
+          }
+        }
+      },
+      "errors": [],
+      "processing_time_seconds": 112.965
+    },
+    {
+      "manifest_index": 6,
+      "case_ids": [
+        "8425308",
+        "8425256",
+        "10936643",
+        "10936507",
+        "8425299",
+        "8425250"
+      ],
+      "expected_model_count": 15,
+      "scene_id": "5f2e9b66-8ecb-470d-af86-0f082bf840df",
+      "imported_model_count": 15,
+      "layout_succeeded": true,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_06_8425308+8425256+10936643+10936507+8425299+8425250.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_06_8425308+8425256+10936643+10936507+8425299+8425250.png",
+      "validation": {
+        "valid": false,
+        "errors": [
+          "{1e2f9527-4e26-41ca-a4af-e2b04cb388a7}: undersupported",
+          "{1e2f9527-4e26-41ca-a4af-e2b04cb388a7}: unsupported minima 1",
+          "{1e2f9527-4e26-41ca-a4af-e2b04cb388a7}: cups 1",
+          "{4f8a6f63-6410-4c22-95a3-73a0370361a9}: undersupported",
+          "{4f8a6f63-6410-4c22-95a3-73a0370361a9}: unsupported minima 1",
+          "{4f8a6f63-6410-4c22-95a3-73a0370361a9}: cups 1",
+          "{5de74a79-e7b9-4140-bdd4-559de9041012}: undersupported",
+          "{6646c577-c330-4621-b0a5-64a971b5e329}: undersupported",
+          "{6646c577-c330-4621-b0a5-64a971b5e329}: unsupported minima 1",
+          "{6646c577-c330-4621-b0a5-64a971b5e329}: cups 1",
+          "{9d13a9d7-06a0-4f9e-b3f5-86d2d3b40769}: undersupported",
+          "{9d13a9d7-06a0-4f9e-b3f5-86d2d3b40769}: unsupported minima 1",
+          "{9d13a9d7-06a0-4f9e-b3f5-86d2d3b40769}: cups 1",
+          "{d18d2055-fee9-480d-abd8-136d74636790}: unsupported minima 1",
+          "{f3d61112-df2f-470e-905e-6a1a665013d7}: undersupported",
+          "{f8673762-e87f-454e-94c9-4b2bc2c47c02}: undersupported",
+          "{fb4ceec7-f307-47f1-b845-3b3ae0cb8254}: undersupported"
+        ],
+        "raw": {
+          "per_model_results": {
+            "{1e2f9527-4e26-41ca-a4af-e2b04cb388a7}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{3adbead1-e0ae-4636-857f-1540372dd516}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{4f8a6f63-6410-4c22-95a3-73a0370361a9}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{5de74a79-e7b9-4140-bdd4-559de9041012}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{6646c577-c330-4621-b0a5-64a971b5e329}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{743d3d29-6eaa-4618-8bf4-fa935c474165}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{9d13a9d7-06a0-4f9e-b3f5-86d2d3b40769}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{baacc34b-fbc9-4a01-85d2-139c2f3c8d63}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{d18d2055-fee9-480d-abd8-136d74636790}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 1
+            },
+            "{d51fc465-a0ee-4ce4-b42d-1b4c7c32b63b}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{e7d8bf12-7d85-495d-b655-3f1278476b96}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{f3d61112-df2f-470e-905e-6a1a665013d7}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{f8673762-e87f-454e-94c9-4b2bc2c47c02}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{fa8e5d4e-71c8-48b8-9e84-f20af52554ee}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{fb4ceec7-f307-47f1-b845-3b3ae0cb8254}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            }
+          }
+        }
+      },
+      "errors": [],
+      "processing_time_seconds": 70.221
+    },
+    {
+      "manifest_index": 7,
+      "case_ids": [
+        "8425071",
+        "8425259",
+        "8425393",
+        "8425342",
+        "10935386",
+        "8425317"
+      ],
+      "expected_model_count": 12,
+      "scene_id": "737d4c76-1aaf-4b8d-b680-8484a5491988",
+      "imported_model_count": 12,
+      "layout_succeeded": true,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_07_8425071+8425259+8425393+8425342+10935386+8425317.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_07_8425071+8425259+8425393+8425342+10935386+8425317.png",
+      "validation": {
+        "valid": false,
+        "errors": [
+          "{03ad1f25-6b1c-4039-a8ee-7bea84bba7d4}: undersupported",
+          "{03ad1f25-6b1c-4039-a8ee-7bea84bba7d4}: cups 1",
+          "{2f88c479-0770-4b2a-a7cb-3fb7e709923f}: undersupported",
+          "{2f88c479-0770-4b2a-a7cb-3fb7e709923f}: cups 1",
+          "{c2036e54-df3d-455c-af65-7de5d2556177}: cups 1",
+          "{e941b25c-2023-4c97-92eb-094577827d44}: undersupported"
+        ],
+        "raw": {
+          "per_model_results": {
+            "{03ad1f25-6b1c-4039-a8ee-7bea84bba7d4}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{2f88c479-0770-4b2a-a7cb-3fb7e709923f}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{5e223eea-1670-4b59-a0c7-2f00ed3a9ca9}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{79811511-a5c1-4bda-9f09-9b223c3e1020}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{8080053f-e368-431d-898d-29d5b2bad7fe}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{a2f6c51c-2449-477a-b55a-e84882f61336}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{ab9a5744-16f6-4658-a4b4-8f304b8b8b09}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{aec1b7a3-01ab-44e0-987c-0ad0186916b9}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{b12b22cd-5745-4613-917e-92f8964e0e95}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{bb9d25ae-c21f-4d0b-938a-f774628ed169}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{c2036e54-df3d-455c-af65-7de5d2556177}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{e941b25c-2023-4c97-92eb-094577827d44}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            }
+          }
+        }
+      },
+      "errors": [],
+      "processing_time_seconds": 57.293
+    },
+    {
+      "manifest_index": 8,
+      "case_ids": [
+        "8425314",
+        "8425306",
+        "8424903",
+        "8425339",
+        "8425217",
+        "8424565"
+      ],
+      "expected_model_count": 17,
+      "scene_id": "3e84ed0f-6d7e-489f-b7ba-506ce7675e5c",
+      "imported_model_count": 17,
+      "layout_succeeded": true,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_08_8425314+8425306+8424903+8425339+8425217+8424565.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_08_8425314+8425306+8424903+8425339+8425217+8424565.png",
+      "validation": {
+        "valid": false,
+        "errors": [
+          "{1bd730d6-2cdc-4b19-b674-e5a127e44587}: undersupported",
+          "{26653a65-f367-4212-b3b3-4a9f2a0901ca}: undersupported",
+          "{784ac9a9-4505-4efc-8bba-fd2103490cd9}: undersupported",
+          "{784ac9a9-4505-4efc-8bba-fd2103490cd9}: unsupported minima 1",
+          "{784ac9a9-4505-4efc-8bba-fd2103490cd9}: cups 1",
+          "{84257c7a-a372-4fb6-82ea-9e2f27c05d09}: unsupported minima 2",
+          "{91ccd760-e6a2-4e18-b038-90878957744f}: undersupported",
+          "{982f41a4-a9ab-41f3-82be-cc730f41dcf1}: undersupported",
+          "{982f41a4-a9ab-41f3-82be-cc730f41dcf1}: cups 1",
+          "{9e607e01-4688-41b7-bba7-f6c196b3317d}: undersupported",
+          "{ba0943e8-4088-4159-8c02-7d771047c13a}: undersupported",
+          "{ba0943e8-4088-4159-8c02-7d771047c13a}: unsupported minima 1",
+          "{ba0943e8-4088-4159-8c02-7d771047c13a}: cups 1",
+          "{c3aaa7ef-dfc4-46a4-a3a9-97f8bafae088}: undersupported",
+          "{c3aaa7ef-dfc4-46a4-a3a9-97f8bafae088}: unsupported minima 1",
+          "{cda1973c-cf6d-4a1c-92d2-d40c1a4de410}: undersupported",
+          "{e501f06c-a27b-45fd-b562-671becd6e02c}: unsupported minima 1",
+          "{f2481ed2-580b-4dc2-8d0b-1459825786a8}: undersupported",
+          "{f2481ed2-580b-4dc2-8d0b-1459825786a8}: cups 1",
+          "{f3c71a18-d964-45a0-bb09-2f382ad9dbf7}: undersupported",
+          "{f3c71a18-d964-45a0-bb09-2f382ad9dbf7}: cups 1",
+          "{f8f03545-98c9-4759-a0be-36c31a692fa3}: undersupported",
+          "{f8f03545-98c9-4759-a0be-36c31a692fa3}: cups 1"
+        ],
+        "raw": {
+          "per_model_results": {
+            "{1bd730d6-2cdc-4b19-b674-e5a127e44587}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{26653a65-f367-4212-b3b3-4a9f2a0901ca}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{59f8e078-0bfa-49e9-bb9f-2157ea83ef63}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{756f263c-ad8c-498d-ab72-3e4e3cbd16bb}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{784ac9a9-4505-4efc-8bba-fd2103490cd9}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{7d9b99a5-33d9-4639-ae4f-f780cc7893e7}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{84257c7a-a372-4fb6-82ea-9e2f27c05d09}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 2
+            },
+            "{91ccd760-e6a2-4e18-b038-90878957744f}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{982f41a4-a9ab-41f3-82be-cc730f41dcf1}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{9e607e01-4688-41b7-bba7-f6c196b3317d}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{ba0943e8-4088-4159-8c02-7d771047c13a}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{c3aaa7ef-dfc4-46a4-a3a9-97f8bafae088}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{cda1973c-cf6d-4a1c-92d2-d40c1a4de410}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{e501f06c-a27b-45fd-b562-671becd6e02c}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 1
+            },
+            "{f2481ed2-580b-4dc2-8d0b-1459825786a8}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{f3c71a18-d964-45a0-bb09-2f382ad9dbf7}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{f8f03545-98c9-4759-a0be-36c31a692fa3}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            }
+          }
+        }
+      },
+      "errors": [],
+      "processing_time_seconds": 61.379
+    },
+    {
+      "manifest_index": 9,
+      "case_ids": [
+        "8424709",
+        "8425417",
+        "8425408",
+        "8424921",
+        "8425255",
+        "10935787"
+      ],
+      "expected_model_count": 14,
+      "scene_id": "531a1d01-a5b1-4bfe-8827-d39ab0599ff7",
+      "imported_model_count": 14,
+      "layout_succeeded": true,
+      "saved_form": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_09_8424709+8425417+8425408+8424921+8425255+10935787.form",
+      "saved_screenshot": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\Andent\\02_planning\\98_VerificationArtifacts\\full_arch_calibration_20260424\\form4bl_form_exports\\form4bl_build_09_8424709+8425417+8425408+8424921+8425255+10935787.png",
+      "validation": {
+        "valid": false,
+        "errors": [
+          "{10d05a6a-988b-4b63-8169-09b820a9049c}: undersupported",
+          "{1c6c79cc-da65-4203-a099-37199b8307ef}: cups 1",
+          "{272c719b-8362-47ab-9e54-65daf99b1f67}: undersupported",
+          "{272c719b-8362-47ab-9e54-65daf99b1f67}: cups 1",
+          "{3eb83f87-ac2c-48bb-8112-44008aacec10}: undersupported",
+          "{3eb83f87-ac2c-48bb-8112-44008aacec10}: unsupported minima 1",
+          "{702696f0-6c1f-483a-a9d0-9745e6f9a9da}: undersupported",
+          "{702696f0-6c1f-483a-a9d0-9745e6f9a9da}: cups 1",
+          "{863496ca-6091-4d2d-8c29-1fa7383d1852}: undersupported",
+          "{863496ca-6091-4d2d-8c29-1fa7383d1852}: unsupported minima 2",
+          "{863496ca-6091-4d2d-8c29-1fa7383d1852}: cups 1",
+          "{a16dd7c0-1dfc-4386-a994-78c5be3d2aee}: cups 1",
+          "{bb1113fd-cd01-4f35-b4fe-6bf687468b23}: undersupported",
+          "{bcccbffd-bdf1-442a-a49a-94cc97287fe0}: undersupported",
+          "{f602dff5-f5d6-4381-a8ab-f3ac4e21831c}: undersupported",
+          "{f602dff5-f5d6-4381-a8ab-f3ac4e21831c}: unsupported minima 1",
+          "{f602dff5-f5d6-4381-a8ab-f3ac4e21831c}: cups 1",
+          "{f838b8f0-008a-4e55-81ee-d82c717c13bc}: undersupported"
+        ],
+        "raw": {
+          "per_model_results": {
+            "{10d05a6a-988b-4b63-8169-09b820a9049c}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{1c6c79cc-da65-4203-a099-37199b8307ef}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{272c719b-8362-47ab-9e54-65daf99b1f67}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{332fe72e-8879-4608-a353-3d0459d9023b}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{3eb83f87-ac2c-48bb-8112-44008aacec10}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{4ede5fc2-c938-4ba9-b84b-5f01fa818af8}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{702696f0-6c1f-483a-a9d0-9745e6f9a9da}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{863496ca-6091-4d2d-8c29-1fa7383d1852}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 2
+            },
+            "{a16dd7c0-1dfc-4386-a994-78c5be3d2aee}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{b975c39b-0b47-422b-a074-47339faa3f14}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": false,
+              "unsupported_minima": 0
+            },
+            "{bb1113fd-cd01-4f35-b4fe-6bf687468b23}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{bcccbffd-bdf1-442a-a49a-94cc97287fe0}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            },
+            "{f602dff5-f5d6-4381-a8ab-f3ac4e21831c}": {
+              "cups": 1,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 1
+            },
+            "{f838b8f0-008a-4e55-81ee-d82c717c13bc}": {
+              "cups": 0,
+              "has_seamline": false,
+              "undersupported": true,
+              "unsupported_minima": 0
+            }
+          }
+        }
+      },
+      "errors": [],
+      "processing_time_seconds": 47.886
+    }
+  ]
+}

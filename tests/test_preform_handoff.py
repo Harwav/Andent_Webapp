@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import sys
 from contextlib import closing
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
+from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi.testclient import TestClient
 
 from app.config import build_settings
-from app.database import get_upload_row_by_id, init_db, list_print_jobs, persist_upload_session
+from app.database import connect, get_upload_row_by_id, init_db, list_print_jobs, persist_upload_session
 from app.main import create_app
 from app.schemas import PreFormSetupStatus
 
@@ -28,7 +30,7 @@ class StubPreFormClient:
         self.print_jobs: list[tuple[str, str]] = []
         self.closed = False
 
-    def create_scene(self, patient_id: str, case_name: str):
+    def create_scene(self, patient_id: str, case_name: str, scene_settings: dict | None = None):
         self.created_scenes.append((patient_id, case_name))
         return {"scene_id": f"scene-{len(self.created_scenes)}"}
 
@@ -55,11 +57,23 @@ class StubPreFormClient:
 
 def _build_settings(tmp_path: Path):
     data_dir = tmp_path / "data"
-    return build_settings(data_dir=data_dir, database_path=data_dir / "andent_web.db")
+    return replace(
+        build_settings(data_dir=data_dir, database_path=data_dir / "andent_web.db"),
+        print_hold_density_target=0.0,
+    )
+
+
+def _build_holding_settings(tmp_path: Path):
+    data_dir = tmp_path / "data"
+    return replace(
+        build_settings(data_dir=data_dir, database_path=data_dir / "andent_web.db"),
+        print_hold_density_target=0.40,
+        print_hold_cutoff_local_time="23:59",
+    )
 
 
 def _seed_rows(settings, rows: list[dict]) -> list[int]:
-    session_id = f"session-{datetime.now(timezone.utc).timestamp():.0f}"
+    session_id = f"session-{uuid4().hex}"
     init_db(settings)
     persisted = persist_upload_session(settings, session_id, rows)
     return [row.row_id for row in persisted if row.row_id is not None]
@@ -185,10 +199,10 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
 
     assert response.status_code == 200
     assert stub_client.base_url == settings.preform_server_url
-    assert len(stub_client.created_scenes) == 2
+    assert len(stub_client.created_scenes) == 1
     assert len(stub_client.imported_models) == 3
-    assert len(stub_client.layout_calls) == 2
-    assert len(stub_client.print_jobs) == 2
+    assert len(stub_client.layout_calls) == 1
+    assert len(stub_client.print_jobs) == 1
 
     submitted_rows = {row["file_name"]: row["status"] for row in response.json()}
     assert submitted_rows["case-1.stl"] == "Submitted"
@@ -197,10 +211,12 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
     assert submitted_rows["case-4.stl"] == "Check"
 
     jobs = list_print_jobs(settings)
-    assert len(jobs) == 2
-    jobs_by_preset = {job.preset: job for job in jobs}
-    assert jobs_by_preset["Ortho Solid - Flat, No Supports"].case_ids == ["CASE001", "CASE002"]
-    assert jobs_by_preset["Tooth - With Supports"].case_ids == ["CASE003"]
+    assert len(jobs) == 1
+    assert jobs[0].case_ids == ["CASE001", "CASE002", "CASE003"]
+    assert jobs[0].preset_names == [
+        "Ortho Solid - Flat, No Supports",
+        "Tooth - With Supports",
+    ]
 
 
 def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
@@ -258,7 +274,7 @@ def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
         "Ortho Solid - Flat, No Supports",
         "Tooth - With Supports",
     ]
-    assert jobs[0].compatibility_key == "form-4bl|precision-model-resin|100"
+    assert jobs[0].compatibility_key == "form-4bl|precision-model-v1|100"
     assert jobs[0].manifest_json is not None
     assert jobs[0].manifest_json["case_ids"] == ["CASE-A", "CASE-B"]
 
@@ -326,13 +342,15 @@ def test_send_to_print_rolls_back_last_case_when_validation_fails(tmp_path):
     assert row_statuses["case-a.stl"] == "Submitted"
     assert row_statuses["case-b.stl"] == "Ready"
     assert row_statuses["case-c.stl"] == "Submitted"
-    assert len(stub_client.created_scenes) == 3
-    assert stub_client.imported_models[:3] == [
+    assert len(stub_client.created_scenes) == 2
+    assert stub_client.imported_models == [
         ("scene-1", str(case_files[0]), "tooth_v1"),
+        ("scene-1", str(case_files[2]), "ortho_solid_v1"),
         ("scene-1", str(case_files[1]), "ortho_solid_v1"),
         ("scene-2", str(case_files[0]), "tooth_v1"),
+        ("scene-2", str(case_files[2]), "ortho_solid_v1"),
     ]
-    assert len(list_print_jobs(settings)) == 2
+    assert len(list_print_jobs(settings)) == 1
 
 
 def test_send_to_print_routes_single_invalid_case_to_manual_review(tmp_path):
@@ -436,7 +454,216 @@ def test_send_to_print_defaults_to_form4bl_when_no_printer_selected(tmp_path):
         response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
 
     assert response.status_code == 200
-    assert stub_client.print_jobs == [("scene-1", "Form 4")]
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL")]
+
+
+def test_send_to_print_holds_final_below_target_build_without_preform_dispatch(tmp_path):
+    settings = _build_holding_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "hold-1.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-HOLD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-hold",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert row["status"] == "Submitted"
+    assert row["queue_section"] == "in_progress"
+    assert row["handoff_stage"] == "Holding for More Cases"
+    assert stub_client.created_scenes == []
+    assert stub_client.print_jobs == []
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].status == "Holding for More Cases"
+    assert jobs[0].printer_type == "Form 4BL"
+    assert jobs[0].resin == "Precision Model V1"
+    assert jobs[0].layer_height_microns == 100
+    assert jobs[0].estimated_density == 1200.0 / 69188.0
+    assert jobs[0].density_target == 0.40
+    assert jobs[0].hold_reason == "below_density_target"
+    assert jobs[0].manifest_json["estimated_density"] == 1200.0 / 69188.0
+
+
+def test_release_held_job_dispatches_and_records_operator_release(tmp_path):
+    settings = _build_holding_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "hold-release.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-RELEASE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-release",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        hold_response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+        held_job_id = list_print_jobs(settings)[0].id
+        release_response = client.post(f"/api/print-queue/jobs/{held_job_id}/release-now")
+
+    assert hold_response.status_code == 200
+    assert release_response.status_code == 200
+    assert stub_client.created_scenes == [("CASE-RELEASE", datetime.now().strftime("%y%m%d") + "-001")]
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL")]
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].status == "Queued"
+    assert jobs[0].release_reason == "operator_release"
+    assert jobs[0].released_by_operator is True
+
+
+def test_cutoff_poll_releases_held_job_created_in_current_process(tmp_path):
+    settings = _build_holding_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "hold-cutoff.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-CUTOFF",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-cutoff",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        hold_response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+        held_job_id = list_print_jobs(settings)[0].id
+        with connect(settings) as connection:
+            connection.execute(
+                "UPDATE print_jobs SET hold_cutoff_at = ? WHERE id = ?",
+                ("2000-01-01T00:00:00", held_job_id),
+            )
+            connection.commit()
+        jobs_response = client.get("/api/print-queue/jobs")
+
+    assert hold_response.status_code == 200
+    assert jobs_response.status_code == 200
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL")]
+
+    jobs = list_print_jobs(settings)
+    assert jobs[0].status == "Queued"
+    assert jobs[0].release_reason == "cutoff_release"
+    assert jobs[0].released_by_operator is False
+
+
+def test_new_compatible_rows_replan_with_existing_held_build(tmp_path):
+    settings = _build_holding_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    held_file = tmp_path / "held.stl"
+    filler_file = tmp_path / "filler.stl"
+    for file_path in (held_file, filler_file):
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+
+    first_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                held_file,
+                case_id="CASE-HELD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-held",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        first_response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": first_ids})
+
+    assert first_response.status_code == 200
+    assert list_print_jobs(settings)[0].status == "Holding for More Cases"
+    assert stub_client.print_jobs == []
+
+    second_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                filler_file,
+                case_id="CASE-FILLER",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-filler",
+                dimension_x_mm=700.0,
+                dimension_y_mm=40.0,
+            ),
+        ],
+    )
+
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        second_response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": second_ids})
+
+    assert second_response.status_code == 200
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL")]
+    assert stub_client.imported_models == [
+        ("scene-1", str(filler_file), "ortho_solid_v1"),
+        ("scene-1", str(held_file), "ortho_solid_v1"),
+    ]
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].status == "Queued"
+    assert set(jobs[0].case_ids) == {"CASE-HELD", "CASE-FILLER"}
 
 
 def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
@@ -471,7 +698,7 @@ def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
     assert row["status"] == "Submitted"
     assert row["queue_section"] == "history"
     assert row["handoff_stage"] == "Queued"
-    assert row["linked_job_name"] == "260422-001"
+    assert row["linked_job_name"] == f"{datetime.now().strftime('%y%m%d')}-001"
 
 
 def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeypatch):
@@ -510,7 +737,9 @@ def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeyp
     assert row["status"] == "Submitted"
     assert row["queue_section"] == "history"
     assert row["handoff_stage"] == "Queued"
-    assert stub_client.created_scenes == [("CASE-VOLUME", "260422-001")]
+    assert stub_client.created_scenes == [
+        ("CASE-VOLUME", f"{datetime.now().strftime('%y%m%d')}-001")
+    ]
     updated = get_upload_row_by_id(settings, row_ids[0])
     assert updated is not None
     assert updated.volume_ml == 2.75

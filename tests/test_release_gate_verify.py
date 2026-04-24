@@ -59,7 +59,7 @@ def _seed_print_job(database_path: Path) -> None:
                 "Queued",
                 "Ortho Solid - Flat, No Supports",
                 json.dumps(["Ortho Solid - Flat, No Supports"]),
-                "form-4bl|precision-model-resin|100",
+                "form-4bl|precision-model-v1|100",
                 json.dumps(["CASE123"]),
                 json.dumps(
                     {

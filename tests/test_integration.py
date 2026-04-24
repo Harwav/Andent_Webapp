@@ -56,10 +56,17 @@ class TestFullPrintHandoffFlow:
             "Tooth - With Supports",
         ]
 
-    def test_batch_multiple_presets(self):
+    def test_batch_multiple_presets(self, monkeypatch):
         """Mixed presets are still split when the first manifest hits build budget."""
         from app.schemas import ClassificationRow, DimensionSummary
+        from app.services import build_planning
         from app.services.build_planning import plan_build_manifests
+
+        monkeypatch.setattr(
+            build_planning,
+            "get_printer_xy_budget",
+            lambda _printer: 29000.0,
+        )
         
         rows = [
             ClassificationRow(
@@ -69,7 +76,7 @@ class TestFullPrintHandoffFlow:
                 case_id="A",
                 confidence="high",
                 status="Ready",
-                dimensions=DimensionSummary(x_mm=150.0, y_mm=100.0, z_mm=10.0),
+                dimensions=DimensionSummary(x_mm=278.0, y_mm=54.0, z_mm=10.0),
                 file_path="C:/cases/a.stl",
             ),
             ClassificationRow(
@@ -79,7 +86,7 @@ class TestFullPrintHandoffFlow:
                 case_id="B",
                 confidence="high",
                 status="Ready",
-                dimensions=DimensionSummary(x_mm=140.0, y_mm=100.0, z_mm=10.0),
+                dimensions=DimensionSummary(x_mm=259.0, y_mm=54.0, z_mm=10.0),
                 file_path="C:/cases/b.stl",
             ),
             ClassificationRow(

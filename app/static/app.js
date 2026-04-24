@@ -1268,6 +1268,36 @@ function createJobDetailItem(label, value) {
     return item;
 }
 
+async function releaseHeldJob(job, button) {
+    button.disabled = true;
+    setStatus(`Releasing ${job.job_name}...`);
+    try {
+        const response = await fetch(`/api/print-queue/jobs/${job.id}/release-now`, {
+            method: "POST",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.detail || "Could not release held build.");
+        }
+        await loadPrintQueue();
+        await loadQueue();
+        render();
+        setStatus(`${job.job_name} released to print.`);
+    } catch (error) {
+        button.disabled = false;
+        setStatus(error.message, true);
+    }
+}
+
+function createReleaseButton(job) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary-button job-release-button";
+    button.textContent = "Release now";
+    button.addEventListener("click", () => releaseHeldJob(job, button));
+    return button;
+}
+
 function createPrintQueueRow(job) {
     const tr = document.createElement("tr");
     tr.dataset.jobId = String(job.id);
@@ -1315,6 +1345,9 @@ function createPrintQueueRow(job) {
 
     const statusCell = document.createElement("td");
     statusCell.appendChild(createJobStatusChip(job.status));
+    if (job.status === "Holding for More Cases") {
+        statusCell.appendChild(createReleaseButton(job));
+    }
     tr.appendChild(statusCell);
 
     const detailsCell = document.createElement("td");
@@ -1372,6 +1405,9 @@ function createJobCard(job) {
     jobName.textContent = job.job_name;
     headerDiv.appendChild(jobName);
     headerDiv.appendChild(createJobStatusChip(job.status));
+    if (job.status === "Holding for More Cases") {
+        headerDiv.appendChild(createReleaseButton(job));
+    }
     infoDiv.appendChild(headerDiv);
 
     // Cases list (expandable)
@@ -1415,6 +1451,12 @@ function createJobCard(job) {
         : job.preset;
     detailsDiv.appendChild(createJobDetailItem("Presets:", presetList));
     detailsDiv.appendChild(createJobDetailItem("Build Profile:", job.compatibility_key));
+    if (job.estimated_density != null) {
+        detailsDiv.appendChild(createJobDetailItem("Density:", `${Math.round(job.estimated_density * 100)}%`));
+    }
+    if (job.hold_cutoff_at) {
+        detailsDiv.appendChild(createJobDetailItem("Cutoff:", formatDate(job.hold_cutoff_at)));
+    }
 
     const printerDiv = document.createElement("div");
     printerDiv.className = "job-detail-item";

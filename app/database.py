@@ -80,7 +80,15 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         resin TEXT,
         layer_height_microns INTEGER,
         estimated_completion TIMESTAMP,
-        error_message TEXT
+        error_message TEXT,
+        estimated_density REAL,
+        density_target REAL,
+        hold_cutoff_at TEXT,
+        hold_reason TEXT,
+        release_reason TEXT,
+        released_by_operator INTEGER NOT NULL DEFAULT 0,
+        validation_passed INTEGER,
+        validation_errors_json TEXT
     )
     """,
     """
@@ -170,6 +178,14 @@ def init_db(settings: Settings) -> None:
         _ensure_column(connection, "print_jobs", "preset_names_json", "TEXT")
         _ensure_column(connection, "print_jobs", "manifest_json", "TEXT")
         _ensure_column(connection, "print_jobs", "compatibility_key", "TEXT")
+        _ensure_column(connection, "print_jobs", "estimated_density", "REAL")
+        _ensure_column(connection, "print_jobs", "density_target", "REAL")
+        _ensure_column(connection, "print_jobs", "hold_cutoff_at", "TEXT")
+        _ensure_column(connection, "print_jobs", "hold_reason", "TEXT")
+        _ensure_column(connection, "print_jobs", "release_reason", "TEXT")
+        _ensure_column(connection, "print_jobs", "released_by_operator", "INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(connection, "print_jobs", "validation_passed", "INTEGER")
+        _ensure_column(connection, "print_jobs", "validation_errors_json", "TEXT")
         connection.execute(
             """
             UPDATE upload_rows
@@ -210,6 +226,15 @@ def _row_to_print_job(row: sqlite3.Row) -> PrintJob:
         except json.JSONDecodeError:
             manifest_json = None
 
+    validation_errors: list[str] = []
+    if row["validation_errors_json"]:
+        try:
+            loaded_validation_errors = json.loads(row["validation_errors_json"])
+            if isinstance(loaded_validation_errors, list):
+                validation_errors = [str(error) for error in loaded_validation_errors]
+        except json.JSONDecodeError:
+            validation_errors = []
+
     return PrintJob(
         id=row["id"],
         job_name=row["job_name"],
@@ -229,6 +254,18 @@ def _row_to_print_job(row: sqlite3.Row) -> PrintJob:
         layer_height_microns=row["layer_height_microns"],
         estimated_completion=row["estimated_completion"],
         error_message=row["error_message"],
+        estimated_density=row["estimated_density"],
+        density_target=row["density_target"],
+        hold_cutoff_at=row["hold_cutoff_at"],
+        hold_reason=row["hold_reason"],
+        release_reason=row["release_reason"],
+        released_by_operator=bool(row["released_by_operator"]),
+        validation_passed=(
+            bool(row["validation_passed"])
+            if row["validation_passed"] is not None
+            else None
+        ),
+        validation_errors=validation_errors,
     )
 
 
@@ -249,6 +286,7 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
     preset_names_json = json.dumps(print_job.preset_names)
     case_ids_json = json.dumps(print_job.case_ids)
     manifest_json = json.dumps(print_job.manifest_json) if print_job.manifest_json is not None else None
+    validation_errors_json = json.dumps(print_job.validation_errors)
 
     with closing(connect(settings)) as connection:
         cursor = connection.execute(
@@ -270,9 +308,17 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 resin,
                 layer_height_microns,
                 estimated_completion,
-                error_message
+                error_message,
+                estimated_density,
+                density_target,
+                hold_cutoff_at,
+                hold_reason,
+                release_reason,
+                released_by_operator,
+                validation_passed,
+                validation_errors_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 print_job.job_name,
@@ -292,6 +338,18 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 print_job.layer_height_microns,
                 print_job.estimated_completion,
                 print_job.error_message,
+                print_job.estimated_density,
+                print_job.density_target,
+                print_job.hold_cutoff_at,
+                print_job.hold_reason,
+                print_job.release_reason,
+                1 if print_job.released_by_operator else 0,
+                (
+                    1 if print_job.validation_passed
+                    else 0 if print_job.validation_passed is False
+                    else None
+                ),
+                validation_errors_json,
             ),
         )
         connection.commit()
@@ -344,6 +402,14 @@ def update_print_job(settings: Settings, job_id: int, **changes: object) -> Prin
         "layer_height_microns",
         "estimated_completion",
         "error_message",
+        "estimated_density",
+        "density_target",
+        "hold_cutoff_at",
+        "hold_reason",
+        "release_reason",
+        "released_by_operator",
+        "validation_passed",
+        "validation_errors",
     }
 
     with closing(connect(settings)) as connection:
@@ -363,6 +429,13 @@ def update_print_job(settings: Settings, job_id: int, **changes: object) -> Prin
                 value = json.dumps(value)
             elif field == "manifest_json" and value is not None:
                 value = json.dumps(value)
+            elif field == "validation_errors":
+                field = "validation_errors_json"
+                value = json.dumps(value if value is not None else [])
+            elif field == "released_by_operator":
+                value = 1 if value else 0
+            elif field == "validation_passed" and value is not None:
+                value = 1 if value else 0
             assignments.append(f"{field} = ?")
             values.append(value)
 

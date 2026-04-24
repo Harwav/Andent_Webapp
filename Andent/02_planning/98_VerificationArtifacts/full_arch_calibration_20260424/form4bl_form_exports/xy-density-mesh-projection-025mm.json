@@ -1,0 +1,115 @@
+{
+  "method": "Transformed STL vertices projected to XY and rasterized at 0.25 mm grid resolution; one-cell close/fill/open per model; union measured on 353 x 196 mm Form 4BL XY platform.",
+  "platform_mm": {
+    "x": 353.0,
+    "y": 196.0,
+    "area_mm2": 69188.0
+  },
+  "resolution_mm": 0.25,
+  "rows": [
+    {
+      "build": 1,
+      "case_count": 4,
+      "model_count": 11,
+      "mesh_projection_union_area_mm2": 11249.25,
+      "mesh_projection_density_pct": 16.26,
+      "per_model_projection_sum_area_mm2": 11249.25,
+      "per_model_projection_sum_density_pct": 16.26,
+      "bbox_sum_area_mm2": 30401.01,
+      "bbox_sum_density_pct": 43.94
+    },
+    {
+      "build": 2,
+      "case_count": 5,
+      "model_count": 13,
+      "mesh_projection_union_area_mm2": 13756.06,
+      "mesh_projection_density_pct": 19.88,
+      "per_model_projection_sum_area_mm2": 13756.06,
+      "per_model_projection_sum_density_pct": 19.88,
+      "bbox_sum_area_mm2": 32990.52,
+      "bbox_sum_density_pct": 47.68
+    },
+    {
+      "build": 3,
+      "case_count": 5,
+      "model_count": 11,
+      "mesh_projection_union_area_mm2": 14974.38,
+      "mesh_projection_density_pct": 21.64,
+      "per_model_projection_sum_area_mm2": 14974.38,
+      "per_model_projection_sum_density_pct": 21.64,
+      "bbox_sum_area_mm2": 31209.89,
+      "bbox_sum_density_pct": 45.11
+    },
+    {
+      "build": 4,
+      "case_count": 5,
+      "model_count": 14,
+      "mesh_projection_union_area_mm2": 16648.75,
+      "mesh_projection_density_pct": 24.06,
+      "per_model_projection_sum_area_mm2": 16648.75,
+      "per_model_projection_sum_density_pct": 24.06,
+      "bbox_sum_area_mm2": 35363.67,
+      "bbox_sum_density_pct": 51.11
+    },
+    {
+      "build": 5,
+      "case_count": 5,
+      "model_count": 15,
+      "mesh_projection_union_area_mm2": 21380.94,
+      "mesh_projection_density_pct": 30.9,
+      "per_model_projection_sum_area_mm2": 21380.94,
+      "per_model_projection_sum_density_pct": 30.9,
+      "bbox_sum_area_mm2": 41189.52,
+      "bbox_sum_density_pct": 59.53
+    },
+    {
+      "build": 6,
+      "case_count": 6,
+      "model_count": 15,
+      "mesh_projection_union_area_mm2": 13192.94,
+      "mesh_projection_density_pct": 19.07,
+      "per_model_projection_sum_area_mm2": 13192.94,
+      "per_model_projection_sum_density_pct": 19.07,
+      "bbox_sum_area_mm2": 36514.98,
+      "bbox_sum_density_pct": 52.78
+    },
+    {
+      "build": 7,
+      "case_count": 6,
+      "model_count": 12,
+      "mesh_projection_union_area_mm2": 20290.38,
+      "mesh_projection_density_pct": 29.33,
+      "per_model_projection_sum_area_mm2": 20290.38,
+      "per_model_projection_sum_density_pct": 29.33,
+      "bbox_sum_area_mm2": 41251.11,
+      "bbox_sum_density_pct": 59.62
+    },
+    {
+      "build": 8,
+      "case_count": 6,
+      "model_count": 17,
+      "mesh_projection_union_area_mm2": 14790.69,
+      "mesh_projection_density_pct": 21.38,
+      "per_model_projection_sum_area_mm2": 14791.56,
+      "per_model_projection_sum_density_pct": 21.38,
+      "bbox_sum_area_mm2": 39466.31,
+      "bbox_sum_density_pct": 57.04
+    },
+    {
+      "build": 9,
+      "case_count": 6,
+      "model_count": 14,
+      "mesh_projection_union_area_mm2": 10786.0,
+      "mesh_projection_density_pct": 15.59,
+      "per_model_projection_sum_area_mm2": 10786.0,
+      "per_model_projection_sum_density_pct": 15.59,
+      "bbox_sum_area_mm2": 28891.2,
+      "bbox_sum_density_pct": 41.76
+    }
+  ],
+  "averages": {
+    "mesh_projection_density_pct": 22.01,
+    "per_model_projection_sum_density_pct": 22.01,
+    "bbox_sum_density_pct": 50.95
+  }
+}

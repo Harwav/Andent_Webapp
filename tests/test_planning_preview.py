@@ -126,7 +126,7 @@ def test_build_batch_preview_groups_rows_by_compatibility_build():
 
     assert result.group_count == 1
     assert {row.predicted_group_key for row in result.rows} == {
-        "form-4bl|precision-model-resin|100"
+        "form-4bl|precision-model-v1|100"
     }
 
 

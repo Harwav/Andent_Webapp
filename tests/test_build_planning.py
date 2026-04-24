@@ -5,6 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.services import build_planning
 from app.schemas import ClassificationRow, DimensionSummary
 from app.services.build_planning import plan_build_manifests
 from app.services.preset_catalog import PRESET_CATALOG, PresetProfile
@@ -22,6 +23,7 @@ def _row(
     *,
     dimensions: DimensionSummary | None | object = _DEFAULT_DIMENSIONS,
     file_path: str | None | object = _DEFAULT_FILE_PATH,
+    printer: str | None = None,
 ) -> ClassificationRow:
     resolved_file_path = (
         f"C:/cases/{case_id}/{case_id}-{row_id if row_id is not None else 'missing'}.stl"
@@ -40,8 +42,59 @@ def _row(
             if dimensions is _DEFAULT_DIMENSIONS
             else dimensions
         ),
+        printer=printer,
         file_path=resolved_file_path,
     )
+
+
+def _build_planning_attr(name: str):
+    attr = getattr(build_planning, name, None)
+    assert attr is not None, f"build_planning should define {name}"
+    return attr
+
+
+def test_is_full_arch_dimensions_detects_large_arch_geometry():
+    is_full_arch_dimensions = _build_planning_attr("_is_full_arch_dimensions")
+
+    assert is_full_arch_dimensions(
+        DimensionSummary(x_mm=72.0, y_mm=68.0, z_mm=18.0)
+    ) is True
+
+
+def test_is_full_arch_dimensions_rejects_quad_like_geometry():
+    is_full_arch_dimensions = _build_planning_attr("_is_full_arch_dimensions")
+
+    assert is_full_arch_dimensions(
+        DimensionSummary(x_mm=42.0, y_mm=31.0, z_mm=16.0)
+    ) is False
+
+
+def test_effective_row_xy_area_keeps_tooth_on_raw_bounding_box_area():
+    effective_row_xy_area = _build_planning_attr("_effective_row_xy_area")
+    tooth_row = _row(1, "CASE-T", "Tooth - With Supports", 12.0, 10.0)
+
+    assert effective_row_xy_area(tooth_row) == 120.0
+
+
+def test_effective_row_xy_area_reduces_any_form4bl_full_arch_geometry():
+    effective_row_xy_area = _build_planning_attr("_effective_row_xy_area")
+    full_arch_row = _row(1, "CASE-A", "Ortho Solid - Flat, No Supports", 116.0, 96.0)
+
+    assert effective_row_xy_area(full_arch_row) == 116.0 * 96.0 * 0.58
+
+
+def test_effective_row_xy_area_reduces_form4b_full_arch_geometry():
+    effective_row_xy_area = _build_planning_attr("_effective_row_xy_area")
+    full_arch_row = _row(
+        1,
+        "CASE-A",
+        "Ortho Solid - Flat, No Supports",
+        116.0,
+        96.0,
+        printer="Form 4B",
+    )
+
+    assert effective_row_xy_area(full_arch_row) == 116.0 * 96.0 * 0.58
 
 
 def test_plan_build_manifests_preserves_case_cohesion():
@@ -75,13 +128,67 @@ def test_plan_build_manifests_allows_mixed_compatible_presets_to_share_one_build
     ]
 
 
-def test_plan_build_manifests_uses_smallest_case_fillers_after_large_cases_do_not_fit():
-    """Once the next-largest case does not fit, the planner fills with smaller cases."""
+def test_plan_build_manifests_routes_same_case_splint_plus_precision_to_review():
     rows = [
-        _row(1, "CASE-L", "Ortho Solid - Flat, No Supports", 200.0, 130.0),
+        _row(1, "CASE-MIX", "Splint - Flat, No Supports", 60.0, 50.0),
+        _row(2, "CASE-MIX", "Ortho Solid - Flat, No Supports", 60.0, 50.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "incompatible_case_presets"
+
+
+def test_plan_build_manifests_routes_same_case_mixed_printer_groups_to_review():
+    rows = [
+        _row(1, "CASE-MIX", "Ortho Solid - Flat, No Supports", 60.0, 50.0, printer="Form 4B"),
+        _row(2, "CASE-MIX", "Die - Flat, No Supports", 60.0, 50.0, printer="Form 4BL"),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "incompatible_case_presets"
+
+
+def test_plan_build_manifests_derives_form4b_manifest_scene_settings():
+    rows = [
+        _row(1, "CASE-F4B", "Splint - Flat, No Supports", 60.0, 50.0, printer="Form 4B"),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    manifest = manifests[0]
+    assert manifest.compatibility_key == "form-4b|lt-clear-v2|100"
+    assert manifest.printer_group == "Form 4B"
+    assert manifest.material_label == "LT Clear V2"
+    assert manifest.material_code == "FLDLCL02"
+    assert manifest.machine_type == "FORM-4-0"
+    assert manifest.layer_thickness_mm == 0.1
+    assert manifest.print_setting == "DEFAULT"
+    assert manifest.model_spacing_mm == 1
+    assert manifest.allow_overlapping_supports is False
+    assert manifest.estimated_density == 3000.0 / 25000.0
+
+
+def test_plan_build_manifests_uses_smallest_case_fillers_after_large_cases_do_not_fit(
+    monkeypatch,
+):
+    """Once the next-largest case does not fit, the planner fills with smaller cases."""
+    monkeypatch.setattr(
+        build_planning,
+        "get_printer_xy_budget",
+        lambda _printer: 29000.0,
+    )
+    rows = [
+        _row(1, "CASE-L", "Ortho Solid - Flat, No Supports", 420.0, 107.0),
         _row(2, "CASE-M", "Ortho Solid - Flat, No Supports", 70.0, 50.0),
         _row(3, "CASE-S1", "Ortho Solid - Flat, No Supports", 40.0, 25.0),
-        _row(4, "CASE-S2", "Ortho Solid - Flat, No Supports", 50.0, 40.0),
+        _row(4, "CASE-S2", "Ortho Solid - Flat, No Supports", 45.0, 40.0),
     ]
 
     manifests = plan_build_manifests(rows)
@@ -107,10 +214,15 @@ def test_plan_build_manifests_keeps_row_id_validation_local_to_case_profiles():
     assert manifests[1].planning_status == "planned"
 
 
-def test_plan_build_manifests_prefers_next_largest_fit_before_small_fillers():
+def test_plan_build_manifests_prefers_next_largest_fit_before_small_fillers(monkeypatch):
+    monkeypatch.setattr(
+        build_planning,
+        "get_printer_xy_budget",
+        lambda _printer: 29000.0,
+    )
     rows = [
-        _row(1, "CASE-15K", "Ortho Solid - Flat, No Supports", 150.0, 100.0),
-        _row(2, "CASE-14K", "Ortho Solid - Flat, No Supports", 140.0, 100.0),
+        _row(1, "CASE-15K", "Ortho Solid - Flat, No Supports", 270.0, 54.0),
+        _row(2, "CASE-14K", "Ortho Solid - Flat, No Supports", 250.0, 54.0),
         _row(3, "CASE-1K", "Ortho Solid - Flat, No Supports", 40.0, 25.0),
     ]
 
@@ -122,9 +234,186 @@ def test_plan_build_manifests_prefers_next_largest_fit_before_small_fillers():
     ]
 
 
+def test_plan_build_manifests_form4b_attempts_three_largest_cases_before_fillers(monkeypatch):
+    monkeypatch.setattr(
+        build_planning,
+        "get_printer_xy_budget",
+        lambda _printer: 10820.9,
+    )
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Form 4B Experimental",
+        PresetProfile(
+            preset_name="Form 4B Experimental",
+            printer="Form 4B",
+            resin="Precision Model Resin",
+            layer_height_microns=100,
+            requires_supports=False,
+            preform_hint="form4b_experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-A", "Form 4B Experimental", 90.0, 58.0),
+        _row(2, "CASE-B", "Form 4B Experimental", 85.0, 60.0),
+        _row(3, "CASE-C", "Form 4B Experimental", 80.0, 60.0),
+        _row(4, "CASE-D", "Form 4B Experimental", 25.0, 20.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert manifests[0].case_ids == ["CASE-A", "CASE-B", "CASE-C", "CASE-D"]
+
+
+def test_plan_build_manifests_form4bl_attempts_eight_largest_cases_before_fillers(monkeypatch):
+    monkeypatch.setattr(
+        build_planning,
+        "get_printer_xy_budget",
+        lambda _printer: 29000.0,
+    )
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Form 4BL Experimental",
+        PresetProfile(
+            preset_name="Form 4BL Experimental",
+            printer="Form 4BL",
+            resin="Precision Model Resin",
+            layer_height_microns=100,
+            requires_supports=False,
+            preform_hint="form4bl_experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-01", "Form 4BL Experimental", 80.0, 50.0),
+        _row(2, "CASE-02", "Form 4BL Experimental", 78.0, 50.0),
+        _row(3, "CASE-03", "Form 4BL Experimental", 76.0, 50.0),
+        _row(4, "CASE-04", "Form 4BL Experimental", 74.0, 50.0),
+        _row(5, "CASE-05", "Form 4BL Experimental", 72.0, 50.0),
+        _row(6, "CASE-06", "Form 4BL Experimental", 70.0, 50.0),
+        _row(7, "CASE-07", "Form 4BL Experimental", 68.0, 50.0),
+        _row(8, "CASE-08", "Form 4BL Experimental", 64.0, 50.0),
+        _row(9, "CASE-09", "Form 4BL Experimental", 62.0, 50.0),
+        _row(10, "CASE-10", "Form 4BL Experimental", 20.0, 50.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert manifests[0].case_ids == [
+        "CASE-01",
+        "CASE-02",
+        "CASE-03",
+        "CASE-04",
+        "CASE-05",
+        "CASE-06",
+        "CASE-07",
+        "CASE-10",
+    ]
+    assert manifests[1].case_ids == ["CASE-08", "CASE-09"]
+
+
+def test_plan_build_manifests_form4bl_below_threshold_keeps_seed_with_largest_behavior(monkeypatch):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Form 4BL Experimental",
+        PresetProfile(
+            preset_name="Form 4BL Experimental",
+            printer="Form 4BL",
+            resin="Precision Model Resin",
+            layer_height_microns=100,
+            requires_supports=False,
+            preform_hint="form4bl_experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-A", "Form 4BL Experimental", 120.0, 60.0),
+        _row(2, "CASE-B", "Form 4BL Experimental", 70.0, 40.0),
+        _row(3, "CASE-C", "Form 4BL Experimental", 60.0, 35.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert manifests[0].case_ids == ["CASE-A", "CASE-B", "CASE-C"]
+
+
+def test_plan_build_manifests_switches_to_fillers_after_first_descending_fit_failure(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        build_planning,
+        "get_printer_xy_budget",
+        lambda _printer: 29000.0,
+    )
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Form 4BL Experimental",
+        PresetProfile(
+            preset_name="Form 4BL Experimental",
+            printer="Form 4BL",
+            resin="Precision Model Resin",
+            layer_height_microns=100,
+            requires_supports=False,
+            preform_hint="form4bl_experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-A", "Form 4BL Experimental", 190.0, 50.0),
+        _row(2, "CASE-B", "Form 4BL Experimental", 56.0, 50.0),
+        _row(3, "CASE-C", "Form 4BL Experimental", 55.0, 50.0),
+        _row(4, "CASE-D", "Form 4BL Experimental", 54.0, 50.0),
+        _row(5, "CASE-E", "Form 4BL Experimental", 53.0, 50.0),
+        _row(6, "CASE-F", "Form 4BL Experimental", 52.0, 50.0),
+        _row(7, "CASE-G", "Form 4BL Experimental", 51.0, 50.0),
+        _row(8, "CASE-H", "Form 4BL Experimental", 50.0, 50.0),
+        _row(9, "CASE-I", "Form 4BL Experimental", 49.0, 50.0),
+        _row(10, "CASE-SMALL", "Form 4BL Experimental", 20.0, 20.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert manifests[0].case_ids == [
+        "CASE-A",
+        "CASE-B",
+        "CASE-C",
+        "CASE-D",
+        "CASE-E",
+        "CASE-F",
+        "CASE-G",
+        "CASE-H",
+        "CASE-SMALL",
+    ]
+    assert manifests[1].case_ids == ["CASE-I"]
+
+
+def test_plan_build_manifests_respects_form4b_xy_budget(monkeypatch):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Form 4B Experimental",
+        PresetProfile(
+            preset_name="Form 4B Experimental",
+            printer="Form 4B",
+            resin="Precision Model Resin",
+            layer_height_microns=100,
+            requires_supports=False,
+            preform_hint="form4b_experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-A", "Form 4B Experimental", 140.0, 90.0),
+        _row(2, "CASE-B", "Form 4B Experimental", 140.0, 90.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert [manifest.case_ids for manifest in manifests] == [["CASE-A", "CASE-B"]]
+
+
 def test_plan_build_manifests_marks_oversized_single_case_as_non_plannable():
     rows = [
-        _row(1, "CASE-HUGE", "Ortho Solid - Flat, No Supports", 200.0, 150.0),
+        _row(1, "CASE-HUGE", "Ortho Solid - Flat, No Supports", 500.0, 300.0),
     ]
 
     manifests = plan_build_manifests(rows)
@@ -138,7 +427,7 @@ def test_plan_build_manifests_marks_oversized_single_case_as_non_plannable():
 
 def test_plan_build_manifests_orders_non_plannable_cases_by_same_priority_scheme():
     rows = [
-        _row(1, "CASE-OVERSIZED", "Ortho Solid - Flat, No Supports", 200.0, 150.0),
+        _row(1, "CASE-OVERSIZED", "Ortho Solid - Flat, No Supports", 500.0, 300.0),
         _row(2, "CASE-EASY", "Ortho Solid - Flat, No Supports", 20.0, 20.0),
     ]
 
@@ -262,25 +551,47 @@ def test_plan_build_manifests_preserves_selected_case_priority_in_file_order():
     assert [spec.row_id for spec in ordered_files] == [10, 11, 20]
 
 
-def test_plan_build_manifests_respects_form4b_xy_budget(monkeypatch):
-    monkeypatch.setitem(
-        PRESET_CATALOG,
-        "Form 4B Experimental",
-        PresetProfile(
-            preset_name="Form 4B Experimental",
-            printer="Form 4B",
-            resin="Precision Model Resin",
-            layer_height_microns=100,
-            requires_supports=False,
-            preform_hint="form4b_experimental_v1",
-        ),
-    )
-
+def test_plan_build_manifests_needs_full_arch_reduction_and_raw_tooth_area_to_fit():
+    """Eight full-arch cases plus one tooth only fit under the Form 4BL budget after calibration."""
     rows = [
-        _row(1, "CASE-A", "Form 4B Experimental", 80.0, 75.0),
-        _row(2, "CASE-B", "Form 4B Experimental", 80.0, 75.0),
+        _row(1, "CASE-ARCH-01", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(2, "CASE-ARCH-02", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(3, "CASE-ARCH-03", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(4, "CASE-ARCH-04", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(5, "CASE-ARCH-05", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(6, "CASE-ARCH-06", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(7, "CASE-ARCH-07", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(8, "CASE-ARCH-08", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
+        _row(9, "CASE-TOOTH", "Tooth - With Supports", 42.0, 31.0),
     ]
 
     manifests = plan_build_manifests(rows)
 
-    assert [manifest.case_ids for manifest in manifests] == [["CASE-A"], ["CASE-B"]]
+    assert manifests[0].case_ids == [
+        "CASE-ARCH-01",
+        "CASE-ARCH-02",
+        "CASE-ARCH-03",
+        "CASE-ARCH-04",
+        "CASE-ARCH-05",
+        "CASE-ARCH-06",
+        "CASE-ARCH-07",
+        "CASE-ARCH-08",
+        "CASE-TOOTH",
+    ]
+
+
+def test_plan_build_manifests_form4bl_budget_matches_human_pack_capacity():
+    rows = [
+        _row(
+            index,
+            f"CASE-{index:02d}",
+            "Ortho Solid - Flat, No Supports",
+            96.0,
+            85.0,
+        )
+        for index in range(1, 49)
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert [len(manifest.case_ids) for manifest in manifests] == [14, 14, 14, 6]
