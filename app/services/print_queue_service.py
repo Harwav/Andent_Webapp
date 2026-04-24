@@ -182,7 +182,7 @@ def generate_job_name(date: datetime, batch_number: int) -> str:
 def _resolve_device_id(rows: list["ClassificationRow"]) -> str:
     explicit_printers = {row.printer for row in rows if row.printer}
     if not explicit_printers:
-        return "Form 4"
+        return "Form 4BL"
     if len(explicit_printers) > 1:
         raise ValueError("Rows in the same print batch target different printers.")
     return next(iter(explicit_printers))

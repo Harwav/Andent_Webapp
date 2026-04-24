@@ -16,7 +16,11 @@ Checkpoint pushed on 2026-04-24 for later continuation:
 - Task 2 tests are committed and now pass after implementation.
 - Task 3 implementation is committed, with a follow-up checkpoint fixing the full-arch factor so it applies to every qualifying `Form 4BL` full-arch row without an undocumented upper-size gate.
 - Focused verification passes: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_build_planning.py tests/test_batching.py -q` -> `32 passed`.
-- Remaining work starts at Task 4: broader regression suite, after benchmark, comparison report, architecture doc update, final verification, and final publish-readiness check.
+- Correction on 2026-04-24: an earlier `.form` export folder was invalid because scenes were created for `FORM-4-0` / Form 4B and saved even after partial imports. That folder was removed.
+- Corrected inspection artifacts are in `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/form4bl_form_exports/`: 9 Form 4BL `.form` files, 9 screenshots, and `export-summary.json`. Each build imported the planned model count, used `FRML-4-0`, and completed auto-layout before saving.
+- More accurate XY density is recorded in `form4bl_form_exports/xy-density-mesh-projection-025mm.json` and documented in `form4bl_form_exports/README.md`: transformed STL mesh projection on a `0.25 mm` raster, average density `22.01%`, expected approximation error roughly `1-4%`.
+- Current verification passes: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -q` -> `228 passed, 3 skipped`.
+- Remaining work: review the corrected `.form` packing quality and decide whether the planner heuristic needs another tuning pass.
 
 ---
 

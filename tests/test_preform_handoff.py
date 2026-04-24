@@ -185,10 +185,10 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
 
     assert response.status_code == 200
     assert stub_client.base_url == settings.preform_server_url
-    assert len(stub_client.created_scenes) == 2
+    assert len(stub_client.created_scenes) == 1
     assert len(stub_client.imported_models) == 3
-    assert len(stub_client.layout_calls) == 2
-    assert len(stub_client.print_jobs) == 2
+    assert len(stub_client.layout_calls) == 1
+    assert len(stub_client.print_jobs) == 1
 
     submitted_rows = {row["file_name"]: row["status"] for row in response.json()}
     assert submitted_rows["case-1.stl"] == "Submitted"
@@ -197,10 +197,12 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
     assert submitted_rows["case-4.stl"] == "Check"
 
     jobs = list_print_jobs(settings)
-    assert len(jobs) == 2
-    jobs_by_preset = {job.preset: job for job in jobs}
-    assert jobs_by_preset["Ortho Solid - Flat, No Supports"].case_ids == ["CASE001", "CASE002"]
-    assert jobs_by_preset["Tooth - With Supports"].case_ids == ["CASE003"]
+    assert len(jobs) == 1
+    assert jobs[0].case_ids == ["CASE001", "CASE002", "CASE003"]
+    assert jobs[0].preset_names == [
+        "Ortho Solid - Flat, No Supports",
+        "Tooth - With Supports",
+    ]
 
 
 def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
@@ -326,13 +328,15 @@ def test_send_to_print_rolls_back_last_case_when_validation_fails(tmp_path):
     assert row_statuses["case-a.stl"] == "Submitted"
     assert row_statuses["case-b.stl"] == "Ready"
     assert row_statuses["case-c.stl"] == "Submitted"
-    assert len(stub_client.created_scenes) == 3
-    assert stub_client.imported_models[:3] == [
+    assert len(stub_client.created_scenes) == 2
+    assert stub_client.imported_models == [
         ("scene-1", str(case_files[0]), "tooth_v1"),
+        ("scene-1", str(case_files[2]), "ortho_solid_v1"),
         ("scene-1", str(case_files[1]), "ortho_solid_v1"),
         ("scene-2", str(case_files[0]), "tooth_v1"),
+        ("scene-2", str(case_files[2]), "ortho_solid_v1"),
     ]
-    assert len(list_print_jobs(settings)) == 2
+    assert len(list_print_jobs(settings)) == 1
 
 
 def test_send_to_print_routes_single_invalid_case_to_manual_review(tmp_path):
@@ -436,7 +440,7 @@ def test_send_to_print_defaults_to_form4bl_when_no_printer_selected(tmp_path):
         response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
 
     assert response.status_code == 200
-    assert stub_client.print_jobs == [("scene-1", "Form 4")]
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL")]
 
 
 def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
@@ -471,7 +475,7 @@ def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
     assert row["status"] == "Submitted"
     assert row["queue_section"] == "history"
     assert row["handoff_stage"] == "Queued"
-    assert row["linked_job_name"] == "260422-001"
+    assert row["linked_job_name"] == f"{datetime.now().strftime('%y%m%d')}-001"
 
 
 def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeypatch):
@@ -510,7 +514,9 @@ def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeyp
     assert row["status"] == "Submitted"
     assert row["queue_section"] == "history"
     assert row["handoff_stage"] == "Queued"
-    assert stub_client.created_scenes == [("CASE-VOLUME", "260422-001")]
+    assert stub_client.created_scenes == [
+        ("CASE-VOLUME", f"{datetime.now().strftime('%y%m%d')}-001")
+    ]
     updated = get_upload_row_by_id(settings, row_ids[0])
     assert updated is not None
     assert updated.volume_ml == 2.75

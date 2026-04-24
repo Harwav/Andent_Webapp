@@ -44,7 +44,7 @@ class TestPreFormClient:
             "http://localhost:44388/scene/",
             json={
                 "layer_thickness_mm": 0.1,
-                "machine_type": "FORM-4-0",
+                "machine_type": "FRML-4-0",
                 "material_code": "FLPMBE01",
                 "print_setting": "DEFAULT",
             },
