@@ -1,0 +1,184 @@
+{
+  "preform_url": "http://127.0.0.1:44388",
+  "planned_builds": 9,
+  "successful_builds": 0,
+  "failed_builds": 9,
+  "average_models_per_build": 0.0,
+  "average_processing_time_seconds": 30.08,
+  "results": [
+    {
+      "manifest_index": 1,
+      "scene_id": "467c57af-1936-493b-9128-e736c84d3d1d",
+      "case_ids": [
+        "10936293",
+        "8425323",
+        "8425435",
+        "9690917"
+      ],
+      "model_count": 11,
+      "validation_passed": false,
+      "errors": [
+        "{12a8073c-ec54-4d51-bd81-a4a7a64fbcdf}: undersupported",
+        "{24efeb18-2c22-46a9-b460-d22d3c7e6e27}: undersupported",
+        "{24efeb18-2c22-46a9-b460-d22d3c7e6e27}: unsupported minima 2",
+        "{24efeb18-2c22-46a9-b460-d22d3c7e6e27}: cups 1",
+        "{28bedcaf-b179-48a8-b85d-fbae42a5184c}: undersupported",
+        "{28bedcaf-b179-48a8-b85d-fbae42a5184c}: unsupported minima 2",
+        "{28bedcaf-b179-48a8-b85d-fbae42a5184c}: cups 1",
+        "{2e8bf32e-7828-4478-8ecc-eca0f1dce7a7}: unsupported minima 1",
+        "{2e8bf32e-7828-4478-8ecc-eca0f1dce7a7}: cups 1",
+        "{425a8163-348a-43fa-861c-0c0dd4ddd339}: undersupported",
+        "{425a8163-348a-43fa-861c-0c0dd4ddd339}: unsupported minima 2",
+        "{425a8163-348a-43fa-861c-0c0dd4ddd339}: cups 1",
+        "{568a5462-6894-4f71-8b88-7be39646d284}: undersupported",
+        "{568a5462-6894-4f71-8b88-7be39646d284}: unsupported minima 3",
+        "{568a5462-6894-4f71-8b88-7be39646d284}: cups 1",
+        "{6db9593d-7e8f-4b36-99f2-a9c125cfe090}: undersupported",
+        "{6db9593d-7e8f-4b36-99f2-a9c125cfe090}: cups 1",
+        "{9ab41adc-5d47-47b4-8b33-5477ffa904cc}: undersupported",
+        "{e42e306f-61f0-4619-a962-3fb78a752456}: undersupported"
+      ],
+      "processing_time_seconds": 21.339
+    },
+    {
+      "manifest_index": 2,
+      "scene_id": "1bb1b4b1-4cd0-4d7e-8040-c09c50c843b6",
+      "case_ids": [
+        "10932522",
+        "8425205",
+        "8425424",
+        "8425442",
+        "10935175"
+      ],
+      "model_count": 13,
+      "validation_passed": false,
+      "errors": [
+        "Failed to import model: 400 - {\"error\":{\"code\":\"OPERATION_FAILED\",\"message\":\"Broken model, the model is damaged and needs repair.\"}}"
+      ],
+      "processing_time_seconds": 0.326
+    },
+    {
+      "manifest_index": 3,
+      "scene_id": "1773711e-fbdc-4f1f-b6ed-def02b94af59",
+      "case_ids": [
+        "10935421",
+        "8425405",
+        "8425223",
+        "8425254",
+        "10934575"
+      ],
+      "model_count": 11,
+      "validation_passed": false,
+      "errors": [
+        "HTTPConnectionPool(host='127.0.0.1', port=44388): Read timed out. (read timeout=30)"
+      ],
+      "processing_time_seconds": 142.62
+    },
+    {
+      "manifest_index": 4,
+      "scene_id": "968eb484-b23c-49d6-8e1a-a134a85ef2ac",
+      "case_ids": [
+        "8425350",
+        "8425356",
+        "10936455",
+        "8425357",
+        "8425251"
+      ],
+      "model_count": 14,
+      "validation_passed": false,
+      "errors": [
+        "Failed to import model: 400 - {\"error\":{\"code\":\"OPERATION_FAILED\",\"message\":\"Broken model, the model is damaged and needs repair.\"}}"
+      ],
+      "processing_time_seconds": 0.575
+    },
+    {
+      "manifest_index": 5,
+      "scene_id": "7901aeea-dbbd-4e18-a5e7-c3faaadc8168",
+      "case_ids": [
+        "8425209",
+        "8425271",
+        "8425360",
+        "10936926",
+        "8425322"
+      ],
+      "model_count": 15,
+      "validation_passed": false,
+      "errors": [
+        "Failed to import model: 400 - {\"error\":{\"code\":\"OPERATION_FAILED\",\"message\":\"Broken model, the model is damaged and needs repair.\"}}"
+      ],
+      "processing_time_seconds": 3.65
+    },
+    {
+      "manifest_index": 6,
+      "scene_id": "2bfe502b-e6f5-4951-9b56-5a6d5a5fb1e7",
+      "case_ids": [
+        "8425308",
+        "8425256",
+        "10936643",
+        "10936507",
+        "8425299",
+        "8425250"
+      ],
+      "model_count": 15,
+      "validation_passed": false,
+      "errors": [
+        "Failed to import model: 400 - {\"error\":{\"code\":\"OPERATION_FAILED\",\"message\":\"Broken model, the model is damaged and needs repair.\"}}"
+      ],
+      "processing_time_seconds": 0.74
+    },
+    {
+      "manifest_index": 7,
+      "scene_id": "a809f471-2bee-4d42-93f3-ee313f37d488",
+      "case_ids": [
+        "8425071",
+        "8425259",
+        "8425393",
+        "8425342",
+        "10935386",
+        "8425317"
+      ],
+      "model_count": 12,
+      "validation_passed": false,
+      "errors": [
+        "HTTPConnectionPool(host='127.0.0.1', port=44388): Read timed out. (read timeout=30)"
+      ],
+      "processing_time_seconds": 97.5
+    },
+    {
+      "manifest_index": 8,
+      "scene_id": "b2d4a81e-9476-461e-bbf1-b2385e0b41f8",
+      "case_ids": [
+        "8425314",
+        "8425306",
+        "8424903",
+        "8425339",
+        "8425217",
+        "8424565"
+      ],
+      "model_count": 17,
+      "validation_passed": false,
+      "errors": [
+        "Failed to import model: 400 - {\"error\":{\"code\":\"OPERATION_FAILED\",\"message\":\"Broken model, the model is damaged and needs repair.\"}}"
+      ],
+      "processing_time_seconds": 2.101
+    },
+    {
+      "manifest_index": 9,
+      "scene_id": "03b1028e-bcc0-496b-97ed-c47f18f8000d",
+      "case_ids": [
+        "8424709",
+        "8425417",
+        "8425408",
+        "8424921",
+        "8425255",
+        "10935787"
+      ],
+      "model_count": 14,
+      "validation_passed": false,
+      "errors": [
+        "Failed to import model: 400 - {\"error\":{\"code\":\"OPERATION_FAILED\",\"message\":\"Broken model, the model is damaged and needs repair.\"}}"
+      ],
+      "processing_time_seconds": 1.872
+    }
+  ]
+}
