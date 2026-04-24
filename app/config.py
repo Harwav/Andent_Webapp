@@ -28,6 +28,8 @@ class Settings:
     preform_max_supported_version: str | None
     formlabs_api_token: str | None
     formlabs_api_url: str
+    print_hold_density_target: float
+    print_hold_cutoff_local_time: str
 
 
 def build_settings(
@@ -89,6 +91,13 @@ def build_settings(
         preform_max_supported_version=os.getenv("ANDENT_WEB_PREFORM_MAX_VERSION") or None,
         formlabs_api_token=os.getenv("FORMLABS_API_TOKEN"),
         formlabs_api_url=os.getenv("FORMLABS_API_URL", "https://api.formlabs.com/v1"),
+        print_hold_density_target=float(
+            os.getenv("ANDENT_WEB_PRINT_HOLD_DENSITY_TARGET", "0.40")
+        ),
+        print_hold_cutoff_local_time=os.getenv(
+            "ANDENT_WEB_PRINT_HOLD_CUTOFF_LOCAL_TIME",
+            "18:00",
+        ),
     )
 
 

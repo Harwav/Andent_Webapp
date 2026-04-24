@@ -23,6 +23,7 @@ def _row(
     *,
     dimensions: DimensionSummary | None | object = _DEFAULT_DIMENSIONS,
     file_path: str | None | object = _DEFAULT_FILE_PATH,
+    printer: str | None = None,
 ) -> ClassificationRow:
     resolved_file_path = (
         f"C:/cases/{case_id}/{case_id}-{row_id if row_id is not None else 'missing'}.stl"
@@ -41,6 +42,7 @@ def _row(
             if dimensions is _DEFAULT_DIMENSIONS
             else dimensions
         ),
+        printer=printer,
         file_path=resolved_file_path,
     )
 
@@ -81,6 +83,20 @@ def test_effective_row_xy_area_reduces_any_form4bl_full_arch_geometry():
     assert effective_row_xy_area(full_arch_row) == 116.0 * 96.0 * 0.58
 
 
+def test_effective_row_xy_area_reduces_form4b_full_arch_geometry():
+    effective_row_xy_area = _build_planning_attr("_effective_row_xy_area")
+    full_arch_row = _row(
+        1,
+        "CASE-A",
+        "Ortho Solid - Flat, No Supports",
+        116.0,
+        96.0,
+        printer="Form 4B",
+    )
+
+    assert effective_row_xy_area(full_arch_row) == 116.0 * 96.0 * 0.58
+
+
 def test_plan_build_manifests_preserves_case_cohesion():
     """Planner keeps all rows from the same case together in one build."""
     rows = [
@@ -110,6 +126,53 @@ def test_plan_build_manifests_allows_mixed_compatible_presets_to_share_one_build
         "Ortho Solid - Flat, No Supports",
         "Tooth - With Supports",
     ]
+
+
+def test_plan_build_manifests_routes_same_case_splint_plus_precision_to_review():
+    rows = [
+        _row(1, "CASE-MIX", "Splint - Flat, No Supports", 60.0, 50.0),
+        _row(2, "CASE-MIX", "Ortho Solid - Flat, No Supports", 60.0, 50.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "incompatible_case_presets"
+
+
+def test_plan_build_manifests_routes_same_case_mixed_printer_groups_to_review():
+    rows = [
+        _row(1, "CASE-MIX", "Ortho Solid - Flat, No Supports", 60.0, 50.0, printer="Form 4B"),
+        _row(2, "CASE-MIX", "Die - Flat, No Supports", 60.0, 50.0, printer="Form 4BL"),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    assert manifests[0].planning_status == "non_plannable"
+    assert manifests[0].non_plannable_reason == "incompatible_case_presets"
+
+
+def test_plan_build_manifests_derives_form4b_manifest_scene_settings():
+    rows = [
+        _row(1, "CASE-F4B", "Splint - Flat, No Supports", 60.0, 50.0, printer="Form 4B"),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert len(manifests) == 1
+    manifest = manifests[0]
+    assert manifest.compatibility_key == "form-4b|lt-clear-v2|100"
+    assert manifest.printer_group == "Form 4B"
+    assert manifest.material_label == "LT Clear V2"
+    assert manifest.material_code == "FLDLCL02"
+    assert manifest.machine_type == "FORM-4-0"
+    assert manifest.layer_thickness_mm == 0.1
+    assert manifest.print_setting == "DEFAULT"
+    assert manifest.model_spacing_mm == 1
+    assert manifest.allow_overlapping_supports is False
+    assert manifest.estimated_density == 3000.0 / 25000.0
 
 
 def test_plan_build_manifests_uses_smallest_case_fillers_after_large_cases_do_not_fit(
@@ -199,8 +262,7 @@ def test_plan_build_manifests_form4b_attempts_three_largest_cases_before_fillers
 
     manifests = plan_build_manifests(rows)
 
-    assert manifests[0].case_ids == ["CASE-A", "CASE-B", "CASE-D"]
-    assert manifests[1].case_ids == ["CASE-C"]
+    assert manifests[0].case_ids == ["CASE-A", "CASE-B", "CASE-C", "CASE-D"]
 
 
 def test_plan_build_manifests_form4bl_attempts_eight_largest_cases_before_fillers(monkeypatch):
@@ -346,7 +408,7 @@ def test_plan_build_manifests_respects_form4b_xy_budget(monkeypatch):
 
     manifests = plan_build_manifests(rows)
 
-    assert [manifest.case_ids for manifest in manifests] == [["CASE-A"], ["CASE-B"]]
+    assert [manifest.case_ids for manifest in manifests] == [["CASE-A", "CASE-B"]]
 
 
 def test_plan_build_manifests_marks_oversized_single_case_as_non_plannable():

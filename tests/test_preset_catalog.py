@@ -25,9 +25,27 @@ def test_get_preset_profile_derives_form4bl_precision_defaults():
 
     assert profile.preset_name == "Tooth - With Supports"
     assert profile.printer == "Form 4BL"
-    assert profile.resin == "Precision Model Resin"
+    assert profile.material_label == "Precision Model V1"
+    assert profile.material_code == "FLPMBE01"
     assert profile.layer_height_microns == 100
     assert profile.requires_supports is True
+    assert profile.also_valid_printers == ("Form 4B",)
+
+
+def test_get_preset_profile_derives_splint_lt_clear_material():
+    profile = get_preset_profile("Splint - Flat, No Supports")
+
+    assert profile.material_label == "LT Clear V2"
+    assert profile.material_code == "FLDLCL02"
+    assert profile.preform_hint == "splint_v1"
+
+
+def test_get_preset_profile_can_target_form4b_compatibility_group():
+    profile = get_preset_profile("Die - Flat, No Supports", printer_group="Form 4B")
+
+    assert profile.printer == "Form 4B"
+    assert profile.machine_type == "FORM-4-0"
+    assert profile.material_label == "Precision Model V1"
 
 
 def test_presets_are_compatible_when_printer_resin_and_layer_match():
@@ -41,7 +59,22 @@ def test_build_compatibility_key_is_stable_for_mixed_compatible_presets():
         ["Tooth - With Supports", "Ortho Hollow - Flat, No Supports"]
     )
 
-    assert key == "form-4bl|precision-model-resin|100"
+    assert key == "form-4bl|precision-model-v1|100"
+
+
+def test_build_compatibility_key_uses_requested_form4b_group():
+    key = build_compatibility_key(
+        ["Tooth - With Supports", "Ortho Hollow - Flat, No Supports"],
+        printer_group="Form 4B",
+    )
+
+    assert key == "form-4b|precision-model-v1|100"
+
+
+def test_splint_does_not_mix_with_precision_model_presets():
+    assert presets_are_compatible(
+        ["Splint - Flat, No Supports", "Ortho Solid - Flat, No Supports"]
+    ) is False
 
 
 def test_get_printer_xy_budget_uses_live_form4bl_platform_budget():

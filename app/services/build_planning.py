@@ -14,6 +14,7 @@ from .preset_catalog import (
     get_preform_preset_hint,
     get_preset_profile,
     resolve_preset_name,
+    SUPPORTED_PRINTER_GROUPS,
 )
 FULL_ARCH_MAX_SPAN_MM = 65.0
 FULL_ARCH_MIN_SHORT_SIDE_MM = 55.0
@@ -46,11 +47,11 @@ def _effective_row_xy_area(row: ClassificationRow) -> float:
     raw_xy = _row_xy_area(row)
     if raw_xy == 0.0:
         return 0.0
-    profile = get_preset_profile(row.preset)
+    profile = _row_preset_profile(row)
     dimensions = row.dimensions
     if (
         profile is not None
-        and profile.printer == "Form 4BL"
+        and profile.printer in {"Form 4BL", "Form 4B"}
         and dimensions is not None
         and _is_full_arch_dimensions(dimensions)
     ):
@@ -65,6 +66,16 @@ def _canonical_preset_name(preset_name: str | None) -> str | None:
     return resolve_preset_name(preset_name)
 
 
+def _row_printer_group(row: ClassificationRow) -> str | None:
+    if row.printer in SUPPORTED_PRINTER_GROUPS:
+        return row.printer
+    return None
+
+
+def _row_preset_profile(row: ClassificationRow):
+    return get_preset_profile(row.preset, printer_group=_row_printer_group(row))
+
+
 def _row_file_path(row: ClassificationRow) -> str | None:
     if row.file_path and row.file_path.strip():
         return row.file_path
@@ -74,13 +85,14 @@ def _row_file_path(row: ClassificationRow) -> str | None:
 def _build_file_prep_spec(
     row: ClassificationRow,
     compatibility_key: str,
+    printer_group: str | None,
 ) -> tuple[FilePrepSpec | None, str | None]:
     canonical_preset_name = _canonical_preset_name(row.preset)
     if row.row_id is None:
         return None, "missing_row_id"
     if row.case_id is None or canonical_preset_name is None:
         return None, None
-    profile = get_preset_profile(canonical_preset_name)
+    profile = get_preset_profile(canonical_preset_name, printer_group=printer_group)
     if profile is None:
         return None, None
     file_path = _row_file_path(row)
@@ -145,10 +157,23 @@ def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePack
         }
     )
 
+    printer_groups = {
+        printer_group
+        for row in rows
+        if (printer_group := _row_printer_group(row)) is not None
+    }
+    if len(printer_groups) > 1:
+        return None, _build_non_plannable_manifest(
+            case_id=case_id,
+            preset_names=preset_names,
+            reason="incompatible_case_presets",
+        )
+    printer_group = next(iter(printer_groups), None)
+
     try:
-        compatibility_key = build_compatibility_key(preset_names)
+        compatibility_key = build_compatibility_key(preset_names, printer_group=printer_group)
     except ValueError:
-        if any(get_preset_profile(name) is None for name in preset_names):
+        if any(get_preset_profile(name, printer_group=printer_group) is None for name in preset_names):
             return None, None
         return None, _build_non_plannable_manifest(
             case_id=case_id,
@@ -168,7 +193,7 @@ def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePack
     file_specs: list[FilePrepSpec] = []
 
     for row in sorted(rows, key=lambda item: (item.row_id or 0, item.file_name)):
-        spec, failure_reason = _build_file_prep_spec(row, compatibility_key)
+        spec, failure_reason = _build_file_prep_spec(row, compatibility_key, printer_group)
         if spec is None:
             if failure_reason is None:
                 return None, None
@@ -181,7 +206,7 @@ def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePack
         file_specs.append(spec)
 
     xy_budget = get_printer_xy_budget(
-        get_preset_profile(preset_names[0]).printer if preset_names else None
+        get_preset_profile(preset_names[0], printer_group=printer_group).printer if preset_names else None
     )
 
     if total_xy > xy_budget:
@@ -270,18 +295,47 @@ def _build_manifest(compatibility_key: str, profiles: list[CasePackProfile]) -> 
             )
         )
 
+    first_profile = profiles[0] if profiles else None
+    first_file = first_profile.file_specs[0] if first_profile and first_profile.file_specs else None
+    preset_profile = get_preset_profile(first_file.preset_name) if first_file is not None else None
+    if preset_profile is not None and first_profile is not None:
+        printer_group = _printer_group_from_compatibility_key(compatibility_key)
+        preset_profile = get_preset_profile(first_file.preset_name, printer_group=printer_group)
+    used_xy_budget = sum(profile.total_xy_footprint for profile in profiles)
+    printer_xy_budget = (
+        get_printer_xy_budget(preset_profile.printer)
+        if preset_profile is not None
+        else get_printer_xy_budget(None)
+    )
+
     return BuildManifest(
         compatibility_key=compatibility_key,
         case_ids=[profile.case_id for profile in profiles],
         preset_names=sorted(set(preset_names)),
         import_groups=manifest_groups,
+        printer_group=preset_profile.printer if preset_profile is not None else None,
+        material_label=preset_profile.material_label if preset_profile is not None else None,
+        material_code=preset_profile.material_code if preset_profile is not None else None,
+        machine_type=preset_profile.machine_type if preset_profile is not None else None,
+        layer_thickness_mm=(
+            preset_profile.layer_height_microns / 1000.0
+            if preset_profile is not None
+            else None
+        ),
+        print_setting=preset_profile.print_setting if preset_profile is not None else None,
+        model_spacing_mm=1,
+        allow_overlapping_supports=False,
+        printer_xy_budget=printer_xy_budget,
+        used_xy_budget=used_xy_budget,
+        estimated_density=(used_xy_budget / printer_xy_budget if printer_xy_budget else 0.0),
     )
 
 
 def _profile_xy_budget(profile: CasePackProfile) -> float:
     if not profile.file_specs:
         return get_printer_xy_budget(None)
-    profile_details = get_preset_profile(profile.file_specs[0].preset_name)
+    printer_group = _printer_group_from_compatibility_key(profile.compatibility_key)
+    profile_details = get_preset_profile(profile.file_specs[0].preset_name, printer_group=printer_group)
     printer_name = profile_details.printer if profile_details is not None else None
     return get_printer_xy_budget(printer_name)
 
@@ -289,13 +343,25 @@ def _profile_xy_budget(profile: CasePackProfile) -> float:
 def _startup_case_count(profile: CasePackProfile) -> int:
     if not profile.file_specs:
         return 1
-    profile_details = get_preset_profile(profile.file_specs[0].preset_name)
+    printer_group = _printer_group_from_compatibility_key(profile.compatibility_key)
+    profile_details = get_preset_profile(profile.file_specs[0].preset_name, printer_group=printer_group)
     printer_name = profile_details.printer if profile_details is not None else None
     if printer_name == "Form 4B":
         return 3
     if printer_name == "Form 4BL":
         return 8
     return 1
+
+
+def _printer_group_from_compatibility_key(compatibility_key: str | None) -> str | None:
+    if not compatibility_key:
+        return None
+    printer_key = compatibility_key.split("|", 1)[0]
+    if printer_key == "form-4b":
+        return "Form 4B"
+    if printer_key == "form-4bl":
+        return "Form 4BL"
+    return None
 
 
 def _fits_with_profile(

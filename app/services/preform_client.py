@@ -70,7 +70,12 @@ class PreFormClient:
         self.session = requests.Session()
     
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
-    def create_scene(self, patient_id: str, case_name: str) -> Dict[str, Any]:
+    def create_scene(
+        self,
+        patient_id: str,
+        case_name: str,
+        scene_settings: Dict[str, Any] | None = None,
+    ) -> Dict[str, Any]:
         """Create a new dental scene using the current Local API contract.
         
         Args:
@@ -84,7 +89,7 @@ class PreFormClient:
             Exception: If the API request fails
         """
         url = f"{self.base_url}/scene/"
-        payload = dict(DEFAULT_SCENE_SETTINGS)
+        payload = dict(scene_settings or DEFAULT_SCENE_SETTINGS)
         
         try:
             response = self.session.post(url, json=payload, timeout=30)
@@ -149,7 +154,7 @@ class PreFormClient:
     def auto_layout(self, scene_id: str) -> Dict[str, Any]:
         """Trigger automatic layout generation for a scene."""
         url = f"{self.base_url}/scene/{scene_id}/auto-layout/"
-        payload = {"allow_overlapping_supports": False}
+        payload = {"allow_overlapping_supports": False, "model_spacing_mm": 1}
 
         response = self.session.post(url, json=payload, timeout=30)
 

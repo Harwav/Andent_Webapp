@@ -88,7 +88,19 @@ def test_print_jobs_table_has_preset_names_and_manifest_json(tmp_path):
             for row in connection.execute("PRAGMA table_info(print_jobs)").fetchall()
         }
 
-    assert {"preset_names_json", "manifest_json", "compatibility_key"}.issubset(columns)
+    assert {
+        "preset_names_json",
+        "manifest_json",
+        "compatibility_key",
+        "estimated_density",
+        "density_target",
+        "hold_cutoff_at",
+        "hold_reason",
+        "release_reason",
+        "released_by_operator",
+        "validation_passed",
+        "validation_errors_json",
+    }.issubset(columns)
 
 
 def test_print_job_crud_round_trip(tmp_path: Path):
@@ -118,6 +130,14 @@ def test_print_job_crud_round_trip(tmp_path: Path):
                 "compatibility_key": "form4b:tough2000:50",
                 "preset_names": ["Ortho Solid - Flat, No Supports", "Tooth - With Supports"],
             },
+            estimated_density=0.35,
+            density_target=0.40,
+            hold_cutoff_at="2026-04-24T18:00:00",
+            hold_reason="below_density_target",
+            release_reason="operator_release",
+            released_by_operator=True,
+            validation_passed=True,
+            validation_errors=[],
         ),
     )
 
@@ -129,6 +149,13 @@ def test_print_job_crud_round_trip(tmp_path: Path):
         "compatibility_key": "form4b:tough2000:50",
         "preset_names": ["Ortho Solid - Flat, No Supports", "Tooth - With Supports"],
     }
+    assert created.estimated_density == 0.35
+    assert created.density_target == 0.40
+    assert created.hold_reason == "below_density_target"
+    assert created.release_reason == "operator_release"
+    assert created.released_by_operator is True
+    assert created.validation_passed is True
+    assert created.validation_errors == []
 
     by_id = get_print_job_by_id(settings, created.id)
     by_name = get_print_job_by_name(settings, "260421-001")

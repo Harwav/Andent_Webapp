@@ -1026,6 +1026,18 @@ select:focus {
     color: var(--clear);
 }
 
+.job-status-holding-for-more-cases {
+    background: var(--warn-soft);
+    color: var(--warn);
+}
+
+.job-release-button {
+    margin-top: 6px;
+    padding: 4px 8px;
+    min-height: 28px;
+    font-size: 0.78rem;
+}
+
 /* Screenshot Modal */
 .screenshot-modal-card {
     max-width: 720px;

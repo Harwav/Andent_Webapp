@@ -51,6 +51,40 @@ class TestPreFormClient:
             timeout=30
         )
 
+    def test_create_scene_accepts_manifest_scene_settings(self):
+        """Scene creation uses manifest compatibility settings at the API boundary."""
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "scene-123"}
+        mock_session.post.return_value = mock_response
+
+        client = PreFormClient()
+        client.session = mock_session
+
+        result = client.create_scene(
+            patient_id="P001",
+            case_name="Test Case",
+            scene_settings={
+                "layer_thickness_mm": 0.1,
+                "machine_type": "FORM-4-0",
+                "material_code": "FLDLCL02",
+                "print_setting": "DEFAULT",
+            },
+        )
+
+        assert result["scene_id"] == "scene-123"
+        mock_session.post.assert_called_once_with(
+            "http://localhost:44388/scene/",
+            json={
+                "layer_thickness_mm": 0.1,
+                "machine_type": "FORM-4-0",
+                "material_code": "FLDLCL02",
+                "print_setting": "DEFAULT",
+            },
+            timeout=30,
+        )
+
     def test_create_scene_failure(self):
         """Test creating a scene with failure response."""
         mock_session = Mock()
@@ -134,7 +168,7 @@ class TestPreFormClient:
             assert result == {"status": "ok"}
             mock_post.assert_called_with(
                 "http://localhost:44388/scene/scene-123/auto-layout/",
-                json={"allow_overlapping_supports": False},
+                json={"allow_overlapping_supports": False, "model_spacing_mm": 1},
                 timeout=30,
             )
 

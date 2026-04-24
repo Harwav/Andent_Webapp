@@ -171,9 +171,20 @@ class BuildManifest(BaseModel):
     import_groups: list[BuildManifestImportGroup] = Field(default_factory=list)
     planning_status: BuildPlanningStatus = "planned"
     non_plannable_reason: NonPlannableReason | None = None
+    printer_group: str | None = None
+    material_label: str | None = None
+    material_code: str | None = None
+    machine_type: str | None = None
+    layer_thickness_mm: float | None = None
+    print_setting: str | None = None
+    model_spacing_mm: int = 1
+    allow_overlapping_supports: bool = False
+    printer_xy_budget: float | None = None
+    used_xy_budget: float = 0.0
+    estimated_density: float = 0.0
 
 
-PrintJobStatus = Literal["Queued", "Printing", "Failed", "Paused", "Completed"]
+PrintJobStatus = Literal["Queued", "Printing", "Failed", "Paused", "Completed", "Holding for More Cases"]
 
 
 class PrintJob(BaseModel):
@@ -196,6 +207,14 @@ class PrintJob(BaseModel):
     layer_height_microns: int | None = None
     estimated_completion: str | None = None
     error_message: str | None = None
+    estimated_density: float | None = None
+    density_target: float | None = None
+    hold_cutoff_at: str | None = None
+    hold_reason: str | None = None
+    release_reason: str | None = None
+    released_by_operator: bool = False
+    validation_passed: bool | None = None
+    validation_errors: list[str] = Field(default_factory=list)
 
 
 class PrintJobListResponse(BaseModel):
