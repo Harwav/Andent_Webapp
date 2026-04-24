@@ -44,12 +44,12 @@ def test_build_compatibility_key_is_stable_for_mixed_compatible_presets():
     assert key == "form-4bl|precision-model-resin|100"
 
 
-def test_get_printer_xy_budget_scales_form4b_below_form4bl():
+def test_get_printer_xy_budget_uses_live_form4bl_platform_budget():
     form4bl_budget = get_printer_xy_budget("Form 4BL")
     form4b_budget = get_printer_xy_budget("Form 4B")
 
-    assert form4bl_budget == 29000.0
-    assert form4b_budget == 10820.9
+    assert form4bl_budget == 69188.0
+    assert form4b_budget == 25000.0
 
 
 def test_get_printer_xy_budget_fails_closed_for_unknown_printer():

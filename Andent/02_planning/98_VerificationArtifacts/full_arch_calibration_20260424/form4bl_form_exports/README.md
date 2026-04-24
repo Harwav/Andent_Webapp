@@ -60,3 +60,20 @@ Accuracy check:
 Average mesh-projection XY density: `22.01%`.
 
 For comparison, summed XY bounding-box density averaged `50.95%`, but that overstates real occupied area because it counts empty space inside each dental arch's bounding rectangle.
+
+## Human Pack Benchmark
+
+The manually packed benchmark forms are in `C:\Users\Marcus\Desktop\BM\20260409_Andent_Matt\Human Pack`.
+
+Their density was calculated with the same `0.25 mm` mesh-projection method, except model placement came from `POST /load-form/` rather than the generated `export-summary.json` scene IDs. The detailed artifact is one level up at `human-pack-xy-density-mesh-projection-025mm.json`.
+
+| Human tray | Models | Mesh XY density |
+|---:|---:|---:|
+| 1 | 31 | 58.58% |
+| 2 | 36 | 57.95% |
+| 3 | 36 | 58.75% |
+| 4 | 22 | 49.24% |
+
+Average Human Pack mesh-projection XY density: `56.13%`.
+
+Conclusion: the generated 9-build set was substantially under-packed. The planner budget has been recalibrated to the live Form 4BL XY platform area (`69,188 mm^2`), producing 4 planned builds with model counts `[29, 34, 35, 24]`.

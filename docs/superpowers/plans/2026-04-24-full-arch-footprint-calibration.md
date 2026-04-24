@@ -19,8 +19,11 @@ Checkpoint pushed on 2026-04-24 for later continuation:
 - Correction on 2026-04-24: an earlier `.form` export folder was invalid because scenes were created for `FORM-4-0` / Form 4B and saved even after partial imports. That folder was removed.
 - Corrected inspection artifacts are in `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/form4bl_form_exports/`: 9 Form 4BL `.form` files, 9 screenshots, and `export-summary.json`. Each build imported the planned model count, used `FRML-4-0`, and completed auto-layout before saving.
 - More accurate XY density is recorded in `form4bl_form_exports/xy-density-mesh-projection-025mm.json` and documented in `form4bl_form_exports/README.md`: transformed STL mesh projection on a `0.25 mm` raster, average density `22.01%`, expected approximation error roughly `1-4%`.
-- Current verification passes: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -q` -> `228 passed, 3 skipped`.
-- Remaining work: review the corrected `.form` packing quality and decide whether the planner heuristic needs another tuning pass.
+- Human Pack benchmark from `C:\Users\Marcus\Desktop\BM\20260409_Andent_Matt\Human Pack` is recorded in `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/human-pack-xy-density-mesh-projection-025mm.json`: 4 `.form` files, model counts `[31, 36, 36, 22]`, average mesh-projection XY density `56.13%`.
+- The planner under-packing root cause was the conservative `Form 4BL` XY budget (`29,000 mm^2`). `Form 4BL` now uses the live platform area `353 mm x 196 mm = 69,188 mm^2`, and Form 4B uses its physical platform area `200 mm x 125 mm = 25,000 mm^2`; unknown-printer and Form 4 fallback budgets remain conservative at `10,820.9 mm^2`.
+- Regenerated `after-summary.json` now plans the `From 4BL Test Data` dataset into 4 builds with model counts `[29, 34, 35, 24]`, close to the Human Pack `[31, 36, 36, 22]`.
+- Current verification passes: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q` -> `229 passed, 3 skipped`.
+- Remaining work: regenerate the 4-build Form 4BL `.form` inspection artifacts and run the full verification suite before publishing this tuning pass.
 
 ---
 

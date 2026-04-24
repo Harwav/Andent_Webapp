@@ -1,29 +1,19 @@
 {
   "total_files": 122,
-  "manifest_count": 9,
-  "planned_manifest_count": 9,
-  "average_cases_per_build": 5.33,
-  "average_models_per_build": 13.56,
+  "manifest_count": 4,
+  "planned_manifest_count": 4,
+  "average_cases_per_build": 12.0,
+  "average_models_per_build": 30.5,
   "planned_case_counts": [
-    4,
-    5,
-    5,
-    5,
-    5,
-    6,
-    6,
-    6,
-    6
+    11,
+    12,
+    14,
+    11
   ],
   "planned_model_counts": [
-    11,
-    13,
-    11,
-    14,
-    15,
-    15,
-    12,
-    17,
-    14
+    29,
+    34,
+    35,
+    24
   ]
 }

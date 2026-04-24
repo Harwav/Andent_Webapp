@@ -1,0 +1,78 @@
+{
+  "source_folder": "C:\\Users\\Marcus\\Desktop\\BM\\20260409_Andent_Matt\\Human Pack",
+  "method": "POST /load-form/ each Human Pack .form through local PreFormServer; transformed original STL meshes by scene orientation/position; projected vertices to XY at 0.25 mm; one-cell close/fill/open per model; union measured on 353 x 196 mm Form 4BL platform.",
+  "platform_mm": {
+    "x": 353.0,
+    "y": 196.0,
+    "area_mm2": 69188.0
+  },
+  "resolution_mm": 0.25,
+  "rows": [
+    {
+      "tray": 1,
+      "file": "From 4BL Test Data_Marcus_Tray 1_31pcs.form",
+      "filename_piece_count": 31,
+      "scene_model_count": 31,
+      "mesh_projection_union_area_mm2": 40532.62,
+      "mesh_projection_density_pct": 58.58,
+      "per_model_projection_sum_area_mm2": 40535.56,
+      "per_model_projection_sum_density_pct": 58.59,
+      "overlap_area_mm2": 2.94,
+      "bbox_sum_area_mm2": 83259.64,
+      "bbox_sum_density_pct": 120.34,
+      "max_bbox_xy_transform_error_mm": 0.0,
+      "missing_original_files": []
+    },
+    {
+      "tray": 2,
+      "file": "From 4BL Test Data_Marcus_Tray 2_36pcs.form",
+      "filename_piece_count": 36,
+      "scene_model_count": 36,
+      "mesh_projection_union_area_mm2": 40093.12,
+      "mesh_projection_density_pct": 57.95,
+      "per_model_projection_sum_area_mm2": 40093.12,
+      "per_model_projection_sum_density_pct": 57.95,
+      "overlap_area_mm2": 0.0,
+      "bbox_sum_area_mm2": 80625.83,
+      "bbox_sum_density_pct": 116.53,
+      "max_bbox_xy_transform_error_mm": 0.001,
+      "missing_original_files": []
+    },
+    {
+      "tray": 3,
+      "file": "From 4BL Test Data_Marcus_Tray 3_36pcs.form",
+      "filename_piece_count": 36,
+      "scene_model_count": 36,
+      "mesh_projection_union_area_mm2": 40648.94,
+      "mesh_projection_density_pct": 58.75,
+      "per_model_projection_sum_area_mm2": 40808.94,
+      "per_model_projection_sum_density_pct": 58.98,
+      "overlap_area_mm2": 160.0,
+      "bbox_sum_area_mm2": 81475.12,
+      "bbox_sum_density_pct": 117.76,
+      "max_bbox_xy_transform_error_mm": 0.0013,
+      "missing_original_files": []
+    },
+    {
+      "tray": 4,
+      "file": "From 4BL Test Data_Marcus_Tray 4_22pcs.form",
+      "filename_piece_count": 22,
+      "scene_model_count": 22,
+      "mesh_projection_union_area_mm2": 34068.94,
+      "mesh_projection_density_pct": 49.24,
+      "per_model_projection_sum_area_mm2": 34079.5,
+      "per_model_projection_sum_density_pct": 49.26,
+      "overlap_area_mm2": 10.56,
+      "bbox_sum_area_mm2": 68967.6,
+      "bbox_sum_density_pct": 99.68,
+      "max_bbox_xy_transform_error_mm": 0.0,
+      "missing_original_files": []
+    }
+  ],
+  "averages": {
+    "mesh_projection_density_pct": 56.13,
+    "per_model_projection_sum_density_pct": 56.2,
+    "bbox_sum_density_pct": 113.58,
+    "models_per_build": 31.25
+  }
+}
