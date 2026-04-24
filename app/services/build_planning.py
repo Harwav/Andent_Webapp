@@ -9,13 +9,12 @@ from ..schemas import (
 )
 from .preset_catalog import (
     build_compatibility_key,
+    get_printer_xy_budget,
     get_preform_preset_hint,
     get_preset_profile,
     resolve_preset_name,
 )
 
-
-FORM4BL_XY_BUDGET = 29000.0
 SUPPORT_INFLATION = 1.18
 ManifestOrderKey = tuple[float, float, str]
 
@@ -155,7 +154,11 @@ def _case_profile(case_id: str, rows: list[ClassificationRow]) -> tuple[CasePack
             )
         file_specs.append(spec)
 
-    if total_xy > FORM4BL_XY_BUDGET:
+    xy_budget = get_printer_xy_budget(
+        get_preset_profile(preset_names[0]).printer if preset_names else None
+    )
+
+    if total_xy > xy_budget:
         return None, _build_non_plannable_manifest(
             case_id=case_id,
             preset_names=preset_names,
@@ -249,6 +252,14 @@ def _build_manifest(compatibility_key: str, profiles: list[CasePackProfile]) -> 
     )
 
 
+def _profile_xy_budget(profile: CasePackProfile) -> float:
+    if not profile.file_specs:
+        return get_printer_xy_budget(None)
+    return get_printer_xy_budget(
+        get_preset_profile(profile.file_specs[0].preset_name).printer
+    )
+
+
 def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
     ready_rows = [
         row
@@ -270,8 +281,9 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
         seed = remaining.pop(0)
         chosen = [seed]
         used = seed.total_xy_footprint
+        xy_budget = _profile_xy_budget(seed)
 
-        while remaining and used + remaining[0].total_xy_footprint <= FORM4BL_XY_BUDGET:
+        while remaining and used + remaining[0].total_xy_footprint <= xy_budget:
             candidate = remaining.pop(0)
             chosen.append(candidate)
             used += candidate.total_xy_footprint
@@ -282,7 +294,7 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
         )
         for filler in list(fillers):
             if (
-                used + filler.total_xy_footprint <= FORM4BL_XY_BUDGET
+                used + filler.total_xy_footprint <= xy_budget
                 and filler in remaining
             ):
                 chosen.append(filler)

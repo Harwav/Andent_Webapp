@@ -72,6 +72,15 @@ PRESET_CATALOG: dict[str, PresetProfile] = {
     ),
 }
 
+_PRINTER_BUILD_AREAS_MM2: dict[str, float] = {
+    "Form 4": 200.0 * 125.0,
+    "Form 4B": 200.0 * 125.0,
+    "Form 4L": 335.0 * 200.0,
+    "Form 4BL": 335.0 * 200.0,
+}
+_FORM4BL_BASELINE_XY_BUDGET = 29000.0
+_FORM4BL_BASELINE_AREA_MM2 = _PRINTER_BUILD_AREAS_MM2["Form 4BL"]
+
 LEGACY_PRESET_ALIASES: dict[str, str] = {
     "Ortho - Solid": "Ortho Solid - Flat, No Supports",
     "Ortho - Hollow": "Ortho Hollow - Flat, No Supports",
@@ -100,6 +109,18 @@ def get_preset_profile(preset_name: str | None) -> PresetProfile | None:
 def get_preform_preset_hint(preset_name: str | None) -> str | None:
     profile = get_preset_profile(preset_name)
     return profile.preform_hint if profile else None
+
+
+def get_printer_xy_budget(printer_name: str | None) -> float:
+    if not printer_name:
+        return _FORM4BL_BASELINE_XY_BUDGET
+    area_mm2 = _PRINTER_BUILD_AREAS_MM2.get(printer_name)
+    if area_mm2 is None:
+        return _FORM4BL_BASELINE_XY_BUDGET
+    return round(
+        _FORM4BL_BASELINE_XY_BUDGET * (area_mm2 / _FORM4BL_BASELINE_AREA_MM2),
+        2,
+    )
 
 
 def build_compatibility_key(preset_names: list[str]) -> str:

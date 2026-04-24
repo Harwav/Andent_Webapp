@@ -260,3 +260,27 @@ def test_plan_build_manifests_preserves_selected_case_priority_in_file_order():
         key=lambda spec: spec.order,
     )
     assert [spec.row_id for spec in ordered_files] == [10, 11, 20]
+
+
+def test_plan_build_manifests_respects_form4b_xy_budget(monkeypatch):
+    monkeypatch.setitem(
+        PRESET_CATALOG,
+        "Form 4B Experimental",
+        PresetProfile(
+            preset_name="Form 4B Experimental",
+            printer="Form 4B",
+            resin="Precision Model Resin",
+            layer_height_microns=100,
+            requires_supports=False,
+            preform_hint="form4b_experimental_v1",
+        ),
+    )
+
+    rows = [
+        _row(1, "CASE-A", "Form 4B Experimental", 80.0, 75.0),
+        _row(2, "CASE-B", "Form 4B Experimental", 80.0, 75.0),
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert [manifest.case_ids for manifest in manifests] == [["CASE-A"], ["CASE-B"]]

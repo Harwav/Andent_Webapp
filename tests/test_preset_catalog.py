@@ -13,6 +13,7 @@ from app.services.preset_catalog import (
     PRESET_CATALOG,
     PresetProfile,
     build_compatibility_key,
+    get_printer_xy_budget,
     get_preform_preset_hint,
     get_preset_profile,
     presets_are_compatible,
@@ -41,6 +42,14 @@ def test_build_compatibility_key_is_stable_for_mixed_compatible_presets():
     )
 
     assert key == "form-4bl|precision-model-resin|100"
+
+
+def test_get_printer_xy_budget_scales_form4b_below_form4bl():
+    form4bl_budget = get_printer_xy_budget("Form 4BL")
+    form4b_budget = get_printer_xy_budget("Form 4B")
+
+    assert form4bl_budget == 29000.0
+    assert form4b_budget < form4bl_budget
 
 
 def test_get_preform_preset_hint_maps_ui_preset_to_preform_hint():

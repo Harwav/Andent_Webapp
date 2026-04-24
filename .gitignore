@@ -41,6 +41,7 @@ andent_web/data/
 # Logs
 *.log
 .omx/
+.omc/
 
 # Environment
 .env

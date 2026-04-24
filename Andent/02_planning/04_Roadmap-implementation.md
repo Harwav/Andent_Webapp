@@ -19,7 +19,7 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Phase | Name | Status | Repository State | Verification State |
 |-------|------|--------|------------------|--------------------|
 | Phase 0 | Classification Intake | COMPLETE | Delivered | Mostly covered |
-| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE (repo) | Major surfaces plus Form 4BL build manifests implemented | Automated verification green; live validation pending |
+| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE (repo) | Major surfaces plus printer-aware build manifests implemented | Automated verification green; live validation pending |
 | Phase 2 | Enhanced Queue Features | PARTIALLY IMPLEMENTED | Several UX features already landed | Uneven coverage |
 | Phase 3 | Validation & Metrics | PARTIALLY IMPLEMENTED | Metrics/API scaffolding exists | Not wired to live workflow proof |
 | Phase 4 | Production Hardening | PARTIALLY IMPLEMENTED | Health/network basics exist | Production hardening incomplete |
@@ -38,7 +38,8 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Human review limited to ambiguous or missing case IDs | Done |
 | Human-reviewed outliers remain `<=2%` | Partial |
 | Standard die/tooth cases are not blocked by the old MVP safety gate | Done |
-| Compatible mixed presets share Form 4BL builds without splitting cases | Done |
+| Compatible mixed presets share builds without splitting cases | Done |
+| Planner uses printer-aware XY budgets and startup-case seeding | Done |
 | Andent Web sends prepared jobs to PreFormServer | Done |
 
 Source of truth: see the line-by-line checklist in `Andent/02_planning/01_PRD-andent-web.md`.
@@ -88,13 +89,15 @@ Source of truth: see the line-by-line checklist in `Andent/02_planning/01_PRD-an
 
 Complete PreFormServer integration with automated batching, real handoff, and new Print Queue tab for job monitoring.
 
-### Current Status (2026-04-21)
+### Current Status (2026-04-23)
 
 This phase is no longer just planned work. The repository already contains:
 
 - batching logic and job naming
 - `PreFormClient` and `FormlabsWebClient`
-- preset catalog and compatibility-aware Form 4BL build manifests
+- preset catalog and compatibility-aware build manifests
+- printer-aware XY budgets for `Form 4B` and `Form 4BL`
+- bounded case-ordering strategy: startup seeding, descending pass, then smallest fillers
 - `print_jobs` schema and CRUD helpers
 - real handoff routing from `/api/uploads/rows/send-to-print`
 - Print Queue API/UI, status sync, and screenshot caching
@@ -108,7 +111,7 @@ What still blocks full launch sign-off is external validation quality:
 
 | Feature | Description | Effort | Priority | Dependencies |
 |---------|-------------|--------|----------|--------------|
-| **Build Planning Logic** | Group Ready rows into whole-case Form 4BL manifests by compatible printer/resin/layer-height, auto-generate job names | 1 day | P0 | None |
+| **Build Planning Logic** | Group Ready rows into whole-case manifests by compatible printer/resin/layer-height, auto-generate job names, and apply printer-aware case seeding | 1 day | P0 | None |
 | **Preset Configuration Update** | Ortho/Hollow/Die lay flat; Tooth auto-supports; All use Precision Model Resin 100µm | 0.5 day | P0 | Batching |
 | **Real Handoff Endpoint** | Replace simulated send-to-print with PreFormServer API calls | 1 day | P0 | Preset config |
 | **FormlabsWebClient** | New client for Formlabs Web API authentication and queries | 1 day | P0 | None |
@@ -159,7 +162,9 @@ What still blocks full launch sign-off is external validation quality:
 
 | Criterion | Current Status | Notes |
 |-----------|----------------|-------|
-| Build planning groups Ready cases by Form 4BL compatibility while preserving case cohesion | Implemented and tested | `tests/test_build_planning.py`, `tests/test_batching.py` |
+| Build planning groups Ready cases by compatibility while preserving case cohesion | Implemented and tested | `tests/test_build_planning.py`, `tests/test_batching.py` |
+| Planner uses printer-aware XY budgets so `Form 4B` and `Form 4BL` do not share the same effective heuristic capacity | Implemented and tested | `tests/test_preset_catalog.py`, `tests/test_build_planning.py` |
+| Planner seeds new builds with printer-aware startup windows (`Form 4B -> 3`, `Form 4BL -> 8`) and then switches from descending to smallest fillers on first fit miss | Implemented and tested | `tests/test_build_planning.py` |
 | Job names auto-generated (YYMMDD-001 format) | Implemented and tested | `tests/test_batching.py` |
 | Presets configured: Ortho/Hollow/Die = lay flat; Tooth = auto-supports; All = Precision Model Resin 100µm | Implemented and repository-verified | UI preset is now translated to a PreFormServer preset hint |
 | PreFormServer handoff creates scene, imports STLs, configures presets, validates layout, sends to printer | Implemented and repository-verified | Includes per-file preset hint propagation, row-level printer routing, auto-layout validation, and whole-case rollback |
@@ -375,7 +380,7 @@ The following were removed from Andent Web scope after architecture clarificatio
 |-----|--------|
 | Upload-to-queue latency target | Defined: <30s per file |
 | Printer dispatch success-rate target | To be defined |
-| Mixed-model-type upload handling rules | Compatible same-printer/resin/layer-height presets are handled by Form 4BL build manifests; incompatible case-level mixes route to review |
+| Mixed-model-type upload handling rules | Compatible same-printer/resin/layer-height presets are handled by printer-aware build manifests; incompatible case-level mixes route to review |
 
 ---
 
@@ -390,6 +395,7 @@ The following were removed from Andent Web scope after architecture clarificatio
 | 2026-04-21 | Updated roadmap to reflect implemented Phase 1/2/3/4 surfaces and remaining verification gaps |
 | 2026-04-21 | Updated after stabilization pass: clean full-suite verification, classify-route fix, preset/device propagation completed |
 | 2026-04-21 | Updated after Form 4BL build layout completion: build manifests, mixed-compatible preset grouping, and 187-test verification |
+| 2026-04-23 | Updated after printer-aware planner enhancement: XY budgets now scale by printer, startup-case seeding is explicit, and filler fallback is locked by tests |
 
 ---
 

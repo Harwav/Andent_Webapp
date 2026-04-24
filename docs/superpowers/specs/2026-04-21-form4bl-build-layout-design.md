@@ -10,6 +10,16 @@ This design changes Andent Web from preset-only batching to compatibility-aware 
 
 Implementation note (2026-04-21): this design is now implemented in `app/services/preset_catalog.py`, `app/services/build_planning.py`, `app/services/print_queue_service.py`, and `app/services/planning_preview.py`. Repository verification passed with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q` (`187 passed`). Live PreFormServer/Formlabs acceptance validation remains a separate launch gate.
 
+Implementation note (2026-04-23): the planner was further refined to make build selection printer-aware. The current repository now:
+
+1. scales XY budgets by printer family instead of assuming one Form 4BL-sized budget for all builds
+2. starts new `Form 4B` builds by attempting the largest `3` cases when at least `3` remain
+3. starts new `Form 4BL` builds by attempting the largest `8` cases when at least `8` remain
+4. continues descending by case priority until the first fit miss
+5. then switches to smallest fillers
+
+The fit signal remains heuristic and XY-budget-only. No live scene-fit probe was added in this refinement.
+
 The planner must:
 
 1. Keep each `case` intact. A case must never split across builds.

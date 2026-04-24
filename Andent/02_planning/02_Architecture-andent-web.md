@@ -1,8 +1,8 @@
 # Architecture: Andent Web Auto Prep
 
 > **Created:** 2026-04-18
-> **Updated:** 2026-04-21
-> **Status:** Approved intent; repository implementation is complete and automated verification is green, with live-service acceptance still pending
+> **Updated:** 2026-04-23
+> **Status:** Approved intent; repository implementation is complete, planner behavior is now printer-aware, and live-service acceptance is still pending
 
 ---
 
@@ -13,10 +13,10 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 ### Key Insight
 **PreFormServer handles all print-related operations:** job queue management, printer dispatch, orient/pack, support generation, and print status tracking. Andent Web focuses solely on intake, classification, and handoff.
 
-### Current Repository Snapshot (2026-04-21)
+### Current Repository Snapshot (2026-04-23)
 
-- Implemented: intake/classification queue, editable overrides, preset catalog, compatibility-aware Form 4BL build planning, send-to-print handoff route, print job persistence, Print Queue tab, Formlabs polling, screenshot retrieval, and plan preview endpoints.
-- Verified in repository: the upload/classification route, Form 4BL planner, handoff route, print-queue flows, and a clean full-suite pytest run (`187 passed` with plugin autoload disabled in this environment).
+- Implemented: intake/classification queue, editable overrides, preset catalog, compatibility-aware build planning, printer-aware XY budgets, `Form 4B`/`Form 4BL` startup case seeding, descending-to-filler planner flow, send-to-print handoff route, print job persistence, Print Queue tab, Formlabs polling, screenshot retrieval, and plan preview endpoints.
+- Verified in repository: the upload/classification route, planner ordering/budget logic, handoff route, print-queue flows, and the planner-related pytest surface (`55 passed` with plugin autoload disabled in this environment).
 - Still not proven from repository-only evidence: launch metrics against real workflow volume, and a live external-service run through PreFormServer/Formlabs hardware/cloud.
 
 ---
@@ -129,7 +129,7 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | STL Upload | Browser drag-drop upload to server | ✅ Phase 0 |
 | Classification | Detect model type + case ID from filename/geometry | ✅ Phase 0 |
 | Preset Assignment | Map model type to preset | ✅ Phase 0 |
-| Build Planning | Whole-case Form 4BL manifests grouped by compatible printer/resin/layer-height | Implemented and repository-verified |
+| Build Planning | Whole-case manifests grouped by compatible printer/resin/layer-height, with printer-aware budgets and startup seeding | Implemented and repository-verified |
 | Queue UI | Active/Processed tabs with editing | ✅ Phase 0 |
 | Plan Preview | Read-only predicted grouping using the same build-manifest planner as handoff | Implemented |
 | Print Queue Display | Job list, screenshots, and status display via polling | Implemented (display only) |
@@ -248,6 +248,7 @@ andent_web/
 | 2026-04-21 | Updated implementation snapshot, endpoint surface, and verification status to match the repository |
 | 2026-04-21 | Updated after stabilization pass: classify route fixed, handoff boundary completed, full automated suite green |
 | 2026-04-21 | Updated after Form 4BL build layout completion: compatibility-aware build manifests, mixed-preset queue display, and 187-test verification |
+| 2026-04-23 | Updated after printer-aware planner enhancement: `Form 4B`/`Form 4BL` startup seeding, printer-specific XY budgets, and descending-to-filler behavior |
 
 ---
 
