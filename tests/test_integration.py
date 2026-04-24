@@ -69,7 +69,7 @@ class TestFullPrintHandoffFlow:
                 case_id="A",
                 confidence="high",
                 status="Ready",
-                dimensions=DimensionSummary(x_mm=150.0, y_mm=100.0, z_mm=10.0),
+                dimensions=DimensionSummary(x_mm=278.0, y_mm=54.0, z_mm=10.0),
                 file_path="C:/cases/a.stl",
             ),
             ClassificationRow(
@@ -79,7 +79,7 @@ class TestFullPrintHandoffFlow:
                 case_id="B",
                 confidence="high",
                 status="Ready",
-                dimensions=DimensionSummary(x_mm=140.0, y_mm=100.0, z_mm=10.0),
+                dimensions=DimensionSummary(x_mm=259.0, y_mm=54.0, z_mm=10.0),
                 file_path="C:/cases/b.stl",
             ),
             ClassificationRow(
