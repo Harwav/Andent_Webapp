@@ -68,7 +68,7 @@ Fresh generated artifacts: `form4bl_form_exports_calibrated_4build/`
 
 Artifacts saved:
 
-- 4 `.form` files
+- 4 local `.form` files, intentionally gitignored as generated binaries
 - 4 `.png` screenshots
 - `export-summary.json`
 - `xy-density-mesh-projection-025mm.json`

@@ -34,9 +34,11 @@ node_modules/
 Thumbs.db
 
 # Data
+data/
 andent_web/data/
 *.db
 *.sqlite
+*.form
 
 # Logs
 *.log

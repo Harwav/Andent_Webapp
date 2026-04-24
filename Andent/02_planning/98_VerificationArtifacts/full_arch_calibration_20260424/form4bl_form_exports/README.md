@@ -6,7 +6,8 @@ This folder contains the corrected Form 4BL inspection artifacts for the `From 4
 
 - Source data: `C:\Users\Marcus\Desktop\BM\20260409_Andent_Matt\From 4BL Test Data`
 - PreForm scene settings: `FRML-4-0`, `FLPMBE01`, `0.100 mm`, `DEFAULT`
-- Exported builds: 9 `.form` files and 9 `.png` screenshots
+- Exported builds: 9 local `.form` files and 9 `.png` screenshots
+- Git tracking note: `.form` files are intentionally ignored because they are large generated binary artifacts. Local copies remain available in this folder after the benchmark run; the tracked evidence is the README, screenshots, and JSON summaries.
 - Guardrail: each `.form` was saved only after the live scene imported the planned model count and auto-layout completed.
 - Summary file: `export-summary.json`
 

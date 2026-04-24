@@ -4,6 +4,8 @@ This folder contains the fresh calibrated Form 4BL inspection artifacts for `C:\
 
 ## Artifacts
 
+Tracked evidence in Git is limited to the README, `.png` screenshots, and JSON summaries. The `.form` files are intentionally gitignored because they are large generated binary artifacts; local copies remain in this folder after the benchmark run and can be regenerated with `scripts/form4bl_packing_benchmark.py`.
+
 - `form4bl_calibrated_build_01_11cases_29models.form`
 - `form4bl_calibrated_build_01_11cases_29models.png`
 - `form4bl_calibrated_build_02_12cases_34models.form`
