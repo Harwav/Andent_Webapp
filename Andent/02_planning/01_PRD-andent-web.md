@@ -1,6 +1,6 @@
 # Andent Web PRD
 
-> **Status:** Phase 0 complete (2026-04-18). Repository implementation for the current web scope, including compatibility-aware Form 4BL build planning, is complete and automated verification is green as of 2026-04-21. Launch acceptance still requires live workflow evidence.
+> **Status:** Phase 0 complete (2026-04-18). Repository implementation for the current web scope, including compatibility-aware Form 4B/Form 4BL build planning, durable printer-group edits, and density-based build holding, is complete and automated verification is green as of 2026-04-27. Launch acceptance still requires live workflow evidence.
 
 ## Metadata
 
@@ -39,7 +39,9 @@ A web-based application that accepts dropped case files, uploads them, classifie
 - Automatic preset assignment based on model type, with operator override support.
 - Automatic case ID confirmation / derivation on the happy path.
 - Human review flow only for defined outliers.
-- Compatibility-aware Form 4BL build planning that keeps each case intact and allows only same-printer/resin/layer-height mixed presets.
+- Compatibility-aware Form 4B/Form 4BL build planning that keeps each case intact and allows only same-printer-group/material/layer-height mixed presets.
+- Operator-selectable printer group per row and in bulk, with default `Form 4BL` behavior.
+- Density-based holding for the final below-target build per compatibility group, with cutoff release and operator **Release now**.
 - **Handoff to PreFormServer** for downstream processing.
 
 > **PreFormServer handles:** orient/pack, support generation, job queue management, printer dispatch, print status tracking.
@@ -99,7 +101,7 @@ The system should not require human review for standard die/tooth support genera
 
 > **Note:** PreFormServer handles orient/pack, support generation, job queue management, printer dispatch, and print status tracking. Andent Web's acceptance criteria focus on intake-to-handoff accuracy.
 
-### Acceptance Checklist (2026-04-21)
+### Acceptance Checklist (2026-04-27)
 
 | Acceptance Criterion | Status | Current Basis |
 | --- | --- | --- |
@@ -113,20 +115,24 @@ The system should not require human review for standard die/tooth support genera
 | `ambiguous or missing case IDs` | Done | Implemented through case-ID validation and review-reason handling in `app/services/classification.py`. |
 | Human-reviewed outliers remain at or below `2%` of total cases. | Partial | Metrics calculations exist, but the repository does not yet contain live evidence proving the threshold. |
 | Standard die/tooth cases are not blocked by the previous MVP-era tooth support safety gate. | Done | The current web path no longer preserves the old safety block, and repository verification now covers the handoff path. |
-| Compatible mixed presets may share one Form 4BL build without splitting cases. | Done | Implemented through `app/services/preset_catalog.py`, `app/services/build_planning.py`, and manifest-driven handoff tests. |
+| Compatible mixed presets may share one Form 4B/Form 4BL build without splitting cases. | Done | Implemented through `app/services/preset_catalog.py`, `app/services/build_planning.py`, and manifest-driven handoff tests. |
+| Operators can choose and persist printer group target before handoff. | Done | Row-level and bulk printer-group updates persist through `app/database.py`, `/api/uploads/rows/{id}`, and `/api/uploads/rows/bulk-update`. |
+| Below-target final builds hold for more compatible sent cases until target, cutoff, or operator release. | Done | Implemented through `app/services/print_queue_service.py`, persisted `print_jobs` hold metadata, Print Queue details, and `/release-now`. |
 | **Andent Web sends prepared jobs to PreFormServer** (PreFormServer handles orient/pack/support/dispatch). | Done | Implemented through `/api/uploads/rows/send-to-print`, `app/services/print_queue_service.py`, and current PreForm handoff tests. |
 
 ## Approved Phase 0 Scope
 
 Phase 0 delivered classification intake (FastAPI server, STL upload, classification table, editable Model Type/Preset). **Complete as of 2026-04-18.** See `Andent/99_archive/phase-0-build-today.md` for full detail.
 
-## Current Repository Snapshot (2026-04-21)
+## Current Repository Snapshot (2026-04-27)
 
 Implemented in the repository:
 
 - intake/classification queue with editable model type and preset
 - case ID derivation and review-required flags for low-confidence or missing-ID rows
-- preset catalog and compatibility-aware Form 4BL build manifests
+- preset catalog and compatibility-aware Form 4B/Form 4BL build manifests
+- durable operator printer-group edits in the Work Queue and bulk action bar
+- density-based Holding for More Cases state, cutoff metadata, and operator Release now path
 - PreFormServer handoff route and print job persistence
 - Print Queue UI, Formlabs job polling, and screenshot retrieval/caching
 - read-only plan preview endpoints backed by the same build-manifest planner used for handoff
@@ -139,7 +145,9 @@ Not yet proven complete against launch acceptance:
 
 Current verification state:
 
-- automated repository verification is now green (`187 passed` with plugin autoload disabled in this environment)
+- automated repository verification is now green (`250 passed` with plugin autoload disabled in this environment)
+- TypeScript checking is green (`npx tsc --noEmit`)
+- affected Playwright bulk-actions release gate is green (`2 passed` on `ANDENT_PLAYWRIGHT_PORT=53123`)
 - remaining confidence gaps are operational rather than code-path blockers: live workflow metrics and real service/hardware validation
 
 ## Assumptions Exposed And Resolutions
@@ -203,5 +211,5 @@ Current repo state no longer needs a fresh planning handoff first. The next accu
 - The spec sets a clear straight-through target, but the current implementation still lacks repository-backed proof for:
   - upload-to-queue latency target under representative load
   - printer dispatch success-rate target
-  - live-service behavior for mixed-compatible Form 4BL builds
+  - live-service behavior for mixed-compatible Form 4B/Form 4BL builds and held-build release
 - Those should be closed through stabilization and validation, not by reopening product intent.

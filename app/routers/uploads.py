@@ -136,6 +136,8 @@ async def patch_upload_row(
             row_id,
             payload.model_type,
             payload.preset,
+            printer=payload.printer if "printer" in payload.model_fields_set else None,
+            update_printer="printer" in payload.model_fields_set,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -149,8 +151,9 @@ async def bulk_patch_upload_rows(
     request: Request,
     payload: BulkUpdateClassificationRowsRequest,
 ) -> list[ClassificationRow]:
-    if payload.model_type is None and payload.preset is None:
-        raise HTTPException(status_code=400, detail="Provide a model type or preset to update.")
+    update_printer = "printer" in payload.model_fields_set
+    if payload.model_type is None and payload.preset is None and not update_printer:
+        raise HTTPException(status_code=400, detail="Provide a model type, preset, or printer to update.")
 
     settings = request.app.state.settings
     try:
@@ -159,6 +162,8 @@ async def bulk_patch_upload_rows(
             payload.row_ids,
             payload.model_type,
             payload.preset,
+            printer=payload.printer if update_printer else None,
+            update_printer=update_printer,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

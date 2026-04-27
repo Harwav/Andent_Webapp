@@ -90,14 +90,18 @@ test('bulk dropdowns are inline self-applying controls', async ({ page }) => {
 
   const modelSelect = page.getByLabel('Change Model Type');
   const presetSelect = page.getByLabel('Change Preset');
+  const printerSelect = page.getByLabel('Change Printer');
   await expect(modelSelect).toBeVisible();
   await expect(presetSelect).toBeVisible();
+  await expect(printerSelect).toBeVisible();
 
   const deleteTop = await page.getByRole('button', { name: 'Delete (1)' }).evaluate((el) => el.getBoundingClientRect().top);
   const modelTop = await modelSelect.evaluate((el) => el.getBoundingClientRect().top);
   const presetTop = await presetSelect.evaluate((el) => el.getBoundingClientRect().top);
+  const printerTop = await printerSelect.evaluate((el) => el.getBoundingClientRect().top);
   expect(Math.abs(modelTop - deleteTop)).toBeLessThan(6);
   expect(Math.abs(presetTop - deleteTop)).toBeLessThan(6);
+  expect(Math.abs(printerTop - deleteTop)).toBeLessThan(6);
 
   await modelSelect.selectOption('Splint');
   await expect.poll(() => bulkUpdates.length).toBe(1);
@@ -106,6 +110,10 @@ test('bulk dropdowns are inline self-applying controls', async ({ page }) => {
   await presetSelect.selectOption('Splint - Flat, No Supports');
   await expect.poll(() => bulkUpdates.length).toBe(2);
   expect(bulkUpdates[1]).toEqual({ row_ids: [1], preset: 'Splint - Flat, No Supports' });
+
+  await printerSelect.selectOption('Form 4B');
+  await expect.poll(() => bulkUpdates.length).toBe(3);
+  expect(bulkUpdates[2]).toEqual({ row_ids: [1], printer: 'Form 4B' });
 });
 
 test('bulk duplicate approval and print submission post selected ready rows', async ({ page }) => {

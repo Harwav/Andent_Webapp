@@ -820,6 +820,9 @@ def update_upload_row(
     row_id: int,
     model_type: str | None,
     preset: str | None,
+    *,
+    printer: str | None = None,
+    update_printer: bool | None = None,
 ) -> ClassificationRow | None:
     with closing(connect(settings)) as connection:
         existing = connection.execute(
@@ -862,13 +865,15 @@ def update_upload_row(
         if status == "Ready" and model_type and preset:
             next_review_required = False
             next_review_reason = None
+        should_update_printer = (printer is not None) if update_printer is None else update_printer
+        next_printer = printer if should_update_printer else existing["printer"]
 
         connection.execute(
             """
             UPDATE upload_rows
             SET model_type = ?, preset = ?, status = ?, structure = ?, structure_confidence = ?,
                 structure_reason = ?, structure_metrics_json = ?, structure_locked = ?,
-                review_required = ?, review_reason = ?,
+                review_required = ?, review_reason = ?, printer = ?,
                 current_event_at = COALESCE(current_event_at, created_at)
             WHERE id = ?
             """,
@@ -883,6 +888,7 @@ def update_upload_row(
                 1 if next_structure_locked else 0,
                 1 if next_review_required else 0,
                 next_review_reason,
+                next_printer,
                 row_id,
             ),
         )
@@ -897,6 +903,7 @@ def update_upload_row(
                 "status": status,
                 "structure": next_structure,
                 "structure_locked": next_structure_locked,
+                "printer": next_printer,
             },
         )
         connection.commit()
@@ -916,6 +923,9 @@ def bulk_update_upload_rows(
     row_ids: Iterable[int],
     model_type: str | None,
     preset: str | None,
+    printer: str | None = None,
+    *,
+    update_printer: bool | None = None,
 ) -> list[ClassificationRow]:
     ids = list(row_ids)
     if not ids:
@@ -974,13 +984,15 @@ def bulk_update_upload_rows(
             if next_status == "Ready" and next_model_type and next_preset:
                 next_review_required = False
                 next_review_reason = None
+            should_update_printer = (printer is not None) if update_printer is None else update_printer
+            next_printer = printer if should_update_printer else row["printer"]
 
             connection.execute(
                 """
                 UPDATE upload_rows
                 SET model_type = ?, preset = ?, status = ?, structure = ?, structure_confidence = ?,
                     structure_reason = ?, structure_metrics_json = ?, structure_locked = ?,
-                    review_required = ?, review_reason = ?,
+                    review_required = ?, review_reason = ?, printer = ?,
                     current_event_at = COALESCE(current_event_at, created_at)
                 WHERE id = ?
                 """,
@@ -995,6 +1007,7 @@ def bulk_update_upload_rows(
                     1 if next_structure_locked else 0,
                     1 if next_review_required else 0,
                     next_review_reason,
+                    next_printer,
                     row_id,
                 ),
             )
@@ -1009,6 +1022,7 @@ def bulk_update_upload_rows(
                     "status": next_status,
                     "structure": next_structure,
                     "structure_locked": next_structure_locked,
+                    "printer": next_printer,
                 },
             )
 

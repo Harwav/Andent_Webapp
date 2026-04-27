@@ -2,7 +2,7 @@
 
 > **Created:** 2026-04-18
 > **Status:** Active
-> **Current Phase:** Repository implementation is complete for the current scope; live acceptance validation is next
+> **Current Phase:** Repository implementation is complete for the current scope, including preset/printer/holding policy; live acceptance validation is next
 
 ---
 
@@ -19,7 +19,7 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Phase | Name | Status | Repository State | Verification State |
 |-------|------|--------|------------------|--------------------|
 | Phase 0 | Classification Intake | COMPLETE | Delivered | Mostly covered |
-| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE (repo) | Major surfaces plus Form 4BL build manifests implemented | Automated verification green; live validation pending |
+| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE (repo) | Major surfaces plus Form 4B/Form 4BL build manifests, printer edits, and held-build release implemented | Automated verification green; live validation pending |
 | Phase 2 | Enhanced Queue Features | PARTIALLY IMPLEMENTED | Several UX features already landed | Uneven coverage |
 | Phase 3 | Validation & Metrics | PARTIALLY IMPLEMENTED | Metrics/API scaffolding exists | Not wired to live workflow proof |
 | Phase 4 | Production Hardening | PARTIALLY IMPLEMENTED | Health/network basics exist | Production hardening incomplete |
@@ -38,7 +38,9 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Human review limited to ambiguous or missing case IDs | Done |
 | Human-reviewed outliers remain `<=2%` | Partial |
 | Standard die/tooth cases are not blocked by the old MVP safety gate | Done |
-| Compatible mixed presets share Form 4BL builds without splitting cases | Done |
+| Compatible mixed presets share Form 4B/Form 4BL builds without splitting cases | Done |
+| Operators can choose printer group per row or in bulk | Done |
+| Below-target final builds hold until target, cutoff, or operator release | Done |
 | Andent Web sends prepared jobs to PreFormServer | Done |
 
 Source of truth: see the line-by-line checklist in `Andent/02_planning/01_PRD-andent-web.md`.
@@ -88,13 +90,15 @@ Source of truth: see the line-by-line checklist in `Andent/02_planning/01_PRD-an
 
 Complete PreFormServer integration with automated batching, real handoff, and new Print Queue tab for job monitoring.
 
-### Current Status (2026-04-21)
+### Current Status (2026-04-27)
 
 This phase is no longer just planned work. The repository already contains:
 
 - batching logic and job naming
 - `PreFormClient` and `FormlabsWebClient`
-- preset catalog and compatibility-aware Form 4BL build manifests
+- preset catalog and compatibility-aware Form 4B/Form 4BL build manifests
+- durable row and bulk printer-group edits
+- density-based build holding, persisted hold metadata, and Release now
 - `print_jobs` schema and CRUD helpers
 - real handoff routing from `/api/uploads/rows/send-to-print`
 - Print Queue API/UI, status sync, and screenshot caching
@@ -108,7 +112,7 @@ What still blocks full launch sign-off is external validation quality:
 
 | Feature | Description | Effort | Priority | Dependencies |
 |---------|-------------|--------|----------|--------------|
-| **Build Planning Logic** | Group Ready rows into whole-case Form 4BL manifests by compatible printer/resin/layer-height, auto-generate job names | 1 day | P0 | None |
+| **Build Planning Logic** | Group Ready rows into whole-case Form 4B/Form 4BL manifests by compatible printer group/material/layer-height, auto-generate job names | 1 day | P0 | None |
 | **Preset Configuration Update** | Ortho/Hollow/Die lay flat; Tooth auto-supports; All use Precision Model Resin 100µm | 0.5 day | P0 | Batching |
 | **Real Handoff Endpoint** | Replace simulated send-to-print with PreFormServer API calls | 1 day | P0 | Preset config |
 | **FormlabsWebClient** | New client for Formlabs Web API authentication and queries | 1 day | P0 | None |
@@ -159,16 +163,18 @@ What still blocks full launch sign-off is external validation quality:
 
 | Criterion | Current Status | Notes |
 |-----------|----------------|-------|
-| Build planning groups Ready cases by Form 4BL compatibility while preserving case cohesion | Implemented and tested | `tests/test_build_planning.py`, `tests/test_batching.py` |
+| Build planning groups Ready cases by Form 4B/Form 4BL compatibility while preserving case cohesion | Implemented and tested | `tests/test_build_planning.py`, `tests/test_batching.py` |
+| Printer group edits persist for rows and bulk selections | Implemented and tested | `tests/test_durable_overrides.py`, `tests/test_frontend_static.py`, `tests/release_gate/bulk-actions.spec.ts` |
+| Final below-target builds can hold and release by density target, cutoff, or operator action | Implemented and tested | `tests/test_print_queue.py`, `tests/test_preform_handoff.py`, `tests/test_frontend_static.py` |
 | Job names auto-generated (YYMMDD-001 format) | Implemented and tested | `tests/test_batching.py` |
 | Presets configured: Ortho/Hollow/Die = lay flat; Tooth = auto-supports; All = Precision Model Resin 100µm | Implemented and repository-verified | UI preset is now translated to a PreFormServer preset hint |
-| PreFormServer handoff creates scene, imports STLs, configures presets, validates layout, sends to printer | Implemented and repository-verified | Includes per-file preset hint propagation, row-level printer routing, auto-layout validation, and whole-case rollback |
+| PreFormServer handoff creates scene, imports STLs, configures presets, validates layout, sends to printer | Implemented and repository-verified | Includes per-file preset hint propagation, row and bulk printer routing, auto-layout validation, and whole-case rollback |
 | Print Queue tab displays jobs with screenshots, names, cases, status | Implemented and tested | `tests/test_print_queue.py`, `tests/test_print_queue_polling.py` |
 | Formlabs Web API client authenticates and fetches job data | Implemented and tested | `tests/test_formlabs_web_client.py` |
 | Backend polls Formlabs API every 5s for status updates | Partially complete | Current design uses frontend 5s polling plus backend cache-on-request sync |
 | Status values shown: Queued, Printing, Failed, Paused, Completed | Implemented | Schema/UI support present |
 | Connection errors handled with user-friendly messages | Basic handling implemented | Broader recovery remains a stabilization task |
-| All P0 tests passing | Complete | Full suite currently passes in this environment (`187 passed`) |
+| All P0 tests passing | Complete | Full suite currently passes in this environment (`250 passed`); TypeScript and affected Playwright bulk-actions checks pass |
 
 ---
 
@@ -361,7 +367,7 @@ The following were removed from Andent Web scope after architecture clarificatio
 
 ## Next Action
 
-**Phase 1 stabilization and acceptance proof**
+**Live acceptance proof**
 
 1. Run a live PreFormServer/Formlabs validation pass.
 2. Capture real workflow metrics for launch acceptance.
@@ -375,7 +381,7 @@ The following were removed from Andent Web scope after architecture clarificatio
 |-----|--------|
 | Upload-to-queue latency target | Defined: <30s per file |
 | Printer dispatch success-rate target | To be defined |
-| Mixed-model-type upload handling rules | Compatible same-printer/resin/layer-height presets are handled by Form 4BL build manifests; incompatible case-level mixes route to review |
+| Mixed-model-type upload handling rules | Compatible same-printer-group/material/layer-height presets are handled by Form 4B/Form 4BL build manifests; incompatible case-level mixes route to review |
 
 ---
 
@@ -390,6 +396,7 @@ The following were removed from Andent Web scope after architecture clarificatio
 | 2026-04-21 | Updated roadmap to reflect implemented Phase 1/2/3/4 surfaces and remaining verification gaps |
 | 2026-04-21 | Updated after stabilization pass: clean full-suite verification, classify-route fix, preset/device propagation completed |
 | 2026-04-21 | Updated after Form 4BL build layout completion: build manifests, mixed-compatible preset grouping, and 187-test verification |
+| 2026-04-27 | Marked preset/printer/holding policy complete: Form 4B/Form 4BL manifests, printer-group edits, density holding, Release now, 250-test verification, TypeScript, and affected Playwright bulk-actions release gate |
 
 ---
 

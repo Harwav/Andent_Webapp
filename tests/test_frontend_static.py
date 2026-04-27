@@ -92,3 +92,37 @@ def test_send_to_print_does_not_gate_on_calculating_volume():
     assert 'return "Calculating..."' in app_js
     assert 'return !row.is_temp && !isRowPendingDelete(row) && row.status === "Ready";' in app_js
     assert 'row.volume_ml == null ? "Calculating Volume" : stage' in app_js
+
+
+def test_active_work_queue_exposes_printer_group_selector():
+    index_html = INDEX_HTML.read_text(encoding="utf-8")
+    app_js = APP_JS.read_text(encoding="utf-8")
+
+    assert '<th class="col-printer">Printer</th>' in index_html
+    assert 'const PRINTER_OPTIONS = ["Form 4BL", "Form 4B"];' in app_js
+    assert "function createPrinterSelect(row)" in app_js
+    assert 'select.dataset.testid = "printer-select";' in app_js
+    assert "printer: row.printer || null" in app_js
+
+
+def test_bulk_work_queue_exposes_printer_group_selector():
+    app_js = APP_JS.read_text(encoding="utf-8")
+
+    assert "bulkPrinterValue" in app_js
+    assert 'printerSelect.setAttribute("aria-label", "Change Printer");' in app_js
+    assert 'printerSelect.dataset.testid = "bulk-printer-select";' in app_js
+    assert "PRINTER_OPTIONS.forEach" in app_js
+    assert "printer: printer || null" in app_js
+
+
+def test_print_queue_displays_holding_density_cutoff_and_release():
+    app_js = APP_JS.read_text(encoding="utf-8")
+
+    assert "function formatDensity(value)" in app_js
+    assert "hold_cutoff_at" in app_js
+    assert "density_target" in app_js
+    assert 'createJobDetailItem("Target:", formatDensity(job.density_target))' in app_js
+    assert 'createJobDetailItem("Hold Reason:", job.hold_reason)' in app_js
+    assert 'createJobDetailItem("Release Reason:", job.release_reason)' in app_js
+    assert "Release now" in app_js
+    assert "/release-now" in app_js

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 Phase0ModelType = Literal["Ortho - Solid", "Ortho - Hollow", "Die", "Tooth", "Splint", "Antagonist"]
 ConfidenceLevel = Literal["high", "medium", "low"]
+PrinterGroup = Literal["Form 4BL", "Form 4B"]
 BuildPlanningStatus = Literal["planned", "non_plannable"]
 NonPlannableReason = Literal[
     "oversized_case",
@@ -94,6 +95,7 @@ class PreFormSetupActionResponse(BaseModel):
 class UpdateClassificationRowRequest(BaseModel):
     model_type: Phase0ModelType | None = None
     preset: str | None = None
+    printer: PrinterGroup | None = None
 
 
 class RowIdsRequest(BaseModel):
@@ -103,6 +105,7 @@ class RowIdsRequest(BaseModel):
 class BulkUpdateClassificationRowsRequest(RowIdsRequest):
     model_type: Phase0ModelType | None = None
     preset: str | None = None
+    printer: PrinterGroup | None = None
 
 
 class BulkDeleteRowsResponse(BaseModel):

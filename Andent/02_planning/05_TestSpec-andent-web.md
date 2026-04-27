@@ -59,6 +59,8 @@
 ### Classification And Editing
 - Verify `Preset` uses the same dropdown options as `Model Type`.
 - Verify changing `Model Type` auto-syncs `Preset` unless `Preset` has been explicitly overridden.
+- Verify `Printer` exposes `Form 4BL` and `Form 4B` choices and persists row-level changes.
+- Verify bulk `Printer` updates persist for all selected editable rows.
 - Verify confidence is normalized into internal `high`, `medium`, and `low`.
 - Verify user-facing final status mapping:
   - `high` -> `Ready`
@@ -87,11 +89,11 @@
 - Verify duplicate rows are selectable for `Allow Duplicate` before they are eligible for `Send to Print`.
 - Verify mixed selections can expose both `Send to Print` and `Allow Duplicate` actions when applicable.
 
-### Processed Tab
-- Verify `Send to Print` immediately moves selected `Ready` rows from `Active` to `Processed`.
-- Verify moved rows appear in `Processed` with status `Submitted`.
-- Verify `Processed` is read-only in the MVP.
-- Verify `Processed` columns include:
+### In Progress And History Sections
+- Verify `Send to Print` moves selected `Ready` rows out of File Analysis into In Progress or History, depending on handoff state.
+- Verify held rows appear in In Progress as `Holding for More Cases`.
+- Verify submitted/printed rows are read-only after handoff.
+- Verify History columns include:
   - `Status`
   - `File`
   - `Case ID`
@@ -136,11 +138,13 @@
 - Verify standard tooth and die jobs do not fail solely because of the retired MVP-era safety blocks.
 
 ### Planning And Packing
-- Verify Form 4BL compatibility keys derive from preset metadata (`app/services/preset_catalog.py`).
+- Verify Form 4B/Form 4BL compatibility keys derive from preset metadata (`app/services/preset_catalog.py`).
 - Verify same-case grouping remains intact through `plan_build_manifests()` (`app/services/build_planning.py`).
 - Verify compatible mixed presets can share one build manifest.
 - Verify incompatible presets never share a build manifest and incompatible same-case mixes route to manual review.
+- Verify same-case mixed printer-group targets route to manual review.
 - Verify largest/hardest-first seeding and smallest-case filler behavior remain deterministic.
+- Verify estimated density is derived from effective XY footprint divided by the printer-group XY budget.
 - Verify missing dimensions, missing file paths, missing row IDs, and oversized cases route to non-plannable manifest output instead of partial processing.
 - Verify build-manifest preview uses the same planner as send-to-print (`app/services/planning_preview.py`).
 
@@ -166,14 +170,24 @@
   - initial status event
 - Uploading a package with ambiguous case ID creates a review exception instead of dispatch.
 
-### Form 4BL Build Manifest Handoff
-- Compatible mixed presets share one PreFormServer scene when they resolve to the same printer/resin/layer-height family.
+### Form 4B/Form 4BL Build Manifest Handoff
+- Compatible mixed presets share one PreFormServer scene when they resolve to the same printer group/material/layer-height family.
 - Each uploaded case appears in at most one build manifest.
 - PreFormServer import receives the per-file preset hint from the manifest import group.
+- PreFormServer scene settings come from manifest printer group, material code, layer height, and print setting.
 - Scene auto-layout and validation run before printer dispatch.
 - Validation failure retries by removing whole cases only.
 - A single seed case that fails validation is marked for manual review.
-- Print job records persist `preset_names`, `compatibility_key`, and manifest JSON for audit/debugging.
+- Print job records persist `preset_names`, `compatibility_key`, printer group, material label/code, layer height, estimated density, validation result, validation errors, and manifest JSON for audit/debugging.
+
+### Held Build Policy
+- A final below-target build per compatibility group enters `Holding for More Cases` before cutoff.
+- Held rows leave Active and remain in the In Progress workflow; unsent Active rows are never pulled in silently.
+- Newly sent compatible rows replan with held rows while respecting planner budget.
+- Above-target replanned builds dispatch and only a final below-target remainder stays held.
+- Held builds persist across restart and do not auto-dispatch on startup after cutoff.
+- Operator **Release now** releases a held build through the normal PreForm handoff path.
+- Print Queue details show estimated density, target density, cutoff, hold reason, release reason, and validation warnings.
 
 ### Phase 0 Classification Table
 - Uploading STL files returns one row per file, even when files belong to the same case.
@@ -203,6 +217,7 @@
 - Group policies resolve to the expected target printer(s).
 - Invalid or missing printer-group configuration blocks dispatch and records an operational failure.
 - Real-printer dispatch outcomes are stored as job events.
+- Row and bulk printer-group choices are durable before dispatch.
 
 ## End-To-End Coverage
 
@@ -244,4 +259,4 @@
 ## Open Measurement Gaps
 - Upload-to-queue latency target is still undefined and must be fixed before launch sign-off.
 - Dispatch success-rate target is still undefined and must be fixed before launch sign-off.
-- Mixed-compatible Form 4BL upload behavior is implemented and covered by automated tests; live PreFormServer validation is still required before launch sign-off.
+- Mixed-compatible Form 4B/Form 4BL upload behavior and held-build release are implemented and covered by automated tests; live PreFormServer validation is still required before launch sign-off.

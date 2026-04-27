@@ -17,6 +17,7 @@ const DEFAULT_PRESET_BY_MODEL = {
 };
 
 const PRESET_OPTIONS = [...new Set(Object.values(DEFAULT_PRESET_BY_MODEL))];
+const PRINTER_OPTIONS = ["Form 4BL", "Form 4B"];
 
 const ACTIVE_STATUSES = [
     "Queued",
@@ -50,6 +51,7 @@ const state = {
     pendingBulkDelete: null,
     bulkModelTypeValue: "",
     bulkPresetValue: "",
+    bulkPrinterValue: "",
     pickerOpen: false,
     pickerReleaseId: null,
     preview: {
@@ -563,6 +565,13 @@ function formatDate(value) {
     });
 }
 
+function formatDensity(value) {
+    if (typeof value !== "number") {
+        return "-";
+    }
+    return `${Math.round(value * 100)}%`;
+}
+
 function createChip(status) {
     const span = document.createElement("span");
     const safeClass = status.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -682,6 +691,7 @@ async function persistRow(row) {
             body: JSON.stringify({
                 model_type: row.model_type,
                 preset: row.preset || null,
+                printer: row.printer || null,
             }),
         });
         const payload = await response.json();
@@ -784,6 +794,42 @@ function createPresetSelect(row) {
             row.model_type &&
             row.preset !== getDefaultPreset(row.model_type)
         );
+        render();
+        persistRow(row);
+    });
+    return select;
+}
+
+function createPrinterSelect(row) {
+    const select = document.createElement("select");
+    select.dataset.testid = "printer-select";
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Default";
+    defaultOption.selected = !row.printer;
+    select.appendChild(defaultOption);
+
+    PRINTER_OPTIONS.forEach((optionValue) => {
+        const option = document.createElement("option");
+        option.value = optionValue;
+        option.textContent = optionValue;
+        option.selected = row.printer === optionValue;
+        select.appendChild(option);
+    });
+
+    select.disabled = row.is_temp || isRowPendingDelete(row) || row.status === "Submitted";
+    select.addEventListener("focus", () => {
+        if (!row.is_temp) {
+            setRowLock(row.row_id, true, false);
+        }
+    });
+    select.addEventListener("blur", () => {
+        if (!row.is_temp) {
+            setRowLock(row.row_id, false);
+        }
+    });
+    select.addEventListener("change", (event) => {
+        row.printer = event.target.value || null;
         render();
         persistRow(row);
     });
@@ -1066,6 +1112,10 @@ function renderActiveRows() {
         presetCell.appendChild(createPresetSelect(row));
         tr.appendChild(presetCell);
 
+        const printerCell = document.createElement("td");
+        printerCell.appendChild(createPrinterSelect(row));
+        tr.appendChild(printerCell);
+
         const statusCell = document.createElement("td");
         const chip = createChip(rowStatusLabel(row));
         chip.dataset.testid = "status-chip";
@@ -1090,7 +1140,7 @@ function renderActiveRows() {
     if (pageRows.length === 0) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 10;
+        td.colSpan = 11;
         td.className = "table-empty";
         td.textContent = "No files currently need attention.";
         tr.appendChild(td);
@@ -1134,6 +1184,10 @@ function renderWorkQueueSections() {
         presetCell.textContent = row.preset || "-";
         tr.appendChild(presetCell);
 
+        const printerCell = document.createElement("td");
+        printerCell.textContent = row.printer || "-";
+        tr.appendChild(printerCell);
+
         const statusCell = document.createElement("td");
         const chip = createChip(rowStatusLabel(row));
         chip.dataset.testid = "status-chip";
@@ -1154,7 +1208,7 @@ function renderWorkQueueSections() {
     if (rows.length === 0) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 8;
+        td.colSpan = 9;
         td.className = "table-empty";
         td.textContent = "No files are currently being processed.";
         tr.appendChild(td);
@@ -1452,10 +1506,19 @@ function createJobCard(job) {
     detailsDiv.appendChild(createJobDetailItem("Presets:", presetList));
     detailsDiv.appendChild(createJobDetailItem("Build Profile:", job.compatibility_key));
     if (job.estimated_density != null) {
-        detailsDiv.appendChild(createJobDetailItem("Density:", `${Math.round(job.estimated_density * 100)}%`));
+        detailsDiv.appendChild(createJobDetailItem("Density:", formatDensity(job.estimated_density)));
+    }
+    if (job.density_target != null) {
+        detailsDiv.appendChild(createJobDetailItem("Target:", formatDensity(job.density_target)));
     }
     if (job.hold_cutoff_at) {
         detailsDiv.appendChild(createJobDetailItem("Cutoff:", formatDate(job.hold_cutoff_at)));
+    }
+    if (job.hold_reason) {
+        detailsDiv.appendChild(createJobDetailItem("Hold Reason:", job.hold_reason));
+    }
+    if (job.release_reason) {
+        detailsDiv.appendChild(createJobDetailItem("Release Reason:", job.release_reason));
     }
 
     const printerDiv = document.createElement("div");
@@ -1716,6 +1779,40 @@ function renderBulkActions() {
         });
     });
     elements.bulkActions.appendChild(presetSelect);
+
+    const printerSelect = document.createElement("select");
+    printerSelect.className = "bulk-select";
+    printerSelect.setAttribute("aria-label", "Change Printer");
+    printerSelect.dataset.testid = "bulk-printer-select";
+    const printerPlaceholder = document.createElement("option");
+    printerPlaceholder.value = "";
+    printerPlaceholder.textContent = "Change Printer";
+    printerPlaceholder.disabled = true;
+    printerPlaceholder.selected = !state.bulkPrinterValue;
+    printerSelect.appendChild(printerPlaceholder);
+    PRINTER_OPTIONS.forEach((optionValue) => {
+        const option = document.createElement("option");
+        option.value = optionValue;
+        option.textContent = optionValue;
+        option.selected = state.bulkPrinterValue === optionValue;
+        printerSelect.appendChild(option);
+    });
+    printerSelect.addEventListener("change", async (event) => {
+        const printer = event.target.value;
+        const rows = getSelectedRows();
+        if (!printer || rows.length === 0) {
+            return;
+        }
+        state.bulkPrinterValue = printer;
+        printerSelect.disabled = true;
+        await applyBulkUpdate({
+            row_ids: getRowIds(rows),
+            printer: printer || null,
+        }, `Updated printer for ${rows.length} row(s).`, () => {
+            state.bulkPrinterValue = "";
+        });
+    });
+    elements.bulkActions.appendChild(printerSelect);
 
     if (duplicateRows.length > 0) {
         const allowButton = document.createElement("button");
