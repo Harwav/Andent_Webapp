@@ -93,3 +93,30 @@ def test_send_to_print_records_dispatch_failure():
     _record_dispatch_event(success=False)
 
     assert metrics_service.dispatch_events[0]["success"] is False
+
+
+from fastapi.testclient import TestClient
+
+
+def _make_app():
+    from fastapi import FastAPI
+    from app.routers.metrics import router
+    app = FastAPI()
+    app.include_router(router)
+    return app
+
+
+def test_launch_check_endpoint_returns_overall_pass():
+    metrics_service.clear_records()
+    for _ in range(100):
+        metrics_service.add_record({"status": "Ready", "human_edits": False, "latency_seconds": 5.0})
+    for _ in range(5):
+        metrics_service.add_dispatch_event(success=True)
+
+    client = TestClient(_make_app())
+    resp = client.get("/api/metrics/launch-check")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "overall_pass" in data
+    assert data["straight_through"]["pass"] is True
+    assert data["dispatch_success"]["pass"] is True

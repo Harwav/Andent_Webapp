@@ -30,3 +30,9 @@ async def reset_metrics() -> dict:
     """Reset all metrics (for testing)."""
     metrics_service.clear_records()
     return {"status": "reset", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+@router.get("/launch-check")
+async def get_launch_check() -> dict:
+    """Return pass/fail for every PRD launch criterion against live data."""
+    return metrics_service.check_launch_targets()
