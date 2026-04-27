@@ -5,10 +5,3 @@ export async function waitForRowReady(page: Page, fileName: string): Promise<voi
   await expect(row).toBeVisible();
   await expect(row.locator('[data-testid="status-chip"]')).toHaveText('Ready');
 }
-
-export async function dismissSetupWizardIfPresent(page: Page): Promise<void> {
-  const button = page.getByRole('button', { name: 'Continue Without Printing' });
-  if (await button.count()) {
-    await button.click();
-  }
-}

@@ -1,11 +1,4 @@
-"""Release-gate preset normalization tests."""
-
-from __future__ import annotations
-
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
+"""Release gate preset normalization tests."""
 
 from app.config import build_settings
 from app.database import (
@@ -16,14 +9,14 @@ from app.database import (
 )
 
 
-def _build_settings(tmp_path: Path):
+def _build_settings(tmp_path):
     data_dir = tmp_path / "data"
     settings = build_settings(data_dir=data_dir, database_path=data_dir / "andent_web.db")
     init_db(settings)
     return settings
 
 
-def _seed_row(settings, file_name: str, *, model_type: str, preset: str):
+def _seed_row(settings, file_name: str, *, model_type: str, preset: str, confidence: str = "high"):
     stored_path = settings.data_dir / file_name
     stored_path.parent.mkdir(parents=True, exist_ok=True)
     stored_path.write_text("solid fixture\nendsolid fixture\n", encoding="utf-8")
@@ -39,7 +32,7 @@ def _seed_row(settings, file_name: str, *, model_type: str, preset: str):
                 "case_id": "CASE555",
                 "model_type": model_type,
                 "preset": preset,
-                "confidence": "high",
+                "confidence": confidence,
                 "status": "Ready",
                 "dimension_x_mm": None,
                 "dimension_y_mm": None,
@@ -71,7 +64,6 @@ def test_update_upload_row_maps_model_label_to_real_preset(tmp_path):
 
     updated = update_upload_row(settings, row_id, "Ortho - Solid", "Ortho - Solid")
 
-    assert updated is not None
     assert updated.model_type == "Ortho - Solid"
     assert updated.preset == "Ortho Solid - Flat, No Supports"
     assert updated.status == "Ready"

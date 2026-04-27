@@ -1,10 +1,8 @@
-import path from 'node:path';
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
+import path from 'node:path';
 import { test as base } from '@playwright/test';
-
-import { startAppInstance, stopAppInstance, type AppInstance } from './runtime.js';
+import { promisify } from 'node:util';
+import { startAppInstance, stopAppInstance, type AppInstance } from './runtime';
 
 const execFileAsync = promisify(execFile);
 
@@ -19,29 +17,30 @@ export const test = base.extend<{
   latestPrintJob: (databasePath: string) => Promise<any>;
   sceneStatus: (baseUrl: string, sceneId: string) => Promise<any>;
 }>({
-  liveApp: [async ({}, use: (app: AppInstance) => Promise<void>) => {
+  liveApp: [async ({}, use) => {
     const app = await startAppInstance({
+      port: 8201,
       dataDir: path.resolve('test-results/release-gate/live-app'),
       preformUrl: 'http://127.0.0.1:44388',
     });
     await use(app);
     await stopAppInstance(app);
-  }, { scope: 'test' }],
+  }, { scope: 'worker' }],
 
-  deadApp: [async ({}, use: (app: AppInstance) => Promise<void>) => {
+  deadApp: [async ({}, use) => {
     const app = await startAppInstance({
+      port: 8202,
       dataDir: path.resolve('test-results/release-gate/dead-app'),
       preformUrl: 'http://127.0.0.1:59999',
     });
     await use(app);
     await stopAppInstance(app);
-  }, { scope: 'test' }],
+  }, { scope: 'worker' }],
 
-  latestPrintJob: async ({}, use: (fn: (databasePath: string) => Promise<any>) => Promise<void>) => {
+  latestPrintJob: async ({}, use) => {
     await use((databasePath) => runVerify(['latest-print-job', '--database-path', databasePath]));
   },
-
-  sceneStatus: async ({}, use: (fn: (baseUrl: string, sceneId: string) => Promise<any>) => Promise<void>) => {
+  sceneStatus: async ({}, use) => {
     await use((baseUrl, sceneId) => runVerify(['scene', '--base-url', baseUrl, '--scene-id', sceneId]));
   },
 });

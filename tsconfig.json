@@ -6,9 +6,5 @@
     "strict": true,
     "types": ["node", "@playwright/test"]
   },
-  "include": [
-    "playwright.config.ts",
-    "tests/release_gate/**/*.ts",
-    "scripts/release_gate/**/*.mjs"
-  ]
+  "include": ["playwright.config.ts", "tests/release_gate/**/*.ts", "scripts/release_gate/**/*.mjs"]
 }

@@ -1,86 +1,16 @@
-solid ambiguous_cube
-  facet normal 0 0 -1
-    outer loop
-      vertex 0 0 0
-      vertex 16 16 0
-      vertex 16 0 0
-    endloop
-  endfacet
-  facet normal 0 0 -1
-    outer loop
-      vertex 0 0 0
-      vertex 0 16 0
-      vertex 16 16 0
-    endloop
-  endfacet
+solid release_gate_fixture
   facet normal 0 0 1
     outer loop
-      vertex 0 0 6
-      vertex 16 0 6
-      vertex 16 16 6
-    endloop
-  endfacet
-  facet normal 0 0 1
-    outer loop
-      vertex 0 0 6
-      vertex 16 16 6
-      vertex 0 16 6
-    endloop
-  endfacet
-  facet normal 0 -1 0
-    outer loop
       vertex 0 0 0
-      vertex 16 0 0
-      vertex 16 0 6
+      vertex 20 0 0
+      vertex 0 20 0
     endloop
   endfacet
-  facet normal 0 -1 0
+  facet normal 0 0 -1
     outer loop
-      vertex 0 0 0
-      vertex 16 0 6
-      vertex 0 0 6
+      vertex 0 0 5
+      vertex 0 20 5
+      vertex 20 0 5
     endloop
   endfacet
-  facet normal 0 1 0
-    outer loop
-      vertex 0 16 0
-      vertex 16 16 6
-      vertex 16 16 0
-    endloop
-  endfacet
-  facet normal 0 1 0
-    outer loop
-      vertex 0 16 0
-      vertex 0 16 6
-      vertex 16 16 6
-    endloop
-  endfacet
-  facet normal -1 0 0
-    outer loop
-      vertex 0 0 0
-      vertex 0 0 6
-      vertex 0 16 6
-    endloop
-  endfacet
-  facet normal -1 0 0
-    outer loop
-      vertex 0 0 0
-      vertex 0 16 6
-      vertex 0 16 0
-    endloop
-  endfacet
-  facet normal 1 0 0
-    outer loop
-      vertex 16 0 0
-      vertex 16 16 0
-      vertex 16 16 6
-    endloop
-  endfacet
-  facet normal 1 0 0
-    outer loop
-      vertex 16 0 0
-      vertex 16 16 6
-      vertex 16 0 6
-    endloop
-  endfacet
-endsolid ambiguous_cube
+endsolid release_gate_fixture
