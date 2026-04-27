@@ -8,7 +8,9 @@ Usage:
 Uploads every .stl file found under fixtures-dir, then fetches
 /api/metrics/launch-check and prints a pass/fail report.
 
-Requires: server running at base_url with FORMLABS_API_TOKEN set if dispatch validation is wanted.
+PreFormServer is started automatically via the Andent Web managed-install API
+if it is not already running. If no managed install exists, validation proceeds
+without dispatch proof and the dispatch_success criterion shows vacuously passing.
 """
 from __future__ import annotations
 
@@ -38,10 +40,52 @@ def get_launch_check(base_url: str) -> dict:
     return resp.json()
 
 
-def print_report(check: dict) -> bool:
+def ensure_preform_running(base_url: str) -> bool:
+    """Start PreFormServer via the managed API if not already running.
+
+    Returns True if PreFormServer is ready, False if unavailable/not installed.
+    """
+    try:
+        resp = httpx.get(f"{base_url}/api/preform-setup/status", timeout=10.0)
+        resp.raise_for_status()
+        status = resp.json()
+    except Exception as exc:
+        print(f"  WARNING: could not reach preform-setup status endpoint: {exc}")
+        return False
+
+    readiness = status.get("readiness", "")
+
+    if readiness == "ready":
+        version = status.get("detected_version", "unknown")
+        print(f"  PreFormServer already running (version {version}).")
+        return True
+
+    if readiness == "not_installed":
+        print("  PreFormServer not installed — skipping dispatch proof.")
+        return False
+
+    # installed_not_running or incompatible_version — attempt start
+    print(f"  PreFormServer status: {readiness}. Attempting start ...")
+    try:
+        start_resp = httpx.post(f"{base_url}/api/preform-setup/start", timeout=60.0)
+        start_resp.raise_for_status()
+        result = start_resp.json()
+        new_readiness = result.get("status", {}).get("readiness", "")
+        if new_readiness == "ready":
+            version = result.get("status", {}).get("detected_version", "unknown")
+            print(f"  PreFormServer started successfully (version {version}).")
+            return True
+        print(f"  PreFormServer start returned readiness={new_readiness!r} -- dispatch proof may be incomplete.")
+        return False
+    except Exception as exc:
+        print(f"  WARNING: could not start PreFormServer: {exc}")
+        return False
+
+
+def print_report(check: dict, preform_running: bool) -> bool:
     """Print the launch report. Returns True if overall_pass."""
     print("\n" + "=" * 60)
-    print("  ANDENT WEB — LAUNCH VALIDATION REPORT")
+    print("  ANDENT WEB -- LAUNCH VALIDATION REPORT")
     print("=" * 60)
 
     criteria = [
@@ -61,7 +105,10 @@ def print_report(check: dict) -> bool:
             value_str = f"{value:.1f}{unit}"
         else:
             value_str = str(value)
-        print(f"  {icon}  {label}: {value_str}  (target: {direction}{target}{unit})")
+        suffix = ""
+        if key == "dispatch_success" and not preform_running:
+            suffix = " (vacuous -- no PreFormServer)"
+        print(f"  {icon}  {label}: {value_str}  (target: {direction}{target}{unit}){suffix}")
 
     overall = check.get("overall_pass", False)
     print("=" * 60)
@@ -77,6 +124,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Andent Web launch validation")
     parser.add_argument("--base-url", default="http://127.0.0.1:8090")
     parser.add_argument("--fixtures-dir", default="Andent/04_customer-facing")
+    parser.add_argument(
+        "--skip-preform",
+        action="store_true",
+        help="Skip PreFormServer auto-start (classification-only run)",
+    )
     args = parser.parse_args()
 
     fixtures_dir = Path(args.fixtures_dir)
@@ -91,6 +143,14 @@ def main() -> int:
 
     print(f"Found {len(stl_files)} STL file(s) in {fixtures_dir}")
 
+    # Ensure PreFormServer is running before the validation run
+    if args.skip_preform:
+        preform_running = False
+        print("  Skipping PreFormServer auto-start (--skip-preform).")
+    else:
+        print("Checking PreFormServer ...")
+        preform_running = ensure_preform_running(args.base_url)
+
     # Reset metrics before the run
     httpx.post(f"{args.base_url}/api/metrics/reset", timeout=10.0).raise_for_status()
     print("Metrics reset.")
@@ -102,7 +162,7 @@ def main() -> int:
     print(f"Upload complete: {result.get('file_count', '?')} rows in {elapsed:.1f}s")
 
     check = get_launch_check(args.base_url)
-    overall_pass = print_report(check)
+    overall_pass = print_report(check, preform_running)
     return 0 if overall_pass else 1
 
 
