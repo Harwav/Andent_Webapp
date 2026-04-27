@@ -56,7 +56,7 @@ def print_report(check: dict) -> bool:
         value = item.get("value", "N/A")
         target = item.get("target", "N/A")
         passed = item.get("pass", False)
-        icon = "✓ PASS" if passed else "✗ FAIL"
+        icon = "[PASS]" if passed else "[FAIL]"
         if isinstance(value, float):
             value_str = f"{value:.1f}{unit}"
         else:
@@ -66,9 +66,9 @@ def print_report(check: dict) -> bool:
     overall = check.get("overall_pass", False)
     print("=" * 60)
     if overall:
-        print("  RESULT: ✓ READY TO SHIP")
+        print("  RESULT: [PASS] READY TO SHIP")
     else:
-        print("  RESULT: ✗ NOT READY — fix failing criteria above")
+        print("  RESULT: [FAIL] NOT READY -- fix failing criteria above")
     print("=" * 60 + "\n")
     return overall
 
