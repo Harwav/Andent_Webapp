@@ -29,6 +29,7 @@ export async function startAppInstance(opts: {
   dataDir: string;
   preformUrl: string;
 }): Promise<AppInstance> {
+  await fs.rm(opts.dataDir, { recursive: true, force: true });
   await fs.mkdir(opts.dataDir, { recursive: true });
   const databasePath = path.join(opts.dataDir, 'andent_web.db');
   const child = spawn(
