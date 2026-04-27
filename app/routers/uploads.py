@@ -56,6 +56,10 @@ def _record_classification_metrics(rows, upload_start: float) -> None:
         })
 
 
+def _record_dispatch_event(*, success: bool) -> None:
+    metrics_service.add_dispatch_event(success=success)
+
+
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 
@@ -193,10 +197,13 @@ async def bulk_allow_duplicate(request: Request, payload: RowIdsRequest) -> list
 async def bulk_send_to_print(request: Request, payload: RowIdsRequest) -> list[ClassificationRow]:
     settings = request.app.state.settings
     try:
-        return send_ready_rows_to_print(settings, payload.row_ids)
+        result = send_ready_rows_to_print(settings, payload.row_ids)
+        _record_dispatch_event(success=True)
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
+        _record_dispatch_event(success=False)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 

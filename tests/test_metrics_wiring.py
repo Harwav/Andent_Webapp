@@ -73,3 +73,23 @@ def test_classify_endpoint_records_metrics():
     assert metrics_service.classification_records[0]["status"] == "Ready"
     assert metrics_service.classification_records[1]["status"] == "Needs Review"
     assert metrics_service.classification_records[0]["latency_seconds"] == pytest.approx(2.5, abs=0.5)
+
+
+def test_send_to_print_records_dispatch_success():
+    """A successful send-to-print should record a dispatch success event."""
+    metrics_service.clear_records()
+
+    from app.routers.uploads import _record_dispatch_event
+    _record_dispatch_event(success=True)
+
+    assert len(metrics_service.dispatch_events) == 1
+    assert metrics_service.dispatch_events[0]["success"] is True
+
+
+def test_send_to_print_records_dispatch_failure():
+    metrics_service.clear_records()
+
+    from app.routers.uploads import _record_dispatch_event
+    _record_dispatch_event(success=False)
+
+    assert metrics_service.dispatch_events[0]["success"] is False
