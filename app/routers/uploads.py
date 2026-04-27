@@ -49,6 +49,8 @@ from ..services.metrics import metrics_service
 def _record_classification_metrics(rows, upload_start: float) -> None:
     elapsed = time.monotonic() - upload_start
     for row in rows:
+        if row.status == "Duplicate":
+            continue
         metrics_service.add_record({
             "status": row.status,
             "human_edits": False,
