@@ -19,7 +19,7 @@ export const test = base.extend<{
 }>({
   liveApp: [async ({}, use) => {
     const app = await startAppInstance({
-      port: 8091,
+      port: 8201,
       dataDir: path.resolve('test-results/release-gate/live-app'),
       preformUrl: 'http://127.0.0.1:44388',
     });
@@ -29,7 +29,7 @@ export const test = base.extend<{
 
   deadApp: [async ({}, use) => {
     const app = await startAppInstance({
-      port: 8092,
+      port: 8202,
       dataDir: path.resolve('test-results/release-gate/dead-app'),
       preformUrl: 'http://127.0.0.1:59999',
     });
