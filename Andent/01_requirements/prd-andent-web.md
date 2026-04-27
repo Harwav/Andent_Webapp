@@ -1,6 +1,6 @@
 # Andent Web PRD
 
-> **Status:** Phase 0 complete (2026-04-18). Active product — governs Phase 1 through production.
+> **Status:** Phase 1 complete (2026-04-27). All PRD acceptance criteria validated on representative fixtures. Live PreFormServer dispatch proof is the only remaining pre-production gap.
 
 ## Metadata
 
