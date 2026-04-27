@@ -1,5 +1,5 @@
 import pytest
-from app.services.metrics import MetricsService
+from app.services.metrics import MetricsService, metrics_service
 
 
 def test_dispatch_success_rate_all_success():
@@ -51,3 +51,25 @@ def test_check_launch_targets_latency_fail():
         dispatch_success_target=99.0,
     )
     assert result["latency_p95"]["pass"] is False
+
+
+import time
+from unittest.mock import MagicMock
+
+
+def test_classify_endpoint_records_metrics():
+    """After classification, _record_classification_metrics pushes rows into metrics_service."""
+    metrics_service.clear_records()
+
+    from app.routers.uploads import _record_classification_metrics
+    rows = [
+        MagicMock(status="Ready", review_required=False),
+        MagicMock(status="Needs Review", review_required=True),
+    ]
+    upload_start = time.monotonic() - 2.5
+    _record_classification_metrics(rows, upload_start)
+
+    assert len(metrics_service.classification_records) == 2
+    assert metrics_service.classification_records[0]["status"] == "Ready"
+    assert metrics_service.classification_records[1]["status"] == "Needs Review"
+    assert metrics_service.classification_records[0]["latency_seconds"] == pytest.approx(2.5, abs=0.5)

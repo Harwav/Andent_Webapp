@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import time
 from pathlib import Path
 from typing import List, Tuple
 from uuid import uuid4
@@ -42,6 +43,17 @@ from ..services.classification import (
     sanitize_filename,
     serialize_row_for_storage,
 )
+from ..services.metrics import metrics_service
+
+
+def _record_classification_metrics(rows, upload_start: float) -> None:
+    elapsed = time.monotonic() - upload_start
+    for row in rows:
+        metrics_service.add_record({
+            "status": row.status,
+            "human_edits": False,
+            "latency_seconds": elapsed,
+        })
 
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
@@ -56,6 +68,7 @@ async def classify_uploads(
     if not files:
         raise HTTPException(status_code=400, detail="Upload at least one STL file.")
 
+    upload_start = time.monotonic()
     settings = request.app.state.settings
     session_id = uuid4().hex
     session_dir = settings.uploads_dir / session_id
@@ -110,6 +123,7 @@ async def classify_uploads(
         shutil.rmtree(session_dir, ignore_errors=True)
         raise
 
+    _record_classification_metrics(stored_rows, upload_start)
     return UploadClassificationResponse(
         file_count=len(stored_rows),
         rows=stored_rows,
