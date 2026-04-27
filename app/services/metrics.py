@@ -11,6 +11,7 @@ class MetricsService:
 
     def __init__(self):
         self.classification_records: list[dict[str, Any]] = []
+        self.dispatch_events: list[dict] = []
 
     def add_record(self, record: dict[str, Any]) -> None:
         """Add a classification record for metrics calculation."""
@@ -41,7 +42,7 @@ class MetricsService:
 
         needs_review = sum(
             1 for r in self.classification_records
-            if r.get("status") in ("Needs Review", "Check")
+            if r.get("status") in ("Needs Review", "Check") or r.get("human_edits", False)
         )
         total = len(self.classification_records)
         return (needs_review / total) * 100 if total > 0 else 0.0
@@ -108,9 +109,63 @@ class MetricsService:
             "p99": percentile(0.99),
         }
 
+    def add_dispatch_event(self, *, success: bool) -> None:
+        """Record a PreFormServer dispatch outcome."""
+        self.dispatch_events.append({"success": success})
+
+    def calculate_dispatch_success_rate(self) -> float:
+        """Calculate dispatch success rate. Target: >=99%."""
+        if not self.dispatch_events:
+            return 100.0
+        successes = sum(1 for e in self.dispatch_events if e["success"])
+        return (successes / len(self.dispatch_events)) * 100.0
+
+    def check_launch_targets(
+        self,
+        *,
+        straight_through_target: float = 95.0,
+        review_rate_target: float = 2.0,
+        latency_p95_target_s: float = 30.0,
+        dispatch_success_target: float = 99.0,
+    ) -> dict[str, Any]:
+        """Return pass/fail for every PRD launch criterion."""
+        st_rate = self.calculate_straight_through_rate()
+        review_rate = self.calculate_human_review_rate()
+        latency = self.calculate_latency_percentiles()
+        dispatch_rate = self.calculate_dispatch_success_rate()
+        return {
+            "straight_through": {
+                "value": st_rate,
+                "target": straight_through_target,
+                "pass": st_rate >= straight_through_target,
+            },
+            "review_rate": {
+                "value": review_rate,
+                "target": review_rate_target,
+                "pass": review_rate <= review_rate_target,
+            },
+            "latency_p95": {
+                "value": latency["p95"],
+                "target": latency_p95_target_s,
+                "pass": latency["p95"] <= latency_p95_target_s or not self.classification_records,
+            },
+            "dispatch_success": {
+                "value": dispatch_rate,
+                "target": dispatch_success_target,
+                "pass": dispatch_rate >= dispatch_success_target,
+            },
+            "overall_pass": all([
+                st_rate >= straight_through_target,
+                review_rate <= review_rate_target,
+                latency["p95"] <= latency_p95_target_s or not self.classification_records,
+                dispatch_rate >= dispatch_success_target,
+            ]),
+        }
+
     def clear_records(self) -> None:
         """Clear all records for fresh calculation."""
         self.classification_records.clear()
+        self.dispatch_events.clear()
 
 
 # Global metrics service instance

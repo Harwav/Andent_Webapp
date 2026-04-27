@@ -30,6 +30,8 @@ class Settings:
     formlabs_api_url: str
     print_hold_density_target: float
     print_hold_cutoff_local_time: str
+    latency_p95_target_s: float
+    dispatch_success_rate_target: float
 
 
 def build_settings(
@@ -97,6 +99,12 @@ def build_settings(
         print_hold_cutoff_local_time=os.getenv(
             "ANDENT_WEB_PRINT_HOLD_CUTOFF_LOCAL_TIME",
             "18:00",
+        ),
+        latency_p95_target_s=float(
+            os.getenv("ANDENT_WEB_LATENCY_P95_TARGET_S", "30.0")
+        ),
+        dispatch_success_rate_target=float(
+            os.getenv("ANDENT_WEB_DISPATCH_SUCCESS_RATE_TARGET", "99.0")
         ),
     )
 
