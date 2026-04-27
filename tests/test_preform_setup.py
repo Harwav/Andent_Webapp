@@ -97,6 +97,47 @@ def test_setup_status_defaults_to_not_installed(tmp_path):
     assert status.last_error_code is None
 
 
+def test_default_supported_version_accepts_working_local_preform_build(tmp_path):
+    from app.services.preform_setup_service import PreFormSetupService
+
+    settings = _build_settings(tmp_path)
+    init_db(settings)
+    manager = PreFormSetupService(settings)
+
+    assert manager._version_is_supported("3.49.0.532") is True
+
+
+def test_launch_process_includes_managed_runtime_paths(tmp_path, monkeypatch):
+    from app.services.preform_setup_service import PreFormSetupService
+
+    settings = _build_settings(tmp_path)
+    init_db(settings)
+    settings.preform_managed_dir.mkdir(parents=True, exist_ok=True)
+    settings.preform_managed_executable.write_text("fake exe", encoding="utf-8")
+    (settings.preform_managed_dir / "hoops").mkdir(parents=True, exist_ok=True)
+
+    captured: dict[str, object] = {}
+
+    class _FakeProcess:
+        pid = 7777
+
+    def fake_popen(args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return _FakeProcess()
+
+    monkeypatch.setattr("app.services.preform_setup_service.subprocess.Popen", fake_popen)
+
+    manager = PreFormSetupService(settings)
+    pid = manager._launch_process(settings.preform_managed_executable)
+
+    assert pid == 7777
+    assert captured["kwargs"]["cwd"] == str(settings.preform_managed_dir)
+    env_path = captured["kwargs"]["env"]["PATH"]
+    assert str(settings.preform_managed_dir) in env_path
+    assert str(settings.preform_managed_dir / "hoops") in env_path
+
+
 def test_install_from_zip_extracts_managed_copy_and_marks_ready(tmp_path):
     from app.services.preform_setup_service import PreFormSetupService
 

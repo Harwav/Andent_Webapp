@@ -94,6 +94,15 @@ def test_get_printer_xy_budget_fails_closed_for_missing_printer_name():
     assert get_printer_xy_budget("") == 10820.9
 
 
+def test_get_printer_xy_budget_keeps_form4b_below_form4bl():
+    form4bl_budget = get_printer_xy_budget("Form 4BL")
+    form4b_budget = get_printer_xy_budget("Form 4B")
+
+    assert form4bl_budget == 69188.0
+    assert form4b_budget == 25000.0
+    assert form4b_budget < form4bl_budget
+
+
 def test_get_preform_preset_hint_maps_ui_preset_to_preform_hint():
     assert get_preform_preset_hint("Die - Flat, No Supports") == "die_v1"
 

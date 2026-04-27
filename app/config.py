@@ -86,7 +86,7 @@ def build_settings(
         ),
         preform_min_supported_version=os.getenv(
             "ANDENT_WEB_PREFORM_MIN_VERSION",
-            "3.55.0",
+            "3.49.0",
         ),
         preform_max_supported_version=os.getenv("ANDENT_WEB_PREFORM_MAX_VERSION") or None,
         formlabs_api_token=os.getenv("FORMLABS_API_TOKEN"),

@@ -325,6 +325,12 @@ class PreFormSetupService:
             "--port",
             str(self.settings.preform_server_port),
         ]
+        env = os.environ.copy()
+        runtime_paths = [
+            str(self.settings.preform_managed_dir),
+            str(self.settings.preform_managed_dir / "hoops"),
+        ]
+        env["PATH"] = os.pathsep.join(runtime_paths + [env.get("PATH", "")])
         creation_flags = 0
         if os.name == "nt":
             creation_flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(
@@ -336,6 +342,7 @@ class PreFormSetupService:
         process = subprocess.Popen(
             args,
             cwd=str(self.settings.preform_managed_dir),
+            env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=creation_flags,

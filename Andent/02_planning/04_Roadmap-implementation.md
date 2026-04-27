@@ -19,7 +19,7 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Phase | Name | Status | Repository State | Verification State |
 |-------|------|--------|------------------|--------------------|
 | Phase 0 | Classification Intake | COMPLETE | Delivered | Mostly covered |
-| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE (repo) | Major surfaces plus Form 4B/Form 4BL build manifests, printer edits, and held-build release implemented | Automated verification green; live validation pending |
+| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE (repo) | Major surfaces plus printer-aware Form 4B/Form 4BL build manifests, printer edits, and held-build release implemented | Automated verification green; live validation pending |
 | Phase 2 | Enhanced Queue Features | PARTIALLY IMPLEMENTED | Several UX features already landed | Uneven coverage |
 | Phase 3 | Validation & Metrics | PARTIALLY IMPLEMENTED | Metrics/API scaffolding exists | Not wired to live workflow proof |
 | Phase 4 | Production Hardening | PARTIALLY IMPLEMENTED | Health/network basics exist | Production hardening incomplete |
@@ -39,6 +39,7 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Human-reviewed outliers remain `<=2%` | Partial |
 | Standard die/tooth cases are not blocked by the old MVP safety gate | Done |
 | Compatible mixed presets share Form 4B/Form 4BL builds without splitting cases | Done |
+| Planner uses printer-aware XY budgets and startup-case seeding | Done |
 | Operators can choose printer group per row or in bulk | Done |
 | Below-target final builds hold until target, cutoff, or operator release | Done |
 | Andent Web sends prepared jobs to PreFormServer | Done |
@@ -97,6 +98,8 @@ This phase is no longer just planned work. The repository already contains:
 - batching logic and job naming
 - `PreFormClient` and `FormlabsWebClient`
 - preset catalog and compatibility-aware Form 4B/Form 4BL build manifests
+- printer-aware XY budgets for `Form 4B` and `Form 4BL`
+- bounded case-ordering strategy: startup seeding, descending pass, then smallest fillers
 - durable row and bulk printer-group edits
 - density-based build holding, persisted hold metadata, and Release now
 - `print_jobs` schema and CRUD helpers
@@ -112,7 +115,7 @@ What still blocks full launch sign-off is external validation quality:
 
 | Feature | Description | Effort | Priority | Dependencies |
 |---------|-------------|--------|----------|--------------|
-| **Build Planning Logic** | Group Ready rows into whole-case Form 4B/Form 4BL manifests by compatible printer group/material/layer-height, auto-generate job names | 1 day | P0 | None |
+| **Build Planning Logic** | Group Ready rows into whole-case Form 4B/Form 4BL manifests by compatible printer group/material/layer-height, auto-generate job names, and apply printer-aware case seeding | 1 day | P0 | None |
 | **Preset Configuration Update** | Ortho/Hollow/Die lay flat; Tooth auto-supports; All use Precision Model Resin 100µm | 0.5 day | P0 | Batching |
 | **Real Handoff Endpoint** | Replace simulated send-to-print with PreFormServer API calls | 1 day | P0 | Preset config |
 | **FormlabsWebClient** | New client for Formlabs Web API authentication and queries | 1 day | P0 | None |
@@ -164,6 +167,8 @@ What still blocks full launch sign-off is external validation quality:
 | Criterion | Current Status | Notes |
 |-----------|----------------|-------|
 | Build planning groups Ready cases by Form 4B/Form 4BL compatibility while preserving case cohesion | Implemented and tested | `tests/test_build_planning.py`, `tests/test_batching.py` |
+| Planner uses printer-aware XY budgets so `Form 4B` and `Form 4BL` do not share the same effective heuristic capacity | Implemented and tested | `tests/test_preset_catalog.py`, `tests/test_build_planning.py` |
+| Planner seeds new builds with printer-aware startup windows (`Form 4B -> 3`, `Form 4BL -> 8`) and then switches from descending to smallest fillers on first fit miss | Implemented and tested | `tests/test_build_planning.py` |
 | Printer group edits persist for rows and bulk selections | Implemented and tested | `tests/test_durable_overrides.py`, `tests/test_frontend_static.py`, `tests/release_gate/bulk-actions.spec.ts` |
 | Final below-target builds can hold and release by density target, cutoff, or operator action | Implemented and tested | `tests/test_print_queue.py`, `tests/test_preform_handoff.py`, `tests/test_frontend_static.py` |
 | Job names auto-generated (YYMMDD-001 format) | Implemented and tested | `tests/test_batching.py` |
@@ -396,6 +401,7 @@ The following were removed from Andent Web scope after architecture clarificatio
 | 2026-04-21 | Updated roadmap to reflect implemented Phase 1/2/3/4 surfaces and remaining verification gaps |
 | 2026-04-21 | Updated after stabilization pass: clean full-suite verification, classify-route fix, preset/device propagation completed |
 | 2026-04-21 | Updated after Form 4BL build layout completion: build manifests, mixed-compatible preset grouping, and 187-test verification |
+| 2026-04-23 | Updated after printer-aware planner enhancement: XY budgets now scale by printer, startup-case seeding is explicit, and filler fallback is locked by tests |
 | 2026-04-27 | Marked preset/printer/holding policy complete: Form 4B/Form 4BL manifests, printer-group edits, density holding, Release now, 250-test verification, TypeScript, and affected Playwright bulk-actions release gate |
 
 ---

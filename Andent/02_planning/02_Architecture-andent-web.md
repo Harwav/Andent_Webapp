@@ -2,7 +2,7 @@
 
 > **Created:** 2026-04-18
 > **Updated:** 2026-04-27
-> **Status:** Approved intent; current repository implementation is complete and automated verification is green, with live-service acceptance still pending
+> **Status:** Approved intent; current repository implementation is complete, planner behavior is printer-aware, automated verification is green, and live-service acceptance is still pending
 
 ---
 
@@ -15,8 +15,8 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 
 ### Current Repository Snapshot (2026-04-27)
 
-- Implemented: intake/classification queue, editable model/preset/printer overrides, preset catalog, compatibility-aware Form 4B/Form 4BL build planning, density-based Holding for More Cases, send-to-print handoff route, print job persistence, Print Queue tab, Formlabs polling, screenshot retrieval, and plan preview endpoints.
-- Verified in repository: the upload/classification route, Form 4B/Form 4BL planner, handoff route, print-queue flows, row/bulk printer edits, held-build release UI, a clean full-suite pytest run (`250 passed` with plugin autoload disabled in this environment), TypeScript checking, and the affected Playwright bulk-actions spec.
+- Implemented: intake/classification queue, editable model/preset/printer overrides, preset catalog, compatibility-aware Form 4B/Form 4BL build planning, printer-aware XY budgets, printer-aware startup case seeding, descending-to-filler planner flow, density-based Holding for More Cases, send-to-print handoff route, print job persistence, Print Queue tab, Formlabs polling, screenshot retrieval, and plan preview endpoints.
+- Verified in repository: the upload/classification route, Form 4B/Form 4BL planner, planner ordering/budget logic, handoff route, print-queue flows, row/bulk printer edits, held-build release UI, a clean full-suite pytest run (`250 passed` with plugin autoload disabled in this environment), TypeScript checking, and the affected Playwright bulk-actions spec.
 - Still not proven from repository-only evidence: launch metrics against real workflow volume, and a live external-service run through PreFormServer/Formlabs hardware/cloud.
 
 ---
@@ -129,7 +129,7 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | STL Upload | Browser drag-drop upload to server | ✅ Phase 0 |
 | Classification | Detect model type + case ID from filename/geometry | ✅ Phase 0 |
 | Preset Assignment | Map model type to preset | ✅ Phase 0 |
-| Build Planning | Whole-case Form 4B/Form 4BL manifests grouped by compatible printer group/material/layer-height | Implemented and repository-verified |
+| Build Planning | Whole-case Form 4B/Form 4BL manifests grouped by compatible printer group/material/layer-height, with printer-aware budgets and startup seeding | Implemented and repository-verified |
 | Printer Group Selection | Operator row and bulk edits for `Form 4BL` or `Form 4B` | Implemented and repository-verified |
 | Build Holding | Final below-target compatible builds wait for more sent cases, cutoff, or operator release | Implemented and repository-verified |
 | Queue UI | Active/Processed tabs with editing | ✅ Phase 0 |
@@ -252,6 +252,7 @@ andent_web/
 | 2026-04-21 | Updated implementation snapshot, endpoint surface, and verification status to match the repository |
 | 2026-04-21 | Updated after stabilization pass: classify route fixed, handoff boundary completed, full automated suite green |
 | 2026-04-21 | Updated after Form 4BL build layout completion: compatibility-aware build manifests, mixed-preset queue display, and 187-test verification |
+| 2026-04-23 | Updated after printer-aware planner enhancement: `Form 4B`/`Form 4BL` startup seeding, printer-specific XY budgets, and descending-to-filler behavior |
 | 2026-04-27 | Marked preset/printer/holding policy complete: Form 4B/Form 4BL planning, printer-group edits, density holding, Release now, 250-test verification, TypeScript, and affected Playwright bulk-actions release gate |
 
 ---
