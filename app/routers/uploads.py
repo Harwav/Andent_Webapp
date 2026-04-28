@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import shutil
 import time
 from pathlib import Path
@@ -7,6 +8,7 @@ from typing import List, Tuple
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Response, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
 from ..database import (
@@ -44,6 +46,9 @@ from ..services.classification import (
     serialize_row_for_storage,
 )
 from ..services.metrics import metrics_service
+
+
+logger = logging.getLogger(__name__)
 
 
 def _record_classification_metrics(rows, upload_start: float) -> None:
@@ -199,13 +204,14 @@ async def bulk_allow_duplicate(request: Request, payload: RowIdsRequest) -> list
 async def bulk_send_to_print(request: Request, payload: RowIdsRequest) -> list[ClassificationRow]:
     settings = request.app.state.settings
     try:
-        result = send_ready_rows_to_print(settings, payload.row_ids)
+        result = await run_in_threadpool(send_ready_rows_to_print, settings, payload.row_ids)
         _record_dispatch_event(success=True)
         return result
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         _record_dispatch_event(success=False)
+        logger.exception("Send-to-print handoff failed for row_ids=%s", payload.row_ids)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 

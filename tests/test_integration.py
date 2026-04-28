@@ -161,8 +161,8 @@ class TestFullPrintHandoffFlow:
             assert result["print_job_id"] is None
             assert result["form_file_path"] == str(expected_form_path.resolve())
 
-    def test_process_print_manifest_saves_form_before_validation_review(self, tmp_path):
-        """PreForm validation warnings still save a .form before review routing."""
+    def test_process_print_manifest_records_validation_warning_without_blocking_handoff(self, tmp_path):
+        """PreForm validation warnings still save a .form and continue handoff."""
         from app.config import build_settings
         from app.schemas import ClassificationRow, DimensionSummary
         from app.services.build_planning import plan_build_manifests
@@ -219,8 +219,8 @@ class TestFullPrintHandoffFlow:
             assert mock_instance.send_to_printer.call_count == 0
             assert result["validation_passed"] is False
             assert result["validation_errors"] == ["overlap"]
-            assert result["review_required"] is True
-            assert result["status"] == "Needs Review"
+            assert result["review_required"] is False
+            assert result["status"] == "Queued"
             assert result["print_job_id"] is None
             assert result["form_file_path"] == str(expected_form_path.resolve())
             assert result["case_ids"] == ["CASE-TOOTH", "CASE-ORTHO"]

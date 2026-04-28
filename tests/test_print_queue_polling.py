@@ -128,6 +128,22 @@ def test_backend_polls_formlabs_api_and_updates_db(app_client, settings, monkeyp
     assert updated.status == "Printing"
 
 
+def test_backend_skips_formlabs_poll_when_local_print_queue_is_empty(app_client, monkeypatch):
+    import app.services.print_queue_service as service
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Formlabs API should not be polled for an empty local queue")
+
+    monkeypatch.setattr(service, "FormlabsWebClient", fail_if_called)
+
+    response = app_client.get("/api/print-queue/jobs")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["jobs"] == []
+    assert payload["total_count"] == 0
+
+
 def test_backend_cache_ttl_blocks_duplicate_formlabs_calls(app_client, settings, monkeypatch):
     import app.services.print_queue_service as service
 

@@ -12,6 +12,8 @@ This module provides functionality for:
 from __future__ import annotations
 
 import json
+import struct
+import zlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -122,10 +124,18 @@ def sync_print_jobs(settings: "Settings") -> list["PrintJob"]:
     """Refresh print job statuses from Formlabs and return database rows."""
     from ..database import list_print_jobs as db_list_print_jobs
 
+    local_jobs = db_list_print_jobs(settings)
+    if not local_jobs:
+        return local_jobs
+
     release_due_held_jobs(settings)
+    local_jobs = db_list_print_jobs(settings)
 
     if get_cached_jobs() is not None:
-        return db_list_print_jobs(settings)
+        return local_jobs
+
+    if not any(job.print_job_id for job in local_jobs):
+        return local_jobs
 
     api_jobs = _poll_formlabs_api(settings)
     if api_jobs is not None:
@@ -153,10 +163,10 @@ def get_print_job_screenshot(settings: "Settings", job_id: int) -> bytes:
         _screenshot_cache[job_id] = (_now(), screenshot_bytes)
         return screenshot_bytes
 
-    if not settings.formlabs_api_token:
-        raise RuntimeError("Formlabs API not configured")
-    if not job.print_job_id:
-        raise RuntimeError("Print job is missing a Formlabs job ID")
+    if not settings.formlabs_api_token or not job.print_job_id:
+        screenshot_bytes = _generate_print_job_preview_png(job)
+        _screenshot_cache[job_id] = (_now(), screenshot_bytes)
+        return screenshot_bytes
 
     client = FormlabsWebClient(
         api_token=settings.formlabs_api_token,
@@ -176,6 +186,116 @@ def get_print_job_screenshot(settings: "Settings", job_id: int) -> bytes:
     return screenshot_bytes
 
 
+def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
+    return (
+        struct.pack(">I", len(data))
+        + chunk_type
+        + data
+        + struct.pack(">I", zlib.crc32(chunk_type + data) & 0xFFFFFFFF)
+    )
+
+
+def _solid_png(width: int, height: int, rgb: bytes) -> bytearray:
+    rows = bytearray()
+    for _ in range(height):
+        rows.append(0)
+        rows.extend(rgb * width)
+    return rows
+
+
+def _encode_png(width: int, height: int, pixels: bytearray) -> bytes:
+    header = b"\x89PNG\r\n\x1a\n"
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return (
+        header
+        + _png_chunk(b"IHDR", ihdr)
+        + _png_chunk(b"IDAT", zlib.compress(bytes(pixels), 9))
+        + _png_chunk(b"IEND", b"")
+    )
+
+
+def _draw_rect(
+    pixels: bytearray,
+    width: int,
+    height: int,
+    *,
+    left: int,
+    top: int,
+    rect_width: int,
+    rect_height: int,
+    color: tuple[int, int, int],
+) -> None:
+    right = max(0, min(width, left + rect_width))
+    bottom = max(0, min(height, top + rect_height))
+    left = max(0, min(width, left))
+    top = max(0, min(height, top))
+    for y in range(top, bottom):
+        row_start = y * (width * 3 + 1) + 1
+        for x in range(left, right):
+            index = row_start + x * 3
+            pixels[index:index + 3] = bytes(color)
+
+
+def _generate_print_job_preview_png(job: "PrintJob") -> bytes:
+    width = 960
+    height = 540
+    pixels = _solid_png(width, height, b"\xf8\xfb\xff")
+    _draw_rect(
+        pixels,
+        width,
+        height,
+        left=80,
+        top=50,
+        rect_width=800,
+        rect_height=400,
+        color=(230, 237, 245),
+    )
+
+    files = []
+    manifest = job.manifest_json or {}
+    for group in manifest.get("import_groups", []) if isinstance(manifest, dict) else []:
+        if isinstance(group, dict):
+            files.extend(file for file in group.get("files", []) if isinstance(file, dict))
+
+    if not files:
+        files = [{"xy_footprint_estimate": 2500.0}]
+
+    max_area = max(
+        float(file.get("xy_footprint_estimate") or 1200.0)
+        for file in files
+    )
+    slot_width = 800 // max(1, len(files))
+    for index, file in enumerate(files):
+        area = float(file.get("xy_footprint_estimate") or 1200.0)
+        scale = max(0.35, min(1.0, area / max_area))
+        model_width = max(70, int(slot_width * 0.65 * scale))
+        model_height = max(90, int(230 * scale))
+        center_x = 80 + slot_width * index + slot_width // 2
+        center_y = 250
+        _draw_rect(
+            pixels,
+            width,
+            height,
+            left=center_x - model_width // 2,
+            top=center_y - model_height // 2,
+            rect_width=model_width,
+            rect_height=model_height,
+            color=(58, 132, 196),
+        )
+        _draw_rect(
+            pixels,
+            width,
+            height,
+            left=center_x - model_width // 2 + 8,
+            top=center_y - model_height // 2 + 8,
+            rect_width=max(1, model_width - 16),
+            rect_height=max(1, model_height - 16),
+            color=(116, 178, 224),
+        )
+
+    return _encode_png(width, height, pixels)
+
+
 def generate_job_name(date: datetime, batch_number: int) -> str:
     """Generate job name in YYMMDD-NNN format."""
     date_part = date.strftime("%y%m%d")
@@ -184,7 +304,11 @@ def generate_job_name(date: datetime, batch_number: int) -> str:
 
 
 def _resolve_device_id(rows: list["ClassificationRow"], manifest: "BuildManifest" | None = None) -> str:
-    explicit_printers = {row.printer for row in rows if row.printer}
+    explicit_printers = {
+        row.printer
+        for row in rows
+        if row.printer and row.printer != "Default"
+    }
     if not explicit_printers:
         return manifest.printer_group if manifest and manifest.printer_group else "Form 4BL"
     if len(explicit_printers) > 1:
@@ -202,7 +326,17 @@ def _device_identifier(device: dict[str, Any]) -> str | None:
 
 def _device_identity_text(device: dict[str, Any]) -> str:
     parts = []
-    for key in ("id", "device_id", "printer_id", "name", "type", "model"):
+    for key in (
+        "id",
+        "device_id",
+        "printer_id",
+        "name",
+        "type",
+        "model",
+        "product_name",
+        "connection_type",
+        "status",
+    ):
         value = device.get(key)
         if value:
             parts.append(str(value))
@@ -217,16 +351,42 @@ def _is_virtual_device(device: dict[str, Any]) -> bool:
     return "virtual" in _device_identity_text(device)
 
 
-def _resolve_virtual_device_id(client) -> str:
-    devices = client.list_devices()
+def _normalize_device_list(payload: Any) -> list[Any]:
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            return []
+    if isinstance(payload, dict):
+        devices = payload.get("devices")
+        return devices if isinstance(devices, list) else []
+    return payload if isinstance(payload, list) else []
+
+
+def _resolve_virtual_device_id(client, preferred_device_id: str | None = None) -> str:
+    devices = _normalize_device_list(client.list_devices())
     if not isinstance(devices, list):
         raise RuntimeError("PreFormServer did not return a printer device list.")
 
+    virtual_devices: list[dict[str, Any]] = []
     for device in devices:
         if not isinstance(device, dict):
             continue
         if not _is_virtual_device(device):
             continue
+        virtual_devices.append(device)
+
+    if preferred_device_id:
+        preferred_text = preferred_device_id.lower()
+        for device in virtual_devices:
+            device_id = _device_identifier(device)
+            if device_id and device_id.lower() == preferred_text:
+                return device_id
+            if preferred_text in _device_identity_text(device):
+                if device_id:
+                    return device_id
+
+    for device in virtual_devices:
         device_id = _device_identifier(device)
         if device_id:
             return device_id
@@ -256,7 +416,7 @@ def _dispatch_scene_if_enabled(
     if mode == "save_form":
         return None
     if mode == "virtual":
-        device_id = _resolve_virtual_device_id(client)
+        device_id = _resolve_virtual_device_id(client, _resolve_device_id(rows, manifest))
     elif mode == "real":
         device_id = _resolve_device_id(rows, manifest)
     else:
@@ -378,12 +538,6 @@ def _validation_errors(validation_result: dict[str, Any]) -> list[str]:
     return [str(error) for error in errors]
 
 
-def _validation_allows_handoff(validation_result: dict[str, Any]) -> bool:
-    if validation_result.get("valid", False):
-        return True
-    return not _validation_errors(validation_result)
-
-
 def _form_output_path_from_manifest(manifest: "BuildManifest", job_name: str) -> Path:
     ordered_files = _ordered_manifest_file_specs(manifest)
     if not ordered_files:
@@ -458,34 +612,6 @@ def process_print_manifest(
         form_path = _form_output_path_from_manifest(manifest, job_name)
         client.save_form(scene_id, form_path)
         form_file_path = str(form_path.resolve())
-        if not _validation_allows_handoff(validation_result):
-            return {
-                "job_name": job_name,
-                "scene_id": scene_id,
-                "print_job_id": None,
-                "form_file_path": form_file_path,
-                "preset": _manifest_preset_summary(manifest),
-                "preset_names": manifest.preset_names,
-                "compatibility_key": manifest.compatibility_key,
-                "case_ids": active_case_ids,
-                "manifest": manifest,
-                "manifest_json": manifest.model_dump(),
-                "status": "Needs Review",
-                "row_count": len(active_rows),
-                "review_required": True,
-                "validation_passed": False,
-                "validation_errors": validation_errors,
-                "error_message": ", ".join(validation_errors) or "scene_validation_failed",
-                "printer_type": manifest.printer_group,
-                "resin": manifest.material_label,
-                "layer_height_microns": (
-                    int(manifest.layer_thickness_mm * 1000)
-                    if manifest.layer_thickness_mm is not None
-                    else None
-                ),
-                "estimated_density": manifest.estimated_density,
-            }
-
         print_job_id = _dispatch_scene_if_enabled(
             client=client,
             settings=settings,
@@ -508,7 +634,7 @@ def process_print_manifest(
             "status": "Queued",
             "row_count": len(active_rows),
             "review_required": False,
-            "validation_passed": True,
+            "validation_passed": bool(validation_result.get("valid", False)),
             "validation_errors": validation_errors,
             "printer_type": manifest.printer_group,
             "resin": manifest.material_label,
@@ -624,7 +750,17 @@ def _insert_print_job(
             json.dumps(print_job.validation_errors),
         ),
     )
-    return int(cursor.lastrowid)
+    created_id = int(cursor.lastrowid)
+    if print_job.scene_id and not print_job.screenshot_url:
+        connection.execute(
+            """
+            UPDATE print_jobs
+            SET screenshot_url = ?
+            WHERE id = ?
+            """,
+            (f"/api/print-queue/jobs/{created_id}/screenshot", created_id),
+        )
+    return created_id
 
 
 def _held_print_job_from_manifest(

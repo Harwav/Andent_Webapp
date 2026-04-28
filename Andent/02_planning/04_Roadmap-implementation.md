@@ -2,7 +2,7 @@
 
 > **Created:** 2026-04-18
 > **Status:** Active
-> **Current Phase:** Launch validation complete. All PRD acceptance criteria met on happy-path fixtures. Full end-to-end dispatch proof (live PreFormServer) is the only remaining gap before production.
+> **Current Phase:** Launch validation complete for the virtual PreForm/debug handoff workflow. Full backend, serial browser release gates, live PreForm virtual dispatch, operator walkthrough, `.form` persistence, Print Queue/History visibility, and clickable preview modal have all been proven locally.
 
 ---
 
@@ -19,12 +19,12 @@ Historical effort and file-estimate tables are retained as planning reference. S
 | Phase | Name | Status | Repository State | Verification State |
 |-------|------|--------|------------------|--------------------|
 | Phase 0 | Classification Intake | COMPLETE | Delivered | Complete |
-| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE | Printer-aware Form 4B/Form 4BL manifests, printer edits, held-build release, 262-test suite | Automated green; live PreFormServer dispatch proof pending |
+| Phase 1 | PreFormServer Handoff + Print Queue | COMPLETE | Printer-aware Form 4B/Form 4BL manifests, printer edits, held-build release, virtual debug dispatch, generated preview fallback | Backend and serial Playwright release gates green; live virtual PreForm proof complete |
 | Phase 2 | Enhanced Queue Features | PARTIALLY IMPLEMENTED | Several UX features already landed | Uneven coverage |
-| Phase 3 | Validation & Metrics | COMPLETE (repo) | Metrics wired to live events, launch-check endpoint, validation script, live run recorded | Happy-path fixtures pass all PRD criteria; dispatch proof pending |
+| Phase 3 | Validation & Metrics | COMPLETE (repo) | Metrics wired to live events, launch-check endpoint, validation script, live run recorded | Happy-path fixtures pass all PRD criteria; virtual/debug dispatch proof complete |
 | Phase 4 | Production Hardening | PARTIALLY IMPLEMENTED | Health/network basics exist | Production hardening incomplete |
 
-**Overall Status:** All PRD acceptance criteria pass on representative fixtures (straight-through 100%, review rate 0%, latency 0.3s p95). The 262-test automated suite is green. Remaining gap before production: live PreFormServer dispatch proof requires PreFormServer at localhost:44388.
+**Overall Status:** All PRD acceptance criteria pass on representative fixtures (straight-through 100%, review rate 0%, latency 0.3s p95). The latest local release validation recorded `291 passed` for backend pytest and `8 passed` for the serial Playwright release suite, including the headed operator walkthrough against `D:\Marcus\Desktop\BM\20260409_Andent_Matt\Test Data` and live PreFormServer at `localhost:44388`.
 
 ### PRD Acceptance Status (Compact)
 
@@ -104,12 +104,13 @@ This phase is no longer just planned work. The repository already contains:
 - density-based build holding, persisted hold metadata, and Release now
 - `print_jobs` schema and CRUD helpers
 - real handoff routing from `/api/uploads/rows/send-to-print`
-- Print Queue API/UI, status sync, and screenshot caching
+- Print Queue API/UI, status sync, screenshot caching, and generated virtual/debug build previews
 
 What still blocks full launch sign-off is external validation quality:
 
-- live PreFormServer/Formlabs service validation has not been run in this repository session
-- target operational metrics still need evidence from real workflow runs
+- every new release candidate must rerun the live PreFormServer virtual/debug gate and archive the dated evidence bundle
+- physical printer dispatch remains outside the current release proof and needs a separate explicit operator-approved gate
+- target operational metrics still need evidence from real workflow runs before production scale-up
 
 ### Phase 1 Scope (Finalized)
 
@@ -174,12 +175,12 @@ What still blocks full launch sign-off is external validation quality:
 | Job names auto-generated (YYMMDD-001 format) | Implemented and tested | `tests/test_batching.py` |
 | Presets configured: Ortho/Hollow/Die = lay flat; Tooth = auto-supports; All = Precision Model Resin 100µm | Implemented and repository-verified | UI preset is now translated to a PreFormServer preset hint |
 | PreFormServer handoff creates scene, imports STLs, configures presets, validates layout, sends to printer | Implemented and repository-verified | Includes per-file preset hint propagation, row and bulk printer routing, auto-layout validation, and whole-case rollback |
-| Print Queue tab displays jobs with screenshots, names, cases, status | Implemented and tested | `tests/test_print_queue.py`, `tests/test_print_queue_polling.py` |
+| Print Queue tab displays jobs with screenshots/previews, names, cases, status | Implemented and tested | `tests/test_print_queue.py`, `tests/test_print_queue_polling.py`, `tests/release_gate/operator-demo.spec.ts` |
 | Formlabs Web API client authenticates and fetches job data | Implemented and tested | `tests/test_formlabs_web_client.py` |
 | Backend polls Formlabs API every 5s for status updates | Partially complete | Current design uses frontend 5s polling plus backend cache-on-request sync |
 | Status values shown: Queued, Printing, Failed, Paused, Completed | Implemented | Schema/UI support present |
 | Connection errors handled with user-friendly messages | Basic handling implemented | Broader recovery remains a stabilization task |
-| All P0 tests passing | Complete | Full suite currently passes in this environment (`250 passed`); TypeScript and affected Playwright bulk-actions checks pass |
+| All P0 tests passing | Complete | Latest local release validation: backend `291 passed, 5 warnings`; serial Playwright release suite `8 passed` |
 
 ---
 

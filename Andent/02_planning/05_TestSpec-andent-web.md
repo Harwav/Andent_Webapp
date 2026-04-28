@@ -23,10 +23,11 @@ Release is `BLOCKED` when any of the following is true:
 - The browser release gate fails.
 - `scripts/validate_launch.py` fails or only produces classification-only dispatch evidence.
 - A live PreFormServer handoff cannot be proven against `http://127.0.0.1:44388`.
+- The headed operator walkthrough cannot produce a packed `.form`, a Print Queue/History job, and a clickable job preview from the primary customer-style dataset.
 - Human review is triggered for reasons outside the PRD boundaries.
 - Required evidence is missing, stale, or from a different build/candidate.
 
-The current known production blocker remains live PreFormServer dispatch proof unless a dated evidence bundle for the current candidate records it.
+The current release-blocking proof is no longer just a smoke upload. Sign-off must include live PreFormServer virtual dispatch plus an operator-visible walkthrough that confirms the persisted `.form`, History/Print Queue rows, and zoomable preview behavior.
 
 ## Mandatory Launch Gates
 
@@ -34,14 +35,16 @@ The current known production blocker remains live PreFormServer dispatch proof u
 |------|--------|-----------------|-------------------|
 | Full automated backend suite | 100% passing | `tests/` | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -q` output |
 | Browser smoke and release UI flows | 100% passing | `tests/release_gate/*.spec.ts` | Playwright output and report |
-| Headed browser observation | Operator-visible run completed | `package.json` | `npm run test:release-gate:headed` output and operator note |
+| Headed browser observation | Operator-visible run completed | `tests/release_gate/operator-demo.spec.ts` | Headed Playwright output plus operator note |
 | Straight-through processing | `>=95%` | `app/services/metrics.py:123` | `/api/metrics/launch-check` plus validation script output |
 | Human-review rate | `<=2%` | `app/services/metrics.py:123` | `/api/metrics/launch-check` plus validation script output |
 | Upload p95 latency | `<=30s` | `app/config.py:103`, `app/services/metrics.py:123` | `/api/metrics/launch-check` plus validation script output |
 | Dispatch success rate | `>=99%` and non-vacuous | `app/config.py:106`, `app/services/metrics.py:116` | At least one real live PreFormServer dispatch event, not an empty-dispatch calculation |
 | Live PreFormServer handoff | Scene exists after send-to-print | `tests/release_gate/release_gate.spec.ts:4`, `tests/release_gate/helpers/fixtures.ts:24` | Playwright live handoff pass against `http://127.0.0.1:44388` |
+| Operator virtual/debug workflow | Real test-data pair produces `.form`, History rows, Print Queue job, and zoomable preview | `tests/release_gate/operator-demo.spec.ts` | Headed Playwright pass observed by operator |
+| Handoff responsiveness | App remains responsive while PreFormServer is working | `app/routers/uploads.py`, `tests/test_print_queue_polling.py` | `/health` and Print Queue requests return while send-to-print is in flight; empty local queues do not poll Formlabs Web |
 | Review boundaries | Only low-confidence model type or ambiguous/missing case ID | `Andent/01_requirements/prd-andent-web.md` | Guard fixture results and manual validation notes |
-| Artifact durability | `.form`/scene, screenshot/preview, print job manifest, and audit metadata are persisted | `tests/test_preform_handoff.py`, `tests/test_print_queue.py` | Database/job record proof plus operator artifact inspection |
+| Artifact durability | `.form`/scene, screenshot/preview, print job manifest, and audit metadata are persisted | `tests/test_preform_handoff.py`, `tests/test_print_queue.py`, `tests/release_gate/operator-demo.spec.ts` | Database/job record proof plus operator artifact inspection |
 
 ## Pre-Release Runbook
 
@@ -53,10 +56,10 @@ Run these gates in order on the release candidate.
 | 2. Backend suite | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -q` | All tests pass. |
 | 3. TypeScript compile | `npx tsc --noEmit` | No TypeScript errors. |
 | 4. Browser smoke and mocked UI release checks | `npx playwright test tests/release_gate/smoke.spec.ts tests/release_gate/ui-hooks.spec.ts tests/release_gate/bulk-actions.spec.ts --project=chromium` | All selected Playwright specs pass. |
-| 5. Headed browser observation | `npm run test:release-gate:headed` | Chromium opens visibly; smoke/UI/bulk-action browser automation completes. |
+| 5. Headed operator observation | `ANDENT_WEB_PRINT_DISPATCH_MODE=virtual npx playwright test tests/release_gate/operator-demo.spec.ts --config playwright.config.ts --project=chromium --headed --workers=1` | Chromium opens visibly; operator sees upload, ready rows, send-to-print, History rows, Print Queue row, and screenshot/preview zoom modal. |
 | 6. Live PreFormServer availability | Confirm managed PreFormServer is installed, compatible, running, and reachable at `http://127.0.0.1:44388`. | Setup status is `ready`; version is recorded. |
 | 7. Live browser handoff gate | `npx playwright test tests/release_gate/release_gate.spec.ts --project=chromium` | Browser upload reaches send-to-print, print job is persisted, and scene lookup succeeds. |
-| 8. Optional headed live handoff observation | `npm run test:release-gate:headed:live` | Chromium opens visibly and the live PreForm handoff flow completes. |
+| 8. Full serial browser release suite | `ANDENT_WEB_PRINT_DISPATCH_MODE=virtual npx playwright test --config playwright.config.ts --project=chromium --reporter=line --workers=1` | All release-gate specs pass. Use `--workers=1` because live specs share fixed PreForm/app ports and data. |
 | 9. Launch metrics validation | `python scripts/validate_launch.py --base-url http://127.0.0.1:8090 --fixtures-dir "D:\Marcus\Desktop\BM\20260409_Andent_Matt\Test Data"` | Overall pass, with non-vacuous dispatch evidence. |
 | 10. Manual operator validation | Run the checklist in `Manual Validation Runs`. | No blocker found; artifact and review-boundary notes recorded. |
 | 11. Evidence archive | Save logs and outputs under `Andent/02_planning/98_VerificationArtifacts/pre_release_YYYYMMDD/`. | Evidence bundle contains all required files listed below. |
@@ -75,8 +78,9 @@ Required contents:
 - `pytest.log`: full backend suite output.
 - `tsc.log`: TypeScript compile output.
 - `playwright-smoke.log`: smoke/UI/bulk-action Playwright output.
-- `playwright-headed.log`: headed smoke/UI/bulk-action Playwright output plus operator note.
+- `playwright-headed.log`: headed operator-demo Playwright output plus operator note.
 - `playwright-live-preform.log`: live `release_gate.spec.ts` output.
+- `playwright-full-serial.log`: full serial Playwright release suite output.
 - `validate-launch.log`: `scripts/validate_launch.py` output.
 - `launch-check.json`: raw `GET /api/metrics/launch-check` response.
 - `preform-status.json`: raw `GET /api/preform-setup/status` response.
@@ -86,6 +90,32 @@ Required contents:
 - `verdict.md`: signed release verdict using the template at the end of this document.
 
 Evidence from a run where dispatch success is vacuous because no PreFormServer was connected can support classification readiness, but cannot support production release.
+
+## Latest Verified Pre-Release Run
+
+Observed on 2026-04-28 after adding the operator walkthrough and virtual/debug preview fallback:
+
+| Gate | Result | Evidence |
+|------|--------|----------|
+| Full backend suite | PASS | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q` -> `291 passed, 5 warnings` |
+| Targeted virtual dispatch regressions | PASS | `tests/test_preform_handoff.py` virtual dispatch tests -> `3 passed` |
+| Headed operator walkthrough with primary dataset | PASS | `ANDENT_WEB_PRINT_DISPATCH_MODE=virtual npx playwright test tests/release_gate/operator-demo.spec.ts --config playwright.config.ts --project=chromium --headed --workers=1 --reporter=line` -> `1 passed` |
+| Full serial Playwright release suite | PASS | `ANDENT_WEB_PRINT_DISPATCH_MODE=virtual npx playwright test --config playwright.config.ts --project=chromium --reporter=line --workers=1` -> `8 passed` |
+
+Operator walkthrough fixture:
+
+```text
+D:\Marcus\Desktop\BM\20260409_Andent_Matt\Test Data\20260407_8424827_TARUNA__XAVIER_UnsectionedModel_UpperJaw.stl
+D:\Marcus\Desktop\BM\20260409_Andent_Matt\Test Data\20260407_8424827_TARUNA__XAVIER_UnsectionedModel_LowerJaw.stl
+```
+
+Observed artifact outcome:
+
+- `.form` file persisted under the Playwright live app upload directory.
+- `print_jobs` row persisted with non-empty `scene_id`, `print_job_id`, `form_file_path`, `manifest_json`, and `screenshot_url`.
+- History tab showed both source STL rows.
+- Print Queue tab showed the queued job.
+- Screenshot/preview thumbnail opened the zoom modal. In virtual/debug mode this may be the generated build-preview PNG fallback when no Formlabs Web screenshot is available.
 
 ## Approved Phase 0 Slice
 
@@ -260,8 +290,10 @@ The release gates in `Mandatory Launch Gates` are interpreted as follows:
 - PreFormServer import receives the per-file preset hint from the manifest import group.
 - PreFormServer scene settings come from manifest printer group, material code, layer height, and print setting.
 - Scene auto-layout and validation run before printer dispatch.
-- Validation failure retries by removing whole cases only.
-- A single seed case that fails validation is marked for manual review.
+- Validation warnings do not retry, remove whole cases, or route rows to manual review.
+- Rows continue to submitted/queued workflow while the print job records `validation_passed=false` and the validation errors.
+- The send-to-print API must not block the FastAPI event loop during long synchronous PreFormServer calls.
+- Print Queue polling must not call Formlabs Web when there are no local remote-backed print jobs to sync.
 - Print job records persist `preset_names`, `compatibility_key`, printer group, material label/code, layer height, estimated density, validation result, validation errors, and manifest JSON for audit/debugging.
 
 ### Held Build Policy
@@ -380,7 +412,7 @@ If any fixture class is missing from the external dataset, fill the gap with rep
   - preset names
   - compatibility key
   - printer group/material/layer-height metadata
-  - screenshot/preview or documented reason why unavailable
+  - screenshot or generated preview that opens in the zoom modal
 - Confirm visible UI states are understandable to an operator without developer console access.
 - Confirm no sensitive local install path or token appears in the browser UI.
 
@@ -406,8 +438,9 @@ Create `verdict.md` in the dated evidence folder with this structure:
 | Backend pytest suite | PASS/FAIL | pytest.log |
 | TypeScript compile | PASS/FAIL | tsc.log |
 | Browser smoke/UI checks | PASS/FAIL | playwright-smoke.log |
-| Headed browser observation | PASS/FAIL | playwright-headed.log |
+| Headed operator walkthrough | PASS/FAIL | playwright-headed.log |
 | Live PreForm browser handoff | PASS/FAIL | playwright-live-preform.log |
+| Full serial Playwright suite | PASS/FAIL | playwright-full-serial.log |
 | Straight-through rate >=95% | PASS/FAIL | validate-launch.log, launch-check.json |
 | Human-review rate <=2% | PASS/FAIL | validate-launch.log, launch-check.json |
 | Upload p95 latency <=30s | PASS/FAIL | validate-launch.log, launch-check.json |
@@ -434,11 +467,12 @@ Create `verdict.md` in the dated evidence folder with this structure:
 
 ## Remaining Release Risks
 
-- Live PreFormServer dispatch proof is release-blocking until a current-candidate evidence bundle records it.
+- Live PreFormServer dispatch proof remains release-blocking for each new candidate; the 2026-04-28 local candidate has a passing live virtual/debug proof.
 - `scripts/validate_launch.py` can report dispatch success as vacuously passing when no PreFormServer dispatch events exist; the verdict must reject that as production evidence.
 - The package script `test:release-gate` runs only the smoke spec; release sign-off must run the broader Playwright commands in this document.
 - A representative fixture set must be reviewed before each release. If the customer case mix changes, the fixture set must change with it.
 - The planning docs include some historical phase language. The verdict should rely on this test spec, the current PRD, current code, and current evidence bundle.
+- Physical printer dispatch remains outside the virtual/debug release proof and requires a separate explicit operator-approved gate.
 
 ## Resolved Measurement Gaps
 
@@ -446,4 +480,6 @@ Create `verdict.md` in the dated evidence folder with this structure:
 |------------|------------|
 | Upload-to-queue latency target undefined | Resolved as p95 `<=30s` via `app/config.py:103` and `app/services/metrics.py:123`. |
 | Dispatch success-rate target undefined | Resolved as `>=99%` via `app/config.py:106` and `app/services/metrics.py:116`; production evidence must be non-vacuous. |
-| Mixed-compatible Form 4B/Form 4BL behavior | Covered by build-planning and handoff tests; still requires live PreFormServer proof for the release candidate. |
+| Mixed-compatible Form 4B/Form 4BL behavior | Covered by build-planning and handoff tests plus live virtual/debug PreForm proof for the 2026-04-28 candidate. |
+| Virtual PreForm devices returned as wrapped/string payloads | Covered by `tests/test_preform_handoff.py`; virtual mode accepts PreForm's `{"count": ..., "devices": [...]}` shape and selects the manifest/preferred virtual printer. |
+| Virtual/debug job preview unavailable without Formlabs Web screenshot | Covered by `tests/test_preform_handoff.py` and `tests/release_gate/operator-demo.spec.ts`; virtual/debug jobs expose a generated PNG build preview through the same screenshot zoom modal. |

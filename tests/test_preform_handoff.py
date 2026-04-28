@@ -276,8 +276,92 @@ def test_virtual_dispatch_mode_sends_to_preform_virtual_printer_and_records_prin
         ("scene-1", "virtual-device-1", jobs[0].job_name)
     ]
     assert jobs[0].print_job_id == "print-1"
+    assert jobs[0].screenshot_url == f"/api/print-queue/jobs/{jobs[0].id}/screenshot"
     assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
     assert response.json()[0]["status"] == "Submitted"
+
+    screenshot_response = client.get(f"/api/print-queue/jobs/{jobs[0].id}/screenshot")
+
+    assert screenshot_response.status_code == 200
+    assert screenshot_response.headers["content-type"] == "image/png"
+    assert screenshot_response.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_virtual_dispatch_accepts_preform_device_wrapper_payload(tmp_path):
+    settings = _build_virtual_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "virtual-wrapper-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-VIRTUAL-WRAPPED",
+                preset="Ortho Solid - Flat, No Supports",
+                printer="Form 4BL",
+                status="Ready",
+                content_hash="hash-virtual-wrapped",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = {
+        "count": 2,
+        "devices": [
+            {"id": "Form 4", "connection_type": "VIRTUAL", "status": "Virtual Printer"},
+            {"id": "Form 4BL", "connection_type": "VIRTUAL", "status": "Virtual Printer"},
+        ],
+    }
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL", jobs[0].job_name)]
+
+
+def test_virtual_dispatch_accepts_preform_json_string_device_payload(tmp_path):
+    settings = _build_virtual_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "virtual-string-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-VIRTUAL-STRING",
+                preset="Ortho Solid - Flat, No Supports",
+                printer="Form 4BL",
+                status="Ready",
+                content_hash="hash-virtual-string",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = (
+        '{"count":1,"devices":[{"id":"Form 4BL",'
+        '"connection_type":"VIRTUAL","status":"Virtual Printer"}]}'
+    )
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL", jobs[0].job_name)]
 
 
 def test_virtual_dispatch_mode_refuses_physical_only_devices(tmp_path):
@@ -392,7 +476,7 @@ def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
     assert jobs[0].form_file_path == str(expected_form_path.resolve())
 
 
-def test_send_to_print_rolls_back_last_case_when_validation_fails_after_saving_form(tmp_path):
+def test_send_to_print_records_validation_warnings_without_rollback(tmp_path):
     settings = _build_settings(tmp_path)
     app = create_app(settings)
     client = TestClient(app)
@@ -440,10 +524,7 @@ def test_send_to_print_rolls_back_last_case_when_validation_fails_after_saving_f
     )
 
     stub_client = StubPreFormClient(settings.preform_server_url)
-    stub_client.validation_results = [
-        {"valid": False, "errors": ["overlap"]},
-        {"valid": True, "errors": []},
-    ]
+    stub_client.validation_results = [{"valid": False, "errors": ["overlap"]}]
     with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
         "app.services.preform_setup_service.get_preform_setup_status",
         return_value=_ready_setup_status(settings),
@@ -453,29 +534,24 @@ def test_send_to_print_rolls_back_last_case_when_validation_fails_after_saving_f
     assert response.status_code == 200
     row_statuses = {row["file_name"]: row["status"] for row in response.json()}
     assert row_statuses["case-a.stl"] == "Submitted"
-    assert row_statuses["case-b.stl"] == "Ready"
+    assert row_statuses["case-b.stl"] == "Submitted"
     assert row_statuses["case-c.stl"] == "Submitted"
-    assert len(stub_client.created_scenes) == 2
+    assert len(stub_client.created_scenes) == 1
     assert stub_client.imported_models == [
         ("scene-1", str(case_files[0]), "tooth_v1"),
         ("scene-1", str(case_files[2]), "ortho_solid_v1"),
         ("scene-1", str(case_files[1]), "ortho_solid_v1"),
-        ("scene-2", str(case_files[0]), "tooth_v1"),
-        ("scene-2", str(case_files[2]), "ortho_solid_v1"),
     ]
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
     expected_form_path = case_files[0].parent / f"{jobs[0].job_name}.form"
-    assert stub_client.saved_forms == [
-        ("scene-1", str(expected_form_path.resolve())),
-        ("scene-2", str(expected_form_path.resolve())),
-    ]
-    assert jobs[0].validation_passed is True
-    assert jobs[0].validation_errors == []
-    assert jobs[0].case_ids == ["CASE-TOOTH", "CASE-LATE"]
+    assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
+    assert jobs[0].validation_passed is False
+    assert jobs[0].validation_errors == ["overlap"]
+    assert jobs[0].case_ids == ["CASE-TOOTH", "CASE-LATE", "CASE-ORTHO"]
 
 
-def test_send_to_print_routes_single_invalid_case_to_manual_review_after_saving_form(tmp_path):
+def test_send_to_print_submits_single_validation_warning_after_saving_form(tmp_path):
     settings = _build_settings(tmp_path)
     app = create_app(settings)
     client = TestClient(app)
@@ -508,12 +584,15 @@ def test_send_to_print_routes_single_invalid_case_to_manual_review_after_saving_
 
     assert response.status_code == 200
     row = response.json()[0]
-    assert row["status"] == "Needs Review"
-    assert row["review_required"] is True
-    assert row["review_reason"] == "PreForm validation requires manual review: overlap"
+    assert row["status"] == "Submitted"
+    assert row["review_required"] is False
+    assert row["review_reason"] is None
     expected_form_path = case_file.parent / f"{datetime.now().strftime('%y%m%d')}-001.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
-    assert list_print_jobs(settings) == []
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].validation_passed is False
+    assert jobs[0].validation_errors == ["overlap"]
 
 
 def test_send_to_print_passes_preset_hint_and_selected_printer(tmp_path):
