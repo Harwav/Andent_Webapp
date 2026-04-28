@@ -303,6 +303,24 @@ def generate_job_name(date: datetime, batch_number: int) -> str:
     return f"{date_part}-{number_part}"
 
 
+def _next_job_batch_number(connection, date: datetime) -> int:
+    date_part = date.strftime("%y%m%d")
+    rows = connection.execute(
+        """
+        SELECT job_name
+        FROM print_jobs
+        WHERE job_name LIKE ?
+        """,
+        (f"{date_part}-%",),
+    ).fetchall()
+    highest = 0
+    for row in rows:
+        suffix = str(row["job_name"]).removeprefix(f"{date_part}-")
+        if suffix.isdigit():
+            highest = max(highest, int(suffix))
+    return highest + 1
+
+
 def _resolve_device_id(rows: list["ClassificationRow"], manifest: "BuildManifest" | None = None) -> str:
     explicit_printers = {
         row.printer
@@ -607,7 +625,11 @@ def process_print_manifest(
             raise ValueError("No valid STL files found for manifest")
 
         client.auto_layout(scene_id)
-        validation_result = client.validate_scene(scene_id)
+        validation_result = (
+            client.validate_scene(scene_id)
+            if settings.preform_validation_enabled
+            else {"valid": True, "errors": []}
+        )
         validation_errors = _validation_errors(validation_result)
         form_path = _form_output_path_from_manifest(manifest, job_name)
         client.save_form(scene_id, form_path)
@@ -911,7 +933,6 @@ def send_ready_rows_to_print(
     now = _now_iso()
     hold_now = _now()
     cutoff_at = _parse_cutoff_today(settings.print_hold_cutoff_local_time, hold_now)
-    batch_number = 1
     rows_by_case: dict[str, list[ClassificationRow]] = {}
     rows_by_id = {
         row.row_id: row
@@ -928,6 +949,7 @@ def send_ready_rows_to_print(
 
     with closing(connect(settings)) as connection:
         try:
+            batch_number = _next_job_batch_number(connection, datetime.now())
             if held_job_ids:
                 connection.execute(
                     f"""

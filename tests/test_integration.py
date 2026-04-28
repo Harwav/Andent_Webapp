@@ -4,6 +4,7 @@ End-to-end test of handoff flow covering full system integration.
 """
 
 import sys
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -121,7 +122,7 @@ class TestFullPrintHandoffFlow:
         from app.services.build_planning import plan_build_manifests
         from app.services.print_queue_service import process_print_manifest
         
-        settings = build_settings()
+        settings = replace(build_settings(), preform_validation_enabled=True)
         case_file = tmp_path / "test.stl"
         case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
         
@@ -168,7 +169,7 @@ class TestFullPrintHandoffFlow:
         from app.services.build_planning import plan_build_manifests
         from app.services.print_queue_service import process_print_manifest
 
-        settings = build_settings()
+        settings = replace(build_settings(), preform_validation_enabled=True)
         first_file = tmp_path / "tooth.stl"
         second_file = tmp_path / "ortho.stl"
         for file_path in (first_file, second_file):

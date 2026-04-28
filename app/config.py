@@ -26,6 +26,7 @@ class Settings:
     preform_min_zip_size_bytes: int
     preform_min_supported_version: str
     preform_max_supported_version: str | None
+    preform_validation_enabled: bool
     formlabs_api_token: str | None
     formlabs_api_url: str
     print_hold_density_target: float
@@ -45,6 +46,13 @@ def _print_dispatch_mode_from_env() -> str:
             f"{allowed}; got {dispatch_mode!r}."
         )
     return dispatch_mode
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def build_settings(
@@ -104,6 +112,7 @@ def build_settings(
             "3.49.0",
         ),
         preform_max_supported_version=os.getenv("ANDENT_WEB_PREFORM_MAX_VERSION") or None,
+        preform_validation_enabled=_env_flag("ANDENT_WEB_PREFORM_VALIDATION_ENABLED", False),
         formlabs_api_token=os.getenv("FORMLABS_API_TOKEN"),
         formlabs_api_url=os.getenv("FORMLABS_API_URL", "https://api.formlabs.com/v1"),
         print_hold_density_target=float(

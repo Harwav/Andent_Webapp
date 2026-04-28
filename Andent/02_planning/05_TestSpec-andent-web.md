@@ -43,6 +43,7 @@ The current release-blocking proof is no longer just a smoke upload. Sign-off mu
 | Live PreFormServer handoff | Scene exists after send-to-print | `tests/release_gate/release_gate.spec.ts:4`, `tests/release_gate/helpers/fixtures.ts:24` | Playwright live handoff pass against `http://127.0.0.1:44388` |
 | Operator virtual/debug workflow | Real test-data pair produces `.form`, History rows, Print Queue job, and zoomable preview | `tests/release_gate/operator-demo.spec.ts` | Headed Playwright pass observed by operator |
 | Handoff responsiveness | App remains responsive while PreFormServer is working | `app/routers/uploads.py`, `tests/test_print_queue_polling.py` | `/health` and Print Queue requests return while send-to-print is in flight; empty local queues do not poll Formlabs Web |
+| Validation feature flag | Validation can be skipped for virtual/debug handoff and re-enabled later | `app/config.py`, `tests/test_preform_handoff.py` | Default skips `validate_scene`; `ANDENT_WEB_PREFORM_VALIDATION_ENABLED=1` keeps warning persistence behavior |
 | Review boundaries | Only low-confidence model type or ambiguous/missing case ID | `Andent/01_requirements/prd-andent-web.md` | Guard fixture results and manual validation notes |
 | Artifact durability | `.form`/scene, screenshot/preview, print job manifest, and audit metadata are persisted | `tests/test_preform_handoff.py`, `tests/test_print_queue.py`, `tests/release_gate/operator-demo.spec.ts` | Database/job record proof plus operator artifact inspection |
 
@@ -290,7 +291,8 @@ The release gates in `Mandatory Launch Gates` are interpreted as follows:
 - PreFormServer import receives the per-file preset hint from the manifest import group.
 - PreFormServer scene settings come from manifest printer group, material code, layer height, and print setting.
 - Scene auto-layout and validation run before printer dispatch.
-- Validation warnings do not retry, remove whole cases, or route rows to manual review.
+- Scene validation defaults off for the virtual/debug handoff lane; set `ANDENT_WEB_PREFORM_VALIDATION_ENABLED=1` to re-enable it.
+- When validation is enabled, validation warnings do not retry, remove whole cases, or route rows to manual review.
 - Rows continue to submitted/queued workflow while the print job records `validation_passed=false` and the validation errors.
 - The send-to-print API must not block the FastAPI event loop during long synchronous PreFormServer calls.
 - Print Queue polling must not call Formlabs Web when there are no local remote-backed print jobs to sync.

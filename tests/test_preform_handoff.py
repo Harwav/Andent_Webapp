@@ -15,9 +15,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from fastapi.testclient import TestClient
 
 from app.config import build_settings
-from app.database import connect, get_upload_row_by_id, init_db, list_print_jobs, persist_upload_session
+from app.database import (
+    connect,
+    create_print_job,
+    get_upload_row_by_id,
+    init_db,
+    list_print_jobs,
+    persist_upload_session,
+)
 from app.main import create_app
-from app.schemas import PreFormSetupStatus
+from app.schemas import PreFormSetupStatus, PrintJob
 
 
 class StubPreFormClient:
@@ -27,6 +34,7 @@ class StubPreFormClient:
         self.imported_models: list[tuple[str, str, str | None]] = []
         self.layout_calls: list[str] = []
         self.validation_results: list[dict[str, object]] = []
+        self.validation_calls: list[str] = []
         self.saved_forms: list[tuple[str, str]] = []
         self.devices: list[dict[str, object]] = []
         self.device_list_calls = 0
@@ -46,6 +54,7 @@ class StubPreFormClient:
         return {"status": "ok"}
 
     def validate_scene(self, scene_id: str):
+        self.validation_calls.append(scene_id)
         if self.validation_results:
             return self.validation_results.pop(0)
         return {"valid": True, "errors": []}
@@ -71,6 +80,7 @@ def _build_settings(tmp_path: Path):
     return replace(
         build_settings(data_dir=data_dir, database_path=data_dir / "andent_web.db"),
         print_hold_density_target=0.0,
+        preform_validation_enabled=True,
     )
 
 
@@ -85,6 +95,10 @@ def _build_holding_settings(tmp_path: Path):
 
 def _build_virtual_settings(tmp_path: Path):
     return replace(_build_settings(tmp_path), print_dispatch_mode="virtual")
+
+
+def _build_virtual_settings_without_validation(tmp_path: Path):
+    return replace(_build_virtual_settings(tmp_path), preform_validation_enabled=False)
 
 
 def _seed_rows(settings, rows: list[dict]) -> list[int]:
@@ -361,6 +375,94 @@ def test_virtual_dispatch_accepts_preform_json_string_device_payload(tmp_path):
 
     assert response.status_code == 200
     jobs = list_print_jobs(settings)
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL", jobs[0].job_name)]
+
+
+def test_send_to_print_uses_next_available_job_name_for_today(tmp_path):
+    settings = _build_virtual_settings(tmp_path)
+    today_prefix = datetime.now().strftime("%y%m%d")
+    init_db(settings)
+    create_print_job(
+        settings,
+        PrintJob(
+            job_name=f"{today_prefix}-001",
+            preset="Ortho Solid - Flat, No Supports",
+            status="Queued",
+            case_ids=["EXISTING"],
+        ),
+    )
+
+    app = create_app(settings)
+    client = TestClient(app)
+    case_file = tmp_path / "next-job-name-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-NEXT-JOB",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-next-job-name",
+                printer="Form 4BL",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "Form 4BL", "connection_type": "VIRTUAL", "status": "Virtual Printer"}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert [job.job_name for job in jobs] == [f"{today_prefix}-002", f"{today_prefix}-001"]
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL", f"{today_prefix}-002")]
+
+
+def test_virtual_dispatch_can_skip_preform_validation_when_disabled(tmp_path):
+    settings = _build_virtual_settings_without_validation(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "skip-validation-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-SKIP-VALIDATION",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-skip-validation",
+                printer="Form 4BL",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "Form 4BL", "connection_type": "VIRTUAL", "status": "Virtual Printer"}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].validation_passed is True
+    assert jobs[0].validation_errors == []
+    assert stub_client.validation_calls == []
     assert stub_client.print_jobs == [("scene-1", "Form 4BL", jobs[0].job_name)]
 
 
