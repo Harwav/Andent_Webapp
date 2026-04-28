@@ -28,6 +28,7 @@ Technical planning documents for the Andent Web Auto Prep system.
 
 | I Want To... | Go To | File |
 |--------------|-------|------|
+| **Understand virtual printer debug mode** | 02.04 - Debug Handoff | [`02.04_Architecture-Virtual-Printer-Debug-Handoff.md`](02.04_Architecture-Virtual-Printer-Debug-Handoff.md) |
 | **Understand requirements** | 01 — PRD | [`01_PRD-andent-web.md`](01_PRD-andent-web.md) |
 | **Understand system design** | 02 — Architecture | [`02_Architecture-andent-web.md`](02_Architecture-andent-web.md) |
 | **Understand classification logic** | 02.01 — Algorithm | [`02.01_Algorithm-classification.md`](02.01_Algorithm-classification.md) |
@@ -57,6 +58,7 @@ Code (core/, app/)
 
 | # | Document | Status | Last Updated | Purpose |
 |---|----------|--------|--------------|---------|
+| 02.04 | Virtual Printer Debug Handoff | Active | 2026-04-28 | Real PreForm endpoint against virtual printer |
 | 00 | README / AGENTS | ✅ Active | 2026-04-21 | Navigation |
 | 01 | PRD | ✅ Active | 2026-04-21 | Requirements |
 | 02 | Architecture | ✅ Active | 2026-04-21 | System design |

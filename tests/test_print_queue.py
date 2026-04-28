@@ -43,6 +43,7 @@ def test_print_jobs_table_created_on_startup(tmp_path: Path):
         "created_at",
         "updated_at",
         "screenshot_url",
+        "form_file_path",
         "printer_type",
         "resin",
         "layer_height_microns",
@@ -130,6 +131,7 @@ def test_print_job_crud_round_trip(tmp_path: Path):
                 "compatibility_key": "form4b:tough2000:50",
                 "preset_names": ["Ortho Solid - Flat, No Supports", "Tooth - With Supports"],
             },
+            form_file_path=str(tmp_path / "260421-001.form"),
             estimated_density=0.35,
             density_target=0.40,
             hold_cutoff_at="2026-04-24T18:00:00",
@@ -156,6 +158,7 @@ def test_print_job_crud_round_trip(tmp_path: Path):
     assert created.released_by_operator is True
     assert created.validation_passed is True
     assert created.validation_errors == []
+    assert created.form_file_path == str(tmp_path / "260421-001.form")
 
     by_id = get_print_job_by_id(settings, created.id)
     by_name = get_print_job_by_name(settings, "260421-001")
@@ -166,6 +169,7 @@ def test_print_job_crud_round_trip(tmp_path: Path):
     assert len(jobs) == 1
     assert by_id.job_name == created.job_name
     assert by_name.scene_id == "scene-123"
+    assert by_name.form_file_path == str(tmp_path / "260421-001.form")
     assert by_id.case_ids == ["CASE001", "CASE002"]
     assert by_id.preset_names == ["Ortho Solid - Flat, No Supports", "Tooth - With Supports"]
     assert by_name.compatibility_key == "form4b:tough2000:50"

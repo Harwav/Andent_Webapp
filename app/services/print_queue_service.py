@@ -192,6 +192,82 @@ def _resolve_device_id(rows: list["ClassificationRow"], manifest: "BuildManifest
     return next(iter(explicit_printers))
 
 
+def _device_identifier(device: dict[str, Any]) -> str | None:
+    for key in ("id", "device_id", "printer_id", "name"):
+        value = device.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def _device_identity_text(device: dict[str, Any]) -> str:
+    parts = []
+    for key in ("id", "device_id", "printer_id", "name", "type", "model"):
+        value = device.get(key)
+        if value:
+            parts.append(str(value))
+    return " ".join(parts).lower()
+
+
+def _is_virtual_device(device: dict[str, Any]) -> bool:
+    for key in ("is_virtual", "virtual", "isVirtual"):
+        value = device.get(key)
+        if isinstance(value, bool):
+            return value
+    return "virtual" in _device_identity_text(device)
+
+
+def _resolve_virtual_device_id(client) -> str:
+    devices = client.list_devices()
+    if not isinstance(devices, list):
+        raise RuntimeError("PreFormServer did not return a printer device list.")
+
+    for device in devices:
+        if not isinstance(device, dict):
+            continue
+        if not _is_virtual_device(device):
+            continue
+        device_id = _device_identifier(device)
+        if device_id:
+            return device_id
+
+    raise RuntimeError(
+        "Virtual printer dispatch requires a clearly virtual printer device from PreFormServer."
+    )
+
+
+def _print_id_from_response(response: dict[str, Any]) -> str:
+    print_id = response.get("print_id") or response.get("job_id") or response.get("id")
+    if not print_id:
+        raise RuntimeError("PreFormServer accepted print request without returning a print job ID.")
+    return str(print_id)
+
+
+def _dispatch_scene_if_enabled(
+    *,
+    client,
+    settings: "Settings",
+    scene_id: str,
+    manifest: "BuildManifest",
+    rows: list["ClassificationRow"],
+    job_name: str,
+) -> str | None:
+    mode = getattr(settings, "print_dispatch_mode", "save_form")
+    if mode == "save_form":
+        return None
+    if mode == "virtual":
+        device_id = _resolve_virtual_device_id(client)
+    elif mode == "real":
+        device_id = _resolve_device_id(rows, manifest)
+    else:
+        raise RuntimeError(f"Unsupported print dispatch mode: {mode}")
+
+    response = client.send_to_printer(scene_id, device_id, job_name)
+    if not isinstance(response, dict):
+        raise RuntimeError("PreFormServer returned an invalid print response.")
+    return _print_id_from_response(response)
+
+
 def _scene_settings_from_manifest(manifest: "BuildManifest") -> dict[str, Any]:
     return {
         "layer_thickness_mm": manifest.layer_thickness_mm or 0.1,
@@ -302,10 +378,17 @@ def _validation_errors(validation_result: dict[str, Any]) -> list[str]:
     return [str(error) for error in errors]
 
 
-def _validation_allows_dispatch(validation_result: dict[str, Any]) -> bool:
+def _validation_allows_handoff(validation_result: dict[str, Any]) -> bool:
     if validation_result.get("valid", False):
         return True
     return not _validation_errors(validation_result)
+
+
+def _form_output_path_from_manifest(manifest: "BuildManifest", job_name: str) -> Path:
+    ordered_files = _ordered_manifest_file_specs(manifest)
+    if not ordered_files:
+        raise ValueError("Build manifest does not contain any STL files.")
+    return Path(ordered_files[0].file_path).parent / f"{job_name}.form"
 
 
 def assert_preform_ready(settings: "Settings") -> None:
@@ -372,27 +455,27 @@ def process_print_manifest(
         client.auto_layout(scene_id)
         validation_result = client.validate_scene(scene_id)
         validation_errors = _validation_errors(validation_result)
-        if _validation_allows_dispatch(validation_result):
-            print_result = client.send_to_printer(
-                scene_id,
-                _resolve_device_id(active_rows, manifest),
-                job_name=job_name,
-            )
+        form_path = _form_output_path_from_manifest(manifest, job_name)
+        client.save_form(scene_id, form_path)
+        form_file_path = str(form_path.resolve())
+        if not _validation_allows_handoff(validation_result):
             return {
                 "job_name": job_name,
                 "scene_id": scene_id,
-                "print_job_id": print_result.get("print_id"),
+                "print_job_id": None,
+                "form_file_path": form_file_path,
                 "preset": _manifest_preset_summary(manifest),
                 "preset_names": manifest.preset_names,
                 "compatibility_key": manifest.compatibility_key,
                 "case_ids": active_case_ids,
                 "manifest": manifest,
                 "manifest_json": manifest.model_dump(),
-                "status": "Queued",
+                "status": "Needs Review",
                 "row_count": len(active_rows),
-                "review_required": False,
-                "validation_passed": True,
+                "review_required": True,
+                "validation_passed": False,
                 "validation_errors": validation_errors,
+                "error_message": ", ".join(validation_errors) or "scene_validation_failed",
                 "printer_type": manifest.printer_group,
                 "resin": manifest.material_label,
                 "layer_height_microns": (
@@ -403,22 +486,30 @@ def process_print_manifest(
                 "estimated_density": manifest.estimated_density,
             }
 
+        print_job_id = _dispatch_scene_if_enabled(
+            client=client,
+            settings=settings,
+            scene_id=scene_id,
+            manifest=manifest,
+            rows=active_rows,
+            job_name=job_name,
+        )
         return {
             "job_name": job_name,
             "scene_id": scene_id,
-            "print_job_id": None,
+            "print_job_id": print_job_id,
+            "form_file_path": form_file_path,
             "preset": _manifest_preset_summary(manifest),
             "preset_names": manifest.preset_names,
             "compatibility_key": manifest.compatibility_key,
             "case_ids": active_case_ids,
             "manifest": manifest,
             "manifest_json": manifest.model_dump(),
-            "status": "Needs Review",
+            "status": "Queued",
             "row_count": len(active_rows),
-            "review_required": True,
-            "validation_passed": False,
+            "review_required": False,
+            "validation_passed": True,
             "validation_errors": validation_errors,
-            "error_message": ", ".join(validation_errors) or "scene_validation_failed",
             "printer_type": manifest.printer_group,
             "resin": manifest.material_label,
             "layer_height_microns": (
@@ -483,6 +574,7 @@ def _insert_print_job(
             created_at,
             updated_at,
             screenshot_url,
+            form_file_path,
             printer_type,
             resin,
             layer_height_microns,
@@ -497,7 +589,7 @@ def _insert_print_job(
             validation_passed,
             validation_errors_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             print_job.job_name,
@@ -512,6 +604,7 @@ def _insert_print_job(
             now,
             now,
             print_job.screenshot_url,
+            print_job.form_file_path,
             print_job.printer_type,
             print_job.resin,
             print_job.layer_height_microns,
@@ -841,7 +934,7 @@ def send_ready_rows_to_print(
                         batch_number,
                     )
                     active_case_ids = _manifest_case_ids_by_file_order(active_manifest)
-                    if result.get("validation_passed", True) or len(active_case_ids) == 1:
+                    if not result.get("review_required", False) or len(active_case_ids) == 1:
                         break
 
                     rollback_case_id = _last_added_case_id(active_manifest)
@@ -928,6 +1021,7 @@ def send_ready_rows_to_print(
                     job_name=result["job_name"],
                     scene_id=result["scene_id"],
                     print_job_id=result["print_job_id"],
+                    form_file_path=result.get("form_file_path"),
                     status=result.get("status", "Queued"),
                     preset=result["preset"],
                     preset_names=result.get("preset_names", []),
@@ -1058,6 +1152,7 @@ def release_held_print_job(
                 UPDATE print_jobs
                 SET status = 'Failed',
                     scene_id = ?,
+                    form_file_path = ?,
                     error_message = ?,
                     release_reason = ?,
                     released_by_operator = ?,
@@ -1068,6 +1163,7 @@ def release_held_print_job(
                 """,
                 (
                     result.get("scene_id"),
+                    result.get("form_file_path"),
                     result.get("error_message"),
                     "operator_release" if released_by_operator else "cutoff_release",
                     1 if released_by_operator else 0,
@@ -1096,6 +1192,7 @@ def release_held_print_job(
                 UPDATE print_jobs
                 SET scene_id = ?,
                     print_job_id = ?,
+                    form_file_path = ?,
                     status = ?,
                     preset = ?,
                     preset_names_json = ?,
@@ -1117,6 +1214,7 @@ def release_held_print_job(
                 (
                     result["scene_id"],
                     result["print_job_id"],
+                    result.get("form_file_path"),
                     result.get("status", "Queued"),
                     result["preset"],
                     json.dumps(result.get("preset_names", [])),

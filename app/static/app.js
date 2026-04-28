@@ -32,7 +32,7 @@ const ACTIVE_STATUSES = [
 
 const PAGE_SIZE = 50;
 const MAX_CONCURRENT_UPLOADS = 3;
-const DELETE_UNDO_MS = 10000;
+const DELETE_UNDO_MS = 5000;
 const PRINT_QUEUE_POLL_INTERVAL = 5000; // 5 seconds
 const THUMBNAIL_SNAPSHOT_STORAGE_PREFIX = "andent:thumbnail-snapshot:";
 
@@ -75,6 +75,7 @@ const state = {
     transientQueuedRows: new Map(),
     preformSetup: {
         status: null,
+        dispatchMode: null,
         loading: false,
         wizardDismissed: false,
     },
@@ -95,6 +96,8 @@ const elements = {
     previewTitle: document.getElementById("preview-title"),
     previewViewer: document.getElementById("preview-viewer"),
     preformBanner: document.getElementById("preform-banner"),
+    preformDispatchSummary: document.getElementById("preform-dispatch-summary"),
+    preformDispatchToggle: document.getElementById("preform-dispatch-toggle"),
     preformInstallButton: document.getElementById("preform-install-button"),
     preformLastCheck: document.getElementById("preform-last-check"),
     preformReadinessPill: document.getElementById("preform-readiness-pill"),
@@ -162,6 +165,42 @@ function getPreformSetupStatus() {
 
 function canPrint() {
     return getPreformSetupStatus()?.readiness === "ready";
+}
+
+function dispatchModeLabel(mode) {
+    return mode === "virtual" ? "Virtual printer debug" : "Save .form only";
+}
+
+async function fetchDispatchMode() {
+    const response = await fetch("/api/preform-setup/dispatch-mode");
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.detail || "Could not load print handoff mode.");
+    }
+    state.preformSetup.dispatchMode = payload;
+}
+
+async function setDispatchMode(mode) {
+    state.preformSetup.loading = true;
+    renderPreformSetup();
+    try {
+        const response = await fetch("/api/preform-setup/dispatch-mode", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.detail || "Could not update print handoff mode.");
+        }
+        state.preformSetup.dispatchMode = payload;
+        setStatus(`Print handoff mode: ${dispatchModeLabel(payload.mode)}.`);
+    } catch (error) {
+        setStatus(error.message, true);
+    } finally {
+        state.preformSetup.loading = false;
+        render();
+    }
 }
 
 function formatPreformRange(status) {
@@ -282,6 +321,12 @@ function renderPreformSetup() {
     elements.preformVersion.textContent = status?.detected_version || "-";
     elements.preformVersionRange.textContent = formatPreformRange(status);
     elements.preformLastCheck.textContent = formatDate(status?.last_health_check_at || "");
+    const dispatchMode = state.preformSetup.dispatchMode?.mode || "save_form";
+    elements.preformDispatchToggle.checked = dispatchMode === "virtual";
+    elements.preformDispatchToggle.disabled = state.preformSetup.loading;
+    elements.preformDispatchSummary.textContent = dispatchMode === "virtual"
+        ? "Real PreForm endpoint, virtual printer only"
+        : "Save .form only";
     elements.preformBanner.classList.toggle("hidden", !blocked);
     elements.preformBanner.textContent = blocked
         ? `Print handoff is blocked until PreFormServer is ${label.toLowerCase()}.`
@@ -482,6 +527,17 @@ function isReadyForPrint(row) {
 
 function isDuplicateActionable(row) {
     return !row.is_temp && !isRowPendingDelete(row) && row.status === "Duplicate";
+}
+
+function isRowRemovalBlocked(row) {
+    if (state.pendingBulkDelete || row.status === "Printed") {
+        return true;
+    }
+    const queueSection = row.queue_section || "analysis";
+    if (queueSection !== "in_progress" && row.status === "Submitted") {
+        return true;
+    }
+    return ["Printing", "Paused", "Completed", "Printed"].includes(row.handoff_stage || "");
 }
 
 function getSelectedRows() {
@@ -1055,8 +1111,9 @@ function createRemoveCell(row) {
     button.type = "button";
     button.className = "remove-button";
     button.textContent = "x";
+    button.setAttribute("aria-label", "Remove row");
     button.title = "Remove row";
-    button.disabled = row.status === "Submitted" || Boolean(state.pendingBulkDelete);
+    button.disabled = isRowRemovalBlocked(row);
     button.addEventListener("click", () => startDeleteCountdown(row));
     container.appendChild(button);
     return container;
@@ -1160,6 +1217,15 @@ function renderWorkQueueSections() {
 
     rows.forEach((row) => {
         const tr = document.createElement("tr");
+        if (!row.is_temp) {
+            tr.dataset.rowId = String(row.row_id ?? "");
+            tr.dataset.fileName = row.file_name;
+            tr.dataset.caseId = row.case_id || "";
+            tr.dataset.rowStatus = rowStatusLabel(row);
+        }
+        if (isRowPendingDelete(row)) {
+            tr.classList.add("row-pending-delete");
+        }
 
         const previewCell = document.createElement("td");
         previewCell.appendChild(createThumbnail(row));
@@ -1202,13 +1268,17 @@ function renderWorkQueueSections() {
         volumeCell.textContent = formatVolume(row);
         tr.appendChild(volumeCell);
 
+        const removeCell = document.createElement("td");
+        removeCell.appendChild(createRemoveCell(row));
+        tr.appendChild(removeCell);
+
         elements.inProgressBody.appendChild(tr);
     });
 
     if (rows.length === 0) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 9;
+        td.colSpan = 10;
         td.className = "table-empty";
         td.textContent = "No files are currently being processed.";
         tr.appendChild(td);
@@ -2489,6 +2559,10 @@ elements.preformRecheckButton.addEventListener("click", async () => {
     await runPreformAction("/api/preform-setup/recheck", { method: "POST" }, "PreFormServer readiness refreshed.");
 });
 
+elements.preformDispatchToggle.addEventListener("change", async (event) => {
+    await setDispatchMode(event.target.checked ? "virtual" : "save_form");
+});
+
 elements.preformWizard.addEventListener("click", (event) => {
     if (event.target.dataset.closeModal === "wizard" || event.target.dataset.wizardDismiss === "true") {
         dismissPreformWizard();
@@ -2555,6 +2629,7 @@ async function bootstrap() {
         await fetchQueue();
         await fetchPrintQueue();
         await fetchPreformSetupStatus();
+        await fetchDispatchMode();
         render();
         if (canPrint()) {
             setStatus("Queue loaded.");

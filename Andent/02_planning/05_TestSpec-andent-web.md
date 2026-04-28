@@ -170,6 +170,7 @@ Evidence from a run where dispatch success is vacuous because no PreFormServer w
 - Verify `Send to Print` moves selected `Ready` rows out of File Analysis into In Progress or History, depending on handoff state.
 - Verify held rows appear in In Progress as `Holding for More Cases`.
 - Verify submitted/printed rows are read-only after handoff.
+- Verify In Progress rows expose individual removal but stay excluded from selection, bulk edits, and send-to-print actions.
 - Verify History columns include:
   - `Status`
   - `File`
@@ -184,7 +185,7 @@ Evidence from a run where dispatch success is vacuous because no PreFormServer w
 
 ### Removal, Undo, And Locking
 - Verify rows can be removed from `Active`.
-- Verify removal starts a `10s` undo window and shows inline undo/countdown in the remove cell.
+- Verify removal starts a `5s` undo window and shows inline undo/countdown in the remove cell.
 - Verify queued/uploading/analyzing rows are canceled immediately when removed.
 - Verify rows are removed completely from the visible system when the undo window expires.
 - Verify clicking into `Model Type` or `Preset` can place a row into a simulated `Locked` state.

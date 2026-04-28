@@ -76,6 +76,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         screenshot_url TEXT,
+        form_file_path TEXT,
         printer_type TEXT,
         resin TEXT,
         layer_height_microns INTEGER,
@@ -130,6 +131,10 @@ INDEX_STATEMENTS: tuple[str, ...] = (
     ON print_jobs(created_at)
     """,
 )
+
+BLOCKED_DELETE_ROW_STATUSES = {"Submitted", "Printed"}
+LIVE_PRINT_DISPATCH_STATUSES = {"Printing", "Paused", "Completed"}
+LIVE_PRINT_DISPATCH_DELETE_ERROR = "Rows linked to a live print dispatch cannot be deleted."
 
 
 def ensure_storage(settings: Settings) -> None:
@@ -186,6 +191,7 @@ def init_db(settings: Settings) -> None:
         _ensure_column(connection, "print_jobs", "released_by_operator", "INTEGER NOT NULL DEFAULT 0")
         _ensure_column(connection, "print_jobs", "validation_passed", "INTEGER")
         _ensure_column(connection, "print_jobs", "validation_errors_json", "TEXT")
+        _ensure_column(connection, "print_jobs", "form_file_path", "TEXT")
         connection.execute(
             """
             UPDATE upload_rows
@@ -249,6 +255,7 @@ def _row_to_print_job(row: sqlite3.Row) -> PrintJob:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         screenshot_url=row["screenshot_url"],
+        form_file_path=row["form_file_path"],
         printer_type=row["printer_type"],
         resin=row["resin"],
         layer_height_microns=row["layer_height_microns"],
@@ -304,6 +311,7 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 created_at,
                 updated_at,
                 screenshot_url,
+                form_file_path,
                 printer_type,
                 resin,
                 layer_height_microns,
@@ -318,7 +326,7 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 validation_passed,
                 validation_errors_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 print_job.job_name,
@@ -333,6 +341,7 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 print_job.created_at or now,
                 print_job.updated_at or now,
                 print_job.screenshot_url,
+                print_job.form_file_path,
                 print_job.printer_type,
                 print_job.resin,
                 print_job.layer_height_microns,
@@ -397,6 +406,7 @@ def update_print_job(settings: Settings, job_id: int, **changes: object) -> Prin
         "case_ids",
         "manifest_json",
         "screenshot_url",
+        "form_file_path",
         "printer_type",
         "resin",
         "layer_height_microns",
@@ -1075,6 +1085,38 @@ def send_rows_to_print(settings: Settings, row_ids: Iterable[int]) -> list[Class
         return _load_rows_by_ids(connection, ids)
 
 
+def _linked_print_dispatch_is_live(connection: sqlite3.Connection, row: sqlite3.Row) -> bool:
+    linked_job_id = row["linked_print_job_id"]
+    if linked_job_id is None:
+        return False
+
+    linked_job = connection.execute(
+        """
+        SELECT status, print_job_id
+        FROM print_jobs
+        WHERE id = ?
+        """,
+        (linked_job_id,),
+    ).fetchone()
+    if linked_job is None:
+        return False
+
+    return bool(linked_job["print_job_id"]) or linked_job["status"] in LIVE_PRINT_DISPATCH_STATUSES
+
+
+def _validate_upload_rows_deletable(connection: sqlite3.Connection, rows: Iterable[sqlite3.Row]) -> None:
+    row_list = list(rows)
+    if any(row["status"] == "Printed" for row in row_list):
+        raise ValueError("Submitted rows cannot be deleted.")
+    if any(
+        row["status"] == "Submitted" and row["queue_section"] != "in_progress"
+        for row in row_list
+    ):
+        raise ValueError("Submitted rows cannot be deleted.")
+    if any(_linked_print_dispatch_is_live(connection, row) for row in row_list):
+        raise ValueError(LIVE_PRINT_DISPATCH_DELETE_ERROR)
+
+
 def bulk_delete_upload_rows(settings: Settings, row_ids: Iterable[int]) -> list[int]:
     ids = list(row_ids)
     if not ids:
@@ -1085,7 +1127,7 @@ def bulk_delete_upload_rows(settings: Settings, row_ids: Iterable[int]) -> list[
             row["id"]: row
             for row in connection.execute(
                 f"""
-                SELECT id, stored_path, session_id, status
+                SELECT id, stored_path, session_id, status, queue_section, linked_print_job_id
                 FROM upload_rows
                 WHERE id IN ({",".join("?" for _ in ids)})
                 """,
@@ -1093,8 +1135,7 @@ def bulk_delete_upload_rows(settings: Settings, row_ids: Iterable[int]) -> list[
             ).fetchall()
         }
 
-        if any(row["status"] in {"Submitted", "Printed"} for row in rows.values()):
-            raise ValueError("Submitted rows cannot be deleted.")
+        _validate_upload_rows_deletable(connection, rows.values())
 
         deleted_ids: list[int] = []
         affected_sessions: set[str] = set()
@@ -1134,7 +1175,7 @@ def delete_upload_row(settings: Settings, row_id: int) -> bool:
     with closing(connect(settings)) as connection:
         row = connection.execute(
             """
-            SELECT id, stored_path, session_id, status
+            SELECT id, stored_path, session_id, status, queue_section, linked_print_job_id
             FROM upload_rows
             WHERE id = ?
             """,
@@ -1142,8 +1183,7 @@ def delete_upload_row(settings: Settings, row_id: int) -> bool:
         ).fetchone()
         if row is None:
             return False
-        if row["status"] in {"Submitted", "Printed"}:
-            raise ValueError("Submitted rows cannot be deleted.")
+        _validate_upload_rows_deletable(connection, [row])
 
         stored_path = Path(row["stored_path"])
         if stored_path.exists():

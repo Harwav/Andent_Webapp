@@ -106,7 +106,7 @@ class TestFullPrintHandoffFlow:
         assert [manifest.case_ids for manifest in manifests] == [["A", "B"], ["C"]]
 
     def test_send_to_print_prefomserver_receives(self, tmp_path):
-        """Manifest processing should call scene import/layout/validation/print APIs.
+        """Manifest processing should call scene import/layout/validation/save-form APIs.
         
         Flow:
         1. Create a planned manifest
@@ -114,7 +114,7 @@ class TestFullPrintHandoffFlow:
         3. Call manifest processing
         3. Verify create_scene called
         4. Verify import_model called for each STL
-        5. Verify auto_layout, validate_scene, and send_to_printer called
+        5. Verify auto_layout, validate_scene, and save_form called
         """
         from app.config import build_settings
         from app.schemas import ClassificationRow, DimensionSummary
@@ -145,21 +145,24 @@ class TestFullPrintHandoffFlow:
             mock_instance.import_model.return_value = {"model_id": "model-123"}
             mock_instance.auto_layout.return_value = {"status": "ok"}
             mock_instance.validate_scene.return_value = {"valid": True, "errors": []}
-            mock_instance.send_to_printer.return_value = {"print_id": "print-123"}
+            mock_instance.save_form.return_value = {"status": "ok"}
             MockClient.return_value = mock_instance
 
             result = process_print_manifest(settings, manifest, rows, 1)
+            expected_form_path = case_file.parent / f"{result['job_name']}.form"
 
             assert mock_instance.create_scene.called
             assert mock_instance.import_model.called
             assert mock_instance.auto_layout.called
             assert mock_instance.validate_scene.called
-            assert mock_instance.send_to_printer.called
+            mock_instance.save_form.assert_called_once_with("scene-123", expected_form_path)
+            assert mock_instance.send_to_printer.call_count == 0
             assert result["scene_id"] == "scene-123"
-            assert result["print_job_id"] == "print-123"
+            assert result["print_job_id"] is None
+            assert result["form_file_path"] == str(expected_form_path.resolve())
 
-    def test_process_print_manifest_does_not_retry_failed_validation(self, tmp_path):
-        """One manifest attempt creates one scene even when validation fails."""
+    def test_process_print_manifest_saves_form_before_validation_review(self, tmp_path):
+        """PreForm validation warnings still save a .form before review routing."""
         from app.config import build_settings
         from app.schemas import ClassificationRow, DimensionSummary
         from app.services.build_planning import plan_build_manifests
@@ -202,16 +205,24 @@ class TestFullPrintHandoffFlow:
             mock_instance.import_model.return_value = {"model_id": "model-123"}
             mock_instance.auto_layout.return_value = {"status": "ok"}
             mock_instance.validate_scene.return_value = {"valid": False, "errors": ["overlap"]}
+            mock_instance.save_form.return_value = {"status": "ok"}
             MockClient.return_value = mock_instance
 
             result = process_print_manifest(settings, manifest, rows, 1)
+            expected_form_path = first_file.parent / f"{result['job_name']}.form"
 
             assert mock_instance.create_scene.call_count == 1
             assert mock_instance.import_model.call_count == 2
             assert mock_instance.auto_layout.call_count == 1
             assert mock_instance.validate_scene.call_count == 1
+            mock_instance.save_form.assert_called_once_with("scene-123", expected_form_path)
             assert mock_instance.send_to_printer.call_count == 0
             assert result["validation_passed"] is False
+            assert result["validation_errors"] == ["overlap"]
+            assert result["review_required"] is True
+            assert result["status"] == "Needs Review"
+            assert result["print_job_id"] is None
+            assert result["form_file_path"] == str(expected_form_path.resolve())
             assert result["case_ids"] == ["CASE-TOOTH", "CASE-ORTHO"]
 
     def test_poll_for_status_updates(self):

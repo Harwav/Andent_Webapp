@@ -30,6 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = resolved_settings
+    app.state.default_print_dispatch_mode = resolved_settings.print_dispatch_mode
 
     app.mount("/static", StaticFiles(directory=str(resolved_settings.static_dir)), name="static")
     app.include_router(uploads_router)

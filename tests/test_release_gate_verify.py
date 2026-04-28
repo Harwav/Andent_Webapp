@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from release_gate.helpers.python.release_gate_verify import (
+    check_scene,
     latest_print_job,
     parse_health_response,
 )
@@ -117,3 +118,21 @@ def test_parse_health_response_accepts_preform_version_payload():
     parsed = parse_health_response(payload)
     assert parsed["ok"] is True
     assert parsed["version"] == "3.57.2.624"
+
+
+def test_check_scene_normalizes_preform_id_payload(monkeypatch):
+    class _Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"id": "scene-123", "models": []}
+
+    monkeypatch.setattr(
+        "release_gate.helpers.python.release_gate_verify.requests.get",
+        lambda *args, **kwargs: _Response(),
+    )
+
+    scene = check_scene("http://preform.test", "scene-123")
+
+    assert scene["scene_id"] == "scene-123"

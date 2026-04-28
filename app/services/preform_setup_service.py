@@ -23,7 +23,7 @@ class PreFormSetupError(RuntimeError):
         self.code = code
 
 
-PREFORM_PROBE_TIMEOUT_SECONDS = 1.0
+PREFORM_PROBE_TIMEOUT_SECONDS = 2.0
 
 
 def get_preform_setup_status(settings: Settings) -> PreFormSetupStatus:
@@ -41,6 +41,7 @@ class PreFormSetupService:
             payload_root = self._resolve_payload_root(staging_root)
             self.stop(ignore_missing=True)
             self._replace_managed_install(payload_root)
+            self._write_package_version_marker(archive_path)
         finally:
             shutil.rmtree(staging_root, ignore_errors=True)
         return self.start()
@@ -54,6 +55,14 @@ class PreFormSetupService:
             raise PreFormSetupError(
                 "missing_install",
                 "Managed PreFormServer install is missing.",
+            )
+
+        state = load_preform_setup_state(self.settings)
+        probe = self._probe_server()
+        if probe["healthy"]:
+            return self._persist_healthy_probe_status(
+                probe,
+                process_id=state.get("process_id"),
             )
 
         pid = self._launch_process(executable)
@@ -96,26 +105,7 @@ class PreFormSetupService:
         if not executable.exists():
             probe = self._probe_server()
             if probe["healthy"]:
-                version = str(probe["version"])
-                if not self._version_is_supported(version):
-                    return self._persist_status(
-                        readiness="incompatible_version",
-                        detected_version=version,
-                        process_id=None,
-                        is_running=True,
-                        error_code="incompatible_version",
-                        error_message=(
-                            f"Detected PreFormServer {version} is outside the supported version contract."
-                        ),
-                    )
-                return self._persist_status(
-                    readiness="ready",
-                    detected_version=version,
-                    process_id=None,
-                    is_running=True,
-                    error_code=None,
-                    error_message=None,
-                )
+                return self._persist_healthy_probe_status(probe, process_id=None)
             return self._persist_status(
                 readiness="not_installed",
                 detected_version=None,
@@ -136,26 +126,9 @@ class PreFormSetupService:
                 error_message=str(probe["message"]),
             )
 
-        version = str(probe["version"])
-        if not self._version_is_supported(version):
-            return self._persist_status(
-                readiness="incompatible_version",
-                detected_version=version,
-                process_id=state.get("process_id"),
-                is_running=True,
-                error_code="incompatible_version",
-                error_message=(
-                    f"Detected PreFormServer {version} is outside the supported version contract."
-                ),
-            )
-
-        return self._persist_status(
-            readiness="ready",
-            detected_version=version,
+        return self._persist_healthy_probe_status(
+            probe,
             process_id=state.get("process_id"),
-            is_running=True,
-            error_code=None,
-            error_message=None,
         )
 
     def _wait_for_server(self, pid: int) -> PreFormSetupStatus:
@@ -170,37 +143,54 @@ class PreFormSetupService:
         while time.monotonic() < deadline:
             probe = self._probe_server()
             if probe["healthy"]:
-                version = str(probe["version"])
-                if not self._version_is_supported(version):
-                    return self._persist_status(
-                        readiness="incompatible_version",
-                        detected_version=version,
-                        process_id=pid,
-                        is_running=True,
-                        error_code="incompatible_version",
-                        error_message=(
-                            f"Detected PreFormServer {version} is outside the supported version contract."
-                        ),
-                    )
-                return self._persist_status(
-                    readiness="ready",
-                    detected_version=version,
-                    process_id=pid,
-                    is_running=True,
-                    error_code=None,
-                    error_message=None,
-                )
+                return self._persist_healthy_probe_status(probe, process_id=pid)
             last_probe = probe
             time.sleep(1)
 
         return self._persist_status(
             readiness="installed_not_running",
-            detected_version=None,
+            detected_version=self._read_managed_version(),
             process_id=pid,
             is_running=False,
             error_code=str(last_probe["code"]),
             error_message=str(last_probe["message"]),
         )
+
+    def _persist_healthy_probe_status(
+        self,
+        probe: dict[str, object],
+        *,
+        process_id: object,
+    ) -> PreFormSetupStatus:
+        version = str(probe["version"])
+        if not self._version_is_supported(version):
+            return self._persist_status(
+                readiness="incompatible_version",
+                detected_version=version,
+                process_id=self._coerce_process_id(process_id),
+                is_running=True,
+                error_code="incompatible_version",
+                error_message=(
+                    f"Detected PreFormServer {version} is outside the supported version contract."
+                ),
+            )
+
+        return self._persist_status(
+            readiness="ready",
+            detected_version=version,
+            process_id=self._coerce_process_id(process_id),
+            is_running=True,
+            error_code=None,
+            error_message=None,
+        )
+
+    def _coerce_process_id(self, value: object) -> int | None:
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
 
     def _persist_status(
         self,
@@ -344,16 +334,27 @@ class PreFormSetupService:
         finally:
             shutil.rmtree(backup_dir, ignore_errors=True)
 
+    def _write_package_version_marker(self, archive_path: Path) -> None:
+        version_file = self.settings.preform_managed_dir / "version.txt"
+        if version_file.exists():
+            return
+        version = self._extract_version(archive_path.stem)
+        if not version:
+            return
+        version_file.write_text(version, encoding="utf-8")
+
     def _launch_process(self, executable_path: Path) -> int:
+        resolved_executable = executable_path.resolve(strict=True)
+        resolved_managed_dir = self.settings.preform_managed_dir.resolve(strict=True)
         args = [
-            str(executable_path),
+            str(resolved_executable),
             "--port",
             str(self.settings.preform_server_port),
         ]
         env = os.environ.copy()
         runtime_paths = [
-            str(self.settings.preform_managed_dir),
-            str(self.settings.preform_managed_dir / "hoops"),
+            str(resolved_managed_dir),
+            str((resolved_managed_dir / "hoops").resolve(strict=False)),
         ]
         env["PATH"] = os.pathsep.join(runtime_paths + [env.get("PATH", "")])
         creation_flags = 0
@@ -366,7 +367,7 @@ class PreFormSetupService:
 
         process = subprocess.Popen(
             args,
-            cwd=str(self.settings.preform_managed_dir),
+            cwd=str(resolved_managed_dir),
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -387,8 +388,14 @@ class PreFormSetupService:
 
     def _probe_server(self) -> dict[str, object]:
         session = requests.Session()
-        version = self._read_managed_version_file()
-        for endpoint in ("", "/", "/health", "/health/ready"):
+        version = self._read_managed_version()
+        last_error = {
+            "healthy": False,
+            "version": version,
+            "code": "health_check_failed",
+            "message": "PreFormServer local API is not reachable.",
+        }
+        for endpoint in ("/", "/scene/"):
             url = f"{self.settings.preform_server_url.rstrip('/')}{endpoint}"
             try:
                 response = session.get(url, timeout=PREFORM_PROBE_TIMEOUT_SECONDS)
@@ -401,7 +408,7 @@ class PreFormSetupService:
                 }
                 continue
 
-            if response.status_code >= 500:
+            if not response.ok:
                 last_error = {
                     "healthy": False,
                     "version": None,
@@ -425,10 +432,65 @@ class PreFormSetupService:
         session.close()
         return last_error
 
-    def _read_managed_version_file(self) -> str | None:
+    def _read_managed_version(self) -> str | None:
         version_file = self.settings.preform_managed_dir / "version.txt"
         if version_file.exists():
-            return version_file.read_text(encoding="utf-8").strip() or None
+            version = version_file.read_text(encoding="utf-8").strip()
+            if version:
+                return version
+        return self._read_managed_executable_version()
+
+    def _read_managed_executable_version(self) -> str | None:
+        executable = self.settings.preform_managed_executable
+        if os.name != "nt" or not executable.exists():
+            return None
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            executable_path = str(executable.resolve())
+            size = ctypes.windll.version.GetFileVersionInfoSizeW(executable_path, None)
+            if not size:
+                return None
+            buffer = ctypes.create_string_buffer(size)
+            ctypes.windll.version.GetFileVersionInfoW(executable_path, 0, size, buffer)
+            pointer = ctypes.c_void_p()
+            length = wintypes.UINT()
+            ctypes.windll.version.VerQueryValueW(
+                buffer,
+                "\\",
+                ctypes.byref(pointer),
+                ctypes.byref(length),
+            )
+
+            class _FixedFileInfo(ctypes.Structure):
+                _fields_ = [
+                    ("dwSignature", wintypes.DWORD),
+                    ("dwStrucVersion", wintypes.DWORD),
+                    ("dwFileVersionMS", wintypes.DWORD),
+                    ("dwFileVersionLS", wintypes.DWORD),
+                    ("dwProductVersionMS", wintypes.DWORD),
+                    ("dwProductVersionLS", wintypes.DWORD),
+                    ("dwFileFlagsMask", wintypes.DWORD),
+                    ("dwFileFlags", wintypes.DWORD),
+                    ("dwFileOS", wintypes.DWORD),
+                    ("dwFileType", wintypes.DWORD),
+                    ("dwFileSubtype", wintypes.DWORD),
+                    ("dwFileDateMS", wintypes.DWORD),
+                    ("dwFileDateLS", wintypes.DWORD),
+                ]
+
+            info = ctypes.cast(pointer, ctypes.POINTER(_FixedFileInfo)).contents
+            parts = (
+                info.dwFileVersionMS >> 16,
+                info.dwFileVersionMS & 0xFFFF,
+                info.dwFileVersionLS >> 16,
+                info.dwFileVersionLS & 0xFFFF,
+            )
+            if any(parts):
+                return ".".join(str(part) for part in parts)
+        except Exception:
+            return None
         return None
 
     def _load_response_payload(self, response: requests.Response) -> object:

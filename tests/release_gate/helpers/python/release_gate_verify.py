@@ -51,7 +51,10 @@ def check_preform_health(base_url: str) -> dict:
 def check_scene(base_url: str, scene_id: str) -> dict:
     response = requests.get(f"{base_url.rstrip('/')}/scene/{scene_id}", timeout=10)
     response.raise_for_status()
-    return response.json()
+    payload = response.json()
+    if isinstance(payload, dict) and "scene_id" not in payload and "id" in payload:
+        return {**payload, "scene_id": payload["id"]}
+    return payload
 
 
 def main() -> None:

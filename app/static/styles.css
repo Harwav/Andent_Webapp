@@ -246,6 +246,69 @@ h2 {
     word-break: break-word;
 }
 
+.setup-dispatch-item small {
+    display: block;
+    margin-top: 8px;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+}
+
+.dispatch-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.dispatch-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.dispatch-toggle-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 42px;
+    height: 24px;
+    border-radius: 999px;
+    background: #d9d2c7;
+    transition: background 160ms ease;
+}
+
+.dispatch-toggle-track::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+    transition: transform 160ms ease;
+}
+
+.dispatch-toggle input:checked + .dispatch-toggle-track {
+    background: var(--info);
+}
+
+.dispatch-toggle input:checked + .dispatch-toggle-track::after {
+    transform: translateX(18px);
+}
+
+.dispatch-toggle input:focus-visible + .dispatch-toggle-track {
+    outline: 3px solid rgba(8, 100, 199, 0.2);
+    outline-offset: 2px;
+}
+
+.dispatch-toggle input:disabled + .dispatch-toggle-track {
+    opacity: 0.55;
+    cursor: wait;
+}
+
 .status-pill {
     display: inline-flex;
     align-items: center;

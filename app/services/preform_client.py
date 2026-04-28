@@ -12,6 +12,7 @@ PreFormServer API Reference:
 """
 import time
 from functools import wraps
+from pathlib import Path
 from typing import Any, Dict, List
 
 import requests
@@ -198,6 +199,26 @@ class PreFormClient:
                 errors.append(f"{model_id}: seamline detected")
 
         return {"valid": len(errors) == 0, "errors": errors}
+
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
+    def save_form(self, scene_id: str, output_path: str | Path) -> Dict[str, Any]:
+        """Save a PreForm scene to a local .form file path."""
+        resolved_path = Path(output_path).resolve()
+        resolved_path.parent.mkdir(parents=True, exist_ok=True)
+        url = f"{self.base_url}/scene/{scene_id}/save-form/"
+        payload = {"file": str(resolved_path)}
+
+        try:
+            response = self.session.post(url, json=payload, timeout=120)
+        except requests.RequestException as e:
+            raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
+
+        if response.status_code == 404:
+            raise Exception(f"Scene {scene_id} not found. Please check the scene ID.")
+        elif response.status_code != 200:
+            raise Exception(f"Failed to save form file: {response.status_code} - {response.text}")
+
+        return response.json() if response.content else {"file": str(resolved_path)}
     
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def send_to_printer(

@@ -71,6 +71,7 @@ PreFormReadiness = Literal[
     "ready",
     "failed",
 ]
+RuntimeDispatchMode = Literal["save_form", "virtual"]
 
 
 class PreFormSetupStatus(BaseModel):
@@ -90,6 +91,16 @@ class PreFormSetupStatus(BaseModel):
 class PreFormSetupActionResponse(BaseModel):
     status: PreFormSetupStatus
     message: str
+
+
+class DispatchModeStatus(BaseModel):
+    mode: str
+    default_mode: str
+    allowed_modes: list[RuntimeDispatchMode]
+
+
+class UpdateDispatchModeRequest(BaseModel):
+    mode: RuntimeDispatchMode
 
 
 class UpdateClassificationRowRequest(BaseModel):
@@ -205,6 +216,7 @@ class PrintJob(BaseModel):
     created_at: str | None = None
     updated_at: str | None = None
     screenshot_url: str | None = None
+    form_file_path: str | None = None
     printer_type: str | None = None
     resin: str | None = None
     layer_height_microns: int | None = None

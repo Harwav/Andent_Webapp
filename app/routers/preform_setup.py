@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
-from ..schemas import PreFormSetupActionResponse, PreFormSetupStatus
+from ..schemas import (
+    DispatchModeStatus,
+    PreFormSetupActionResponse,
+    PreFormSetupStatus,
+    UpdateDispatchModeRequest,
+)
 from ..services.preform_setup_service import (
     PreFormSetupError,
     PreFormSetupService,
@@ -40,9 +46,39 @@ def _action_response(status: PreFormSetupStatus, message: str) -> PreFormSetupAc
     return PreFormSetupActionResponse(status=status, message=message)
 
 
+def _dispatch_mode_response(request: Request) -> DispatchModeStatus:
+    settings = request.app.state.settings
+    return DispatchModeStatus(
+        mode=settings.print_dispatch_mode,
+        default_mode=getattr(
+            request.app.state,
+            "default_print_dispatch_mode",
+            settings.print_dispatch_mode,
+        ),
+        allowed_modes=["save_form", "virtual"],
+    )
+
+
 @router.get("/status", response_model=PreFormSetupStatus)
 async def status(request: Request) -> PreFormSetupStatus:
     return get_preform_setup_status(request.app.state.settings)
+
+
+@router.get("/dispatch-mode", response_model=DispatchModeStatus)
+async def get_dispatch_mode(request: Request) -> DispatchModeStatus:
+    return _dispatch_mode_response(request)
+
+
+@router.patch("/dispatch-mode", response_model=DispatchModeStatus)
+async def update_dispatch_mode(
+    request: Request,
+    payload: UpdateDispatchModeRequest,
+) -> DispatchModeStatus:
+    request.app.state.settings = replace(
+        request.app.state.settings,
+        print_dispatch_mode=payload.mode,
+    )
+    return _dispatch_mode_response(request)
 
 
 @router.post("/install-from-zip", response_model=PreFormSetupActionResponse)

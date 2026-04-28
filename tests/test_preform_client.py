@@ -256,6 +256,44 @@ class TestPreFormClient:
             assert "422" in str(exc_info.value)
             assert "overlap detected" in str(exc_info.value)
 
+    def test_save_form_success(self, tmp_path):
+        """Test saving a scene to a local .form file path."""
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "ok"}
+        mock_session.post.return_value = mock_response
+
+        client = PreFormClient()
+        client.session = mock_session
+        output_path = tmp_path / "260421-001.form"
+
+        result = client.save_form("scene-123", output_path)
+
+        assert result == {"status": "ok"}
+        mock_session.post.assert_called_once_with(
+            "http://localhost:44388/scene/scene-123/save-form/",
+            json={"file": str(output_path.resolve())},
+            timeout=120,
+        )
+
+    def test_save_form_raises_on_non_200_response(self, tmp_path):
+        """Test save_form raises with status and response text on failure."""
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.text = "save failed"
+        mock_session.post.return_value = mock_response
+
+        client = PreFormClient()
+        client.session = mock_session
+
+        with pytest.raises(Exception) as exc_info:
+            client.save_form("scene-123", tmp_path / "failed.form")
+
+        assert "500" in str(exc_info.value)
+        assert "save failed" in str(exc_info.value)
+
     def test_send_to_printer_success(self):
         """Test sending print job to printer successfully."""
         mock_session = Mock()

@@ -12,9 +12,17 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from app.config import build_settings
-from app.database import connect, get_upload_row_by_id, init_db, persist_upload_session
+from app.database import (
+    bulk_delete_upload_rows,
+    connect,
+    create_print_job,
+    delete_upload_row,
+    get_upload_row_by_id,
+    init_db,
+    persist_upload_session,
+)
 from app.main import create_app
-from app.schemas import ClassificationRow
+from app.schemas import ClassificationRow, PrintJob
 from app.services.classification import classify_saved_upload, serialize_row_for_storage
 
 
@@ -34,6 +42,42 @@ def _minimal_stl_bytes() -> bytes:
     v3 = struct.pack("<fff", 0, 1, 0)
     attr = struct.pack("<H", 0)
     return header + count + normal + v1 + v2 + v3 + attr
+
+
+def _persist_ready_row(settings, tmp_path, *, session_id="session-delete", file_name="P001_die.stl"):
+    stl_path = tmp_path / file_name
+    stl_path.write_bytes(_minimal_stl_bytes())
+    rows = persist_upload_session(
+        settings,
+        session_id,
+        [
+            {
+                "file_name": file_name,
+                "stored_path": str(stl_path),
+                "content_hash": f"hash-{file_name}",
+                "thumbnail_svg": None,
+                "case_id": "P001",
+                "model_type": "Die",
+                "preset": "Die - Flat, No Supports",
+                "confidence": "high",
+                "status": "Ready",
+                "dimension_x_mm": 1.0,
+                "dimension_y_mm": 1.0,
+                "dimension_z_mm": 1.0,
+                "volume_ml": 1.0,
+                "structure": None,
+                "structure_confidence": None,
+                "structure_reason": None,
+                "structure_metrics_json": None,
+                "structure_locked": False,
+                "review_required": False,
+                "review_reason": None,
+                "printer": "Form 4BL",
+                "person": None,
+            }
+        ],
+    )
+    return rows[0].row_id, stl_path
 
 
 def test_classify_upload_persists_single_row(tmp_path):
@@ -103,6 +147,125 @@ def test_public_upload_and_queue_responses_do_not_expose_file_path(tmp_path):
     public_rows = queue_payload["active_rows"] + queue_payload["processed_rows"]
     assert public_rows
     assert all("file_path" not in row for row in public_rows)
+
+
+def test_delete_upload_row_allows_safe_in_progress_row(tmp_path):
+    settings = _build_settings(tmp_path)
+    row_id, stl_path = _persist_ready_row(settings, tmp_path)
+    with connect(settings) as connection:
+        connection.execute(
+            """
+            UPDATE upload_rows
+            SET queue_section = 'in_progress', handoff_stage = 'Processing', status = 'Ready'
+            WHERE id = ?
+            """,
+            (row_id,),
+        )
+        connection.commit()
+
+    deleted = delete_upload_row(settings, row_id)
+
+    assert deleted is True
+    assert get_upload_row_by_id(settings, row_id) is None
+    assert not stl_path.exists()
+
+
+def test_delete_upload_row_allows_held_in_progress_row_without_live_dispatch(tmp_path):
+    settings = _build_settings(tmp_path)
+    row_id, _ = _persist_ready_row(settings, tmp_path)
+    held_job = create_print_job(
+        settings,
+        PrintJob(
+            job_name="260428-001",
+            status="Holding for More Cases",
+            preset="Die - Flat, No Supports",
+        ),
+    )
+    with connect(settings) as connection:
+        connection.execute(
+            """
+            UPDATE upload_rows
+            SET status = 'Submitted',
+                queue_section = 'in_progress',
+                handoff_stage = 'Holding for More Cases',
+                linked_print_job_id = ?,
+                linked_job_name = ?
+            WHERE id = ?
+            """,
+            (held_job.id, held_job.job_name, row_id),
+        )
+        connection.commit()
+
+    assert delete_upload_row(settings, row_id) is True
+
+
+def test_delete_upload_row_blocks_live_dispatched_in_progress_row(tmp_path):
+    settings = _build_settings(tmp_path)
+    row_id, _ = _persist_ready_row(settings, tmp_path)
+    live_job = create_print_job(
+        settings,
+        PrintJob(
+            job_name="260428-002",
+            status="Printing",
+            print_job_id="formlabs-live-1",
+            preset="Die - Flat, No Supports",
+        ),
+    )
+    with connect(settings) as connection:
+        connection.execute(
+            """
+            UPDATE upload_rows
+            SET queue_section = 'in_progress',
+                handoff_stage = 'Printing',
+                linked_print_job_id = ?,
+                linked_job_name = ?
+            WHERE id = ?
+            """,
+            (live_job.id, live_job.job_name, row_id),
+        )
+        connection.commit()
+
+    try:
+        delete_upload_row(settings, row_id)
+    except ValueError as exc:
+        assert str(exc) == "Rows linked to a live print dispatch cannot be deleted."
+    else:
+        raise AssertionError("Expected live dispatched rows to be blocked.")
+
+    assert get_upload_row_by_id(settings, row_id) is not None
+
+
+def test_bulk_delete_upload_rows_blocks_live_dispatched_in_progress_row(tmp_path):
+    settings = _build_settings(tmp_path)
+    row_id, _ = _persist_ready_row(settings, tmp_path)
+    live_job = create_print_job(
+        settings,
+        PrintJob(
+            job_name="260428-003",
+            status="Queued",
+            print_job_id="formlabs-queued-1",
+            preset="Die - Flat, No Supports",
+        ),
+    )
+    with connect(settings) as connection:
+        connection.execute(
+            """
+            UPDATE upload_rows
+            SET queue_section = 'in_progress',
+                handoff_stage = 'Queued',
+                linked_print_job_id = ?
+            WHERE id = ?
+            """,
+            (live_job.id, row_id),
+        )
+        connection.commit()
+
+    try:
+        bulk_delete_upload_rows(settings, [row_id])
+    except ValueError as exc:
+        assert str(exc) == "Rows linked to a live print dispatch cannot be deleted."
+    else:
+        raise AssertionError("Expected bulk delete to block live dispatched rows.")
 
 
 def test_antag_upload_classifies_with_case_id_and_ortho_solid_preset(tmp_path, monkeypatch):

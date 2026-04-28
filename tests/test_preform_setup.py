@@ -75,6 +75,14 @@ def _build_preform_zip(tmp_path: Path, *, version_text: str = "3.57.2.624") -> P
     return archive_path
 
 
+def _build_preform_zip_without_version_file(tmp_path: Path) -> Path:
+    archive_path = tmp_path / "PreFormServer_3.58.1.627.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("PreFormServer/PreFormServer.exe", "fake exe payload")
+        archive.writestr("PreFormServer/config/default.json", "{}")
+    return archive_path
+
+
 def _build_invalid_zip(tmp_path: Path) -> Path:
     archive_path = tmp_path / "not-preform.zip"
     with zipfile.ZipFile(archive_path, "w") as archive:
@@ -149,6 +157,68 @@ def test_launch_process_includes_managed_runtime_paths(tmp_path, monkeypatch):
     assert str(settings.preform_managed_dir / "hoops") in env_path
 
 
+def test_start_reuses_existing_ready_preform_api_without_launching_duplicate(tmp_path):
+    from app.services.preform_setup_service import PreFormSetupService
+
+    settings = _build_settings(tmp_path)
+    init_db(settings)
+    settings.preform_managed_dir.mkdir(parents=True, exist_ok=True)
+    settings.preform_managed_executable.write_text("fake exe", encoding="utf-8")
+
+    manager = PreFormSetupService(settings)
+    manager._probe_server = lambda: {
+        "healthy": True,
+        "version": "3.58.1.627",
+        "code": None,
+        "message": None,
+    }
+
+    def fail_launch(executable_path: Path) -> int:
+        raise AssertionError(f"unexpected duplicate launch: {executable_path}")
+
+    manager._launch_process = fail_launch
+
+    status = manager.start()
+
+    assert status.readiness == "ready"
+    assert status.detected_version == "3.58.1.627"
+    assert status.is_running is True
+
+
+def test_probe_server_does_not_treat_missing_health_endpoint_as_ready(tmp_path, monkeypatch):
+    import requests
+    from app.services.preform_setup_service import PreFormSetupService
+
+    settings = _build_settings(tmp_path)
+    init_db(settings)
+    manager = PreFormSetupService(settings)
+
+    class _FakeResponse:
+        def __init__(self, status_code: int, body: str):
+            self.status_code = status_code
+            self.text = body
+            self.ok = 200 <= status_code < 300
+
+        def json(self):
+            raise ValueError("not json")
+
+    class _FakeSession:
+        def get(self, url: str, timeout: float):
+            if url.endswith("/health") or url.endswith("/health/ready"):
+                return _FakeResponse(404, "not found")
+            raise requests.ConnectionError("connection refused")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("app.services.preform_setup_service.requests.Session", _FakeSession)
+
+    probe = manager._probe_server()
+
+    assert probe["healthy"] is False
+    assert probe["code"] == "health_check_failed"
+
+
 def test_install_from_zip_extracts_managed_copy_and_marks_ready(tmp_path):
     from app.services.preform_setup_service import PreFormSetupService
 
@@ -181,6 +251,30 @@ def test_install_from_zip_extracts_managed_copy_and_marks_ready(tmp_path):
     assert settings.preform_managed_executable.exists()
 
 
+def test_install_from_zip_records_filename_version_when_package_has_no_version_file(tmp_path):
+    from app.services.preform_setup_service import PreFormSetupService
+
+    settings = _build_settings(tmp_path)
+    settings = replace(settings, preform_min_zip_size_bytes=1)
+    init_db(settings)
+    archive_path = _build_preform_zip_without_version_file(tmp_path)
+    manager = PreFormSetupService(settings)
+
+    manager._launch_process = lambda executable_path: 4242
+    manager._probe_server = lambda: {
+        "healthy": True,
+        "version": manager._read_managed_version() or "0.0.0",
+        "code": None,
+        "message": None,
+    }
+
+    status = manager.install_from_zip(archive_path)
+
+    assert status.readiness == "ready"
+    assert status.detected_version == "3.58.1.627"
+    assert (settings.preform_managed_dir / "version.txt").read_text(encoding="utf-8") == "3.58.1.627"
+
+
 def test_install_from_zip_rejects_archive_without_preformserver_exe(tmp_path):
     from app.services.preform_setup_service import PreFormSetupError, PreFormSetupService
 
@@ -209,6 +303,45 @@ def test_status_route_returns_not_installed_for_fresh_app(tmp_path, monkeypatch)
 
     assert response.status_code == 200
     assert response.json()["readiness"] == "not_installed"
+
+
+def test_dispatch_mode_route_defaults_to_current_runtime_setting(tmp_path):
+    client, settings = _build_client(tmp_path)
+
+    response = client.get("/api/preform-setup/dispatch-mode")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "mode": settings.print_dispatch_mode,
+        "default_mode": settings.print_dispatch_mode,
+        "allowed_modes": ["save_form", "virtual"],
+    }
+
+
+def test_dispatch_mode_route_updates_current_server_process_only(tmp_path):
+    client, settings = _build_client(tmp_path)
+
+    response = client.patch(
+        "/api/preform-setup/dispatch-mode",
+        json={"mode": "virtual"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["mode"] == "virtual"
+    assert response.json()["default_mode"] == "save_form"
+    assert client.app.state.settings.print_dispatch_mode == "virtual"
+    assert settings.print_dispatch_mode == "save_form"
+
+
+def test_dispatch_mode_route_rejects_real_printer_mode_from_ui(tmp_path):
+    client, _settings = _build_client(tmp_path)
+
+    response = client.patch(
+        "/api/preform-setup/dispatch-mode",
+        json={"mode": "real"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_explicit_preform_url_can_be_ready_without_managed_install(tmp_path, monkeypatch):

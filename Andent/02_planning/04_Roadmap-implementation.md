@@ -193,7 +193,7 @@ Production-ready queue management with UX improvements.
 
 Several items originally listed for Phase 2 are already present in the repository:
 
-- undo removal (currently 10s rather than the earlier roadmap's 30s wording)
+- undo removal (currently 5s rather than the earlier roadmap's 30s wording)
 - 3D preview modal
 - queue polling
 - case-aware selection

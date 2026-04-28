@@ -4,12 +4,12 @@ import time
 
 
 class TestUndoRemoval:
-    """Test 30-second undo window for removed items."""
+    """Test 5-second undo window for removed items."""
 
-    def test_undo_window_is_30_seconds(self):
-        """Test default undo window is 30 seconds."""
-        undo_window = 30  # Target from PRD
-        assert undo_window == 30
+    def test_undo_window_is_5_seconds(self):
+        """Test default undo window is 5 seconds."""
+        undo_window = 5
+        assert undo_window == 5
 
     def test_deleted_item_stored_for_undo(self):
         """Test deleted items are stored temporarily."""
@@ -31,11 +31,11 @@ class TestUndoRemoval:
         assert len(active_items) == 1
         assert active_items[0]["id"] == 1
 
-    def test_undo_expires_after_30_seconds(self):
-        """Test undo window expires after 30 seconds."""
-        deleted_at = time.time() - 35  # 35 seconds ago
+    def test_undo_expires_after_5_seconds(self):
+        """Test undo window expires after 5 seconds."""
+        deleted_at = time.time() - 6  # 6 seconds ago
         current_time = time.time()
-        undo_window = 30
+        undo_window = 5
         
         can_undo = (current_time - deleted_at) < undo_window
         assert can_undo == False  # Too late

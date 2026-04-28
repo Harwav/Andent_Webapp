@@ -30,8 +30,21 @@ class Settings:
     formlabs_api_url: str
     print_hold_density_target: float
     print_hold_cutoff_local_time: str
+    print_dispatch_mode: str
     latency_p95_target_s: float
     dispatch_success_rate_target: float
+
+
+def _print_dispatch_mode_from_env() -> str:
+    dispatch_mode = os.getenv("ANDENT_WEB_PRINT_DISPATCH_MODE", "save_form").strip().lower()
+    allowed_modes = {"save_form", "virtual", "real"}
+    if dispatch_mode not in allowed_modes:
+        allowed = ", ".join(sorted(allowed_modes))
+        raise ValueError(
+            "ANDENT_WEB_PRINT_DISPATCH_MODE must be one of "
+            f"{allowed}; got {dispatch_mode!r}."
+        )
+    return dispatch_mode
 
 
 def build_settings(
@@ -100,6 +113,7 @@ def build_settings(
             "ANDENT_WEB_PRINT_HOLD_CUTOFF_LOCAL_TIME",
             "18:00",
         ),
+        print_dispatch_mode=_print_dispatch_mode_from_env(),
         latency_p95_target_s=float(
             os.getenv("ANDENT_WEB_LATENCY_P95_TARGET_S", "30.0")
         ),

@@ -54,6 +54,15 @@
                     <span>Last Check</span>
                     <strong id="preform-last-check">-</strong>
                 </div>
+                <div class="setup-meta-item setup-dispatch-item">
+                    <span>Print Handoff</span>
+                    <label class="dispatch-toggle" for="preform-dispatch-toggle">
+                        <input id="preform-dispatch-toggle" type="checkbox">
+                        <span class="dispatch-toggle-track" aria-hidden="true"></span>
+                        <strong>Virtual printer debug</strong>
+                    </label>
+                    <small id="preform-dispatch-summary">Save .form only</small>
+                </div>
             </div>
             <div class="setup-actions">
                 <input id="preform-zip-input" type="file" accept=".zip" hidden>
@@ -148,7 +157,7 @@
                         <div>
                             <p class="eyebrow">Work Queue</p>
                             <h3>In Progress</h3>
-                            <p class="section-copy">These files are already being processed and do not need user attention.</p>
+                            <p class="section-copy">Processing or waiting for print handoff. Remove only if this job should be abandoned.</p>
                         </div>
                     </div>
                     <div class="results-wrapper">
@@ -164,6 +173,7 @@
                                     <th class="col-status">Status</th>
                                     <th class="col-dimensions">Dimensions</th>
                                     <th class="col-volume">Volume</th>
+                                    <th class="col-remove">Remove</th>
                                 </tr>
                             </thead>
                             <tbody id="in-progress-body"></tbody>

@@ -86,12 +86,29 @@ def test_work_queue_replaces_active_processed_tabs_with_sectioned_workflow():
     assert ".queue-section" in styles_css
 
 
+def test_in_progress_rows_expose_individual_remove_without_bulk_editing():
+    index_html = INDEX_HTML.read_text(encoding="utf-8")
+    app_js = APP_JS.read_text(encoding="utf-8")
+
+    assert "Processing or waiting for print handoff. Remove only if this job should be abandoned." in index_html
+    assert '<th class="col-remove">Remove</th>' in index_html
+    assert "elements.inProgressBody.appendChild(tr)" in app_js
+    assert "removeCell.appendChild(createRemoveCell(row))" in app_js
+    assert "if ((row.queue_section || \"analysis\") === \"in_progress\")" in app_js
+
+
 def test_send_to_print_does_not_gate_on_calculating_volume():
     app_js = APP_JS.read_text(encoding="utf-8")
 
     assert 'return "Calculating..."' in app_js
     assert 'return !row.is_temp && !isRowPendingDelete(row) && row.status === "Ready";' in app_js
     assert 'row.volume_ml == null ? "Calculating Volume" : stage' in app_js
+
+
+def test_removal_undo_window_is_five_seconds():
+    app_js = APP_JS.read_text(encoding="utf-8")
+
+    assert "const DELETE_UNDO_MS = 5000;" in app_js
 
 
 def test_active_work_queue_exposes_printer_group_selector():
@@ -126,3 +143,16 @@ def test_print_queue_displays_holding_density_cutoff_and_release():
     assert 'createJobDetailItem("Release Reason:", job.release_reason)' in app_js
     assert "Release now" in app_js
     assert "/release-now" in app_js
+
+
+def test_setup_center_exposes_temporary_virtual_printer_toggle():
+    index_html = INDEX_HTML.read_text(encoding="utf-8")
+    app_js = APP_JS.read_text(encoding="utf-8")
+    styles_css = STYLES_CSS.read_text(encoding="utf-8")
+
+    assert 'id="preform-dispatch-toggle"' in index_html
+    assert "Virtual printer debug" in index_html
+    assert "fetchDispatchMode" in app_js
+    assert "setDispatchMode" in app_js
+    assert '"/api/preform-setup/dispatch-mode"' in app_js
+    assert ".dispatch-toggle" in styles_css

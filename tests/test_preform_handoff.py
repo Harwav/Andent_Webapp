@@ -27,7 +27,10 @@ class StubPreFormClient:
         self.imported_models: list[tuple[str, str, str | None]] = []
         self.layout_calls: list[str] = []
         self.validation_results: list[dict[str, object]] = []
-        self.print_jobs: list[tuple[str, str]] = []
+        self.saved_forms: list[tuple[str, str]] = []
+        self.devices: list[dict[str, object]] = []
+        self.device_list_calls = 0
+        self.print_jobs: list[tuple[str, str, str | None]] = []
         self.closed = False
 
     def create_scene(self, patient_id: str, case_name: str, scene_settings: dict | None = None):
@@ -47,8 +50,16 @@ class StubPreFormClient:
             return self.validation_results.pop(0)
         return {"valid": True, "errors": []}
 
+    def save_form(self, scene_id: str, output_path: Path):
+        self.saved_forms.append((scene_id, str(Path(output_path).resolve())))
+        return {"status": "ok"}
+
+    def list_devices(self):
+        self.device_list_calls += 1
+        return self.devices
+
     def send_to_printer(self, scene_id: str, device_id: str, job_name: str | None = None):
-        self.print_jobs.append((scene_id, device_id))
+        self.print_jobs.append((scene_id, device_id, job_name))
         return {"print_id": f"print-{len(self.print_jobs)}"}
 
     def close(self):
@@ -70,6 +81,10 @@ def _build_holding_settings(tmp_path: Path):
         print_hold_density_target=0.40,
         print_hold_cutoff_local_time="23:59",
     )
+
+
+def _build_virtual_settings(tmp_path: Path):
+    return replace(_build_settings(tmp_path), print_dispatch_mode="virtual")
 
 
 def _seed_rows(settings, rows: list[dict]) -> list[int]:
@@ -202,7 +217,7 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
     assert len(stub_client.created_scenes) == 1
     assert len(stub_client.imported_models) == 3
     assert len(stub_client.layout_calls) == 1
-    assert len(stub_client.print_jobs) == 1
+    assert stub_client.print_jobs == []
 
     submitted_rows = {row["file_name"]: row["status"] for row in response.json()}
     assert submitted_rows["case-1.stl"] == "Submitted"
@@ -212,11 +227,106 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
 
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
+    expected_form_path = case_files[0].parent / f"{jobs[0].job_name}.form"
+    assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
+    assert jobs[0].form_file_path == str(expected_form_path.resolve())
+    assert jobs[0].print_job_id is None
     assert jobs[0].case_ids == ["CASE001", "CASE002", "CASE003"]
     assert jobs[0].preset_names == [
         "Ortho Solid - Flat, No Supports",
         "Tooth - With Supports",
     ]
+
+
+def test_virtual_dispatch_mode_sends_to_preform_virtual_printer_and_records_print_id(tmp_path):
+    settings = _build_virtual_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "virtual-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-VIRTUAL",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-virtual",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "virtual-device-1", "name": "Virtual Printer", "is_virtual": True}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert stub_client.device_list_calls == 1
+    assert stub_client.print_jobs == [
+        ("scene-1", "virtual-device-1", jobs[0].job_name)
+    ]
+    assert jobs[0].print_job_id == "print-1"
+    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
+    assert response.json()[0]["status"] == "Submitted"
+
+
+def test_virtual_dispatch_mode_refuses_physical_only_devices(tmp_path):
+    settings = _build_virtual_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "physical-only.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-PHYSICAL",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-physical",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "real-device-1", "name": "Form 4BL", "is_virtual": False}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 502
+    assert "virtual printer" in response.json()["detail"].lower()
+    assert stub_client.device_list_calls == 1
+    assert stub_client.print_jobs == []
+    assert get_upload_row_by_id(settings, row_ids[0]).status == "Ready"
+    assert list_print_jobs(settings) == []
+
+
+def test_invalid_dispatch_mode_fails_settings_load(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANDENT_WEB_PRINT_DISPATCH_MODE", "unexpected")
+
+    try:
+        build_settings(data_dir=tmp_path / "data", database_path=tmp_path / "data" / "andent_web.db")
+    except ValueError as exc:
+        assert "ANDENT_WEB_PRINT_DISPATCH_MODE" in str(exc)
+    else:
+        raise AssertionError("Invalid dispatch mode should fail settings load.")
 
 
 def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
@@ -277,9 +387,12 @@ def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
     assert jobs[0].compatibility_key == "form-4bl|precision-model-v1|100"
     assert jobs[0].manifest_json is not None
     assert jobs[0].manifest_json["case_ids"] == ["CASE-A", "CASE-B"]
+    expected_form_path = case_a.parent / f"{jobs[0].job_name}.form"
+    assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
+    assert jobs[0].form_file_path == str(expected_form_path.resolve())
 
 
-def test_send_to_print_rolls_back_last_case_when_validation_fails(tmp_path):
+def test_send_to_print_rolls_back_last_case_when_validation_fails_after_saving_form(tmp_path):
     settings = _build_settings(tmp_path)
     app = create_app(settings)
     client = TestClient(app)
@@ -350,10 +463,19 @@ def test_send_to_print_rolls_back_last_case_when_validation_fails(tmp_path):
         ("scene-2", str(case_files[0]), "tooth_v1"),
         ("scene-2", str(case_files[2]), "ortho_solid_v1"),
     ]
-    assert len(list_print_jobs(settings)) == 1
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    expected_form_path = case_files[0].parent / f"{jobs[0].job_name}.form"
+    assert stub_client.saved_forms == [
+        ("scene-1", str(expected_form_path.resolve())),
+        ("scene-2", str(expected_form_path.resolve())),
+    ]
+    assert jobs[0].validation_passed is True
+    assert jobs[0].validation_errors == []
+    assert jobs[0].case_ids == ["CASE-TOOTH", "CASE-LATE"]
 
 
-def test_send_to_print_routes_single_invalid_case_to_manual_review(tmp_path):
+def test_send_to_print_routes_single_invalid_case_to_manual_review_after_saving_form(tmp_path):
     settings = _build_settings(tmp_path)
     app = create_app(settings)
     client = TestClient(app)
@@ -389,6 +511,8 @@ def test_send_to_print_routes_single_invalid_case_to_manual_review(tmp_path):
     assert row["status"] == "Needs Review"
     assert row["review_required"] is True
     assert row["review_reason"] == "PreForm validation requires manual review: overlap"
+    expected_form_path = case_file.parent / f"{datetime.now().strftime('%y%m%d')}-001.form"
+    assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     assert list_print_jobs(settings) == []
 
 
@@ -423,7 +547,9 @@ def test_send_to_print_passes_preset_hint_and_selected_printer(tmp_path):
 
     assert response.status_code == 200
     assert stub_client.imported_models == [("scene-1", str(case_file), "tooth_v1")]
-    assert stub_client.print_jobs == [("scene-1", "printer_form4_001")]
+    assert stub_client.print_jobs == []
+    jobs = list_print_jobs(settings)
+    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
 
 
 def test_send_to_print_defaults_to_form4bl_when_no_printer_selected(tmp_path):
@@ -454,7 +580,10 @@ def test_send_to_print_defaults_to_form4bl_when_no_printer_selected(tmp_path):
         response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
 
     assert response.status_code == 200
-    assert stub_client.print_jobs == [("scene-1", "Form 4BL")]
+    assert stub_client.print_jobs == []
+    jobs = list_print_jobs(settings)
+    assert jobs[0].printer_type == "Form 4BL"
+    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
 
 
 def test_send_to_print_holds_final_below_target_build_without_preform_dispatch(tmp_path):
@@ -540,11 +669,13 @@ def test_release_held_job_dispatches_and_records_operator_release(tmp_path):
     assert hold_response.status_code == 200
     assert release_response.status_code == 200
     assert stub_client.created_scenes == [("CASE-RELEASE", datetime.now().strftime("%y%m%d") + "-001")]
-    assert stub_client.print_jobs == [("scene-1", "Form 4BL")]
+    assert stub_client.print_jobs == []
 
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
     assert jobs[0].status == "Queued"
+    assert jobs[0].print_job_id is None
+    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
     assert jobs[0].release_reason == "operator_release"
     assert jobs[0].released_by_operator is True
 
@@ -588,10 +719,12 @@ def test_cutoff_poll_releases_held_job_created_in_current_process(tmp_path):
 
     assert hold_response.status_code == 200
     assert jobs_response.status_code == 200
-    assert stub_client.print_jobs == [("scene-1", "Form 4BL")]
+    assert stub_client.print_jobs == []
 
     jobs = list_print_jobs(settings)
     assert jobs[0].status == "Queued"
+    assert jobs[0].print_job_id is None
+    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
     assert jobs[0].release_reason == "cutoff_release"
     assert jobs[0].released_by_operator is False
 
@@ -654,7 +787,7 @@ def test_new_compatible_rows_replan_with_existing_held_build(tmp_path):
         second_response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": second_ids})
 
     assert second_response.status_code == 200
-    assert stub_client.print_jobs == [("scene-1", "Form 4BL")]
+    assert stub_client.print_jobs == []
     assert stub_client.imported_models == [
         ("scene-1", str(filler_file), "ortho_solid_v1"),
         ("scene-1", str(held_file), "ortho_solid_v1"),
@@ -663,6 +796,8 @@ def test_new_compatible_rows_replan_with_existing_held_build(tmp_path):
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
     assert jobs[0].status == "Queued"
+    assert jobs[0].print_job_id is None
+    assert jobs[0].form_file_path == str((filler_file.parent / f"{jobs[0].job_name}.form").resolve())
     assert set(jobs[0].case_ids) == {"CASE-HELD", "CASE-FILLER"}
 
 

@@ -23,6 +23,10 @@ type QueueRow = {
   person: null;
   thumbnail_url: null;
   file_url: null;
+  handoff_stage?: string | null;
+  queue_section?: 'analysis' | 'in_progress' | 'history';
+  linked_job_name?: string | null;
+  linked_print_job_id?: number | null;
 };
 
 function makeRow(rowId: number, status: string): QueueRow {
@@ -166,4 +170,70 @@ test('bulk duplicate approval and print submission post selected ready rows', as
   await page.getByRole('button', { name: 'Send to Print (3)' }).click();
   await expect.poll(() => posts.print.length).toBe(1);
   expect(posts.print[0]).toEqual({ row_ids: [1, 2, 3] });
+});
+
+test('in-progress rows expose individual removal without bulk actions', async ({ page }) => {
+  const rows = [
+    makeRow(1, 'Ready'),
+    {
+      ...makeRow(2, 'Submitted'),
+      handoff_stage: 'Processing',
+      queue_section: 'in_progress' as const,
+      linked_job_name: null,
+      linked_print_job_id: null,
+    },
+  ];
+  const deletes: string[] = [];
+
+  await page.route('/api/uploads/queue', async (route) => {
+    await route.fulfill({ json: { active_rows: rows, processed_rows: [] } });
+  });
+  await page.route('/api/print-queue/jobs', async (route) => {
+    await route.fulfill({ json: { jobs: [] } });
+  });
+  await page.route('/api/preform-setup/status', async (route) => {
+    await route.fulfill({
+      json: {
+        readiness: 'ready',
+        install_path: 'managed',
+        managed_executable_path: 'managed/PreFormServer.exe',
+        detected_version: '3.57.2.624',
+        expected_version_min: '3.57.0',
+        expected_version_max: null,
+        last_health_check_at: null,
+        last_error_code: null,
+        last_error_message: null,
+      },
+    });
+  });
+  await page.route('/api/uploads/rows/*', async (route) => {
+    if (route.request().method() === 'DELETE') {
+      deletes.push(route.request().url());
+      await route.fulfill({ json: { deleted: true } });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto('/');
+
+  const workQueueRow = page.locator('#active-body tr').filter({ hasText: 'CASE1_UpperJaw.stl' });
+  const inProgressRow = page.locator('#in-progress-body tr').filter({ hasText: 'CASE2_UpperJaw.stl' });
+
+  await expect(workQueueRow.locator('[data-testid="row-select"]')).toBeVisible();
+  await expect(inProgressRow.locator('[data-testid="row-select"]')).toHaveCount(0);
+  await expect(inProgressRow.getByRole('button', { name: 'Remove row' })).toBeVisible();
+  await expect(inProgressRow).toContainText('Processing');
+
+  await inProgressRow.getByRole('button', { name: 'Remove row' }).click();
+  await expect(inProgressRow.getByRole('button', { name: 'Undo' })).toBeVisible();
+  await expect(inProgressRow).toContainText('5s');
+
+  await page.waitForTimeout(5200);
+  await expect.poll(() => deletes.length).toBe(1);
+  expect(deletes[0]).toContain('/api/uploads/rows/2');
+
+  await workQueueRow.locator('[data-testid="row-select"]').check();
+  await expect(page.getByRole('button', { name: 'Delete (1)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Send to Print (1)' })).toBeVisible();
 });
