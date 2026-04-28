@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"d:\\\\Marcus\\\\Desktop\\\\Andent_Webapp\\\\.worktrees\\\\playwright-release-gate\" add \"tests/release_gate/fixtures/happy/20260409_CASE123_UnsectionedModel_LowerJaw.stl\" \"tests/release_gate/helpers/fixtures.ts\" \"tests/release_gate/helpers/runtime.ts\" \"tests/release_gate/helpers/page.ts\" \"tests/release_gate/release_gate.spec.ts\")",
+      "Bash(git -C \"d:\\\\Marcus\\\\Desktop\\\\Andent_Webapp\\\\.worktrees\\\\playwright-release-gate\" status)"
+    ]
+  }
+}

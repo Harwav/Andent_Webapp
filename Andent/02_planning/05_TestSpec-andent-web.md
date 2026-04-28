@@ -34,6 +34,7 @@ The current known production blocker remains live PreFormServer dispatch proof u
 |------|--------|-----------------|-------------------|
 | Full automated backend suite | 100% passing | `tests/` | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -q` output |
 | Browser smoke and release UI flows | 100% passing | `tests/release_gate/*.spec.ts` | Playwright output and report |
+| Headed browser observation | Operator-visible run completed | `package.json` | `npm run test:release-gate:headed` output and operator note |
 | Straight-through processing | `>=95%` | `app/services/metrics.py:123` | `/api/metrics/launch-check` plus validation script output |
 | Human-review rate | `<=2%` | `app/services/metrics.py:123` | `/api/metrics/launch-check` plus validation script output |
 | Upload p95 latency | `<=30s` | `app/config.py:103`, `app/services/metrics.py:123` | `/api/metrics/launch-check` plus validation script output |
@@ -52,11 +53,13 @@ Run these gates in order on the release candidate.
 | 2. Backend suite | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -q` | All tests pass. |
 | 3. TypeScript compile | `npx tsc --noEmit` | No TypeScript errors. |
 | 4. Browser smoke and mocked UI release checks | `npx playwright test tests/release_gate/smoke.spec.ts tests/release_gate/ui-hooks.spec.ts tests/release_gate/bulk-actions.spec.ts --project=chromium` | All selected Playwright specs pass. |
-| 5. Live PreFormServer availability | Confirm managed PreFormServer is installed, compatible, running, and reachable at `http://127.0.0.1:44388`. | Setup status is `ready`; version is recorded. |
-| 6. Live browser handoff gate | `npx playwright test tests/release_gate/release_gate.spec.ts --project=chromium` | Browser upload reaches send-to-print, print job is persisted, and scene lookup succeeds. |
-| 7. Launch metrics validation | `python scripts/validate_launch.py --base-url http://127.0.0.1:8090 --fixtures-dir "D:\Marcus\Desktop\BM\20260409_Andent_Matt\Test Data"` | Overall pass, with non-vacuous dispatch evidence. |
-| 8. Manual operator validation | Run the checklist in `Manual Validation Runs`. | No blocker found; artifact and review-boundary notes recorded. |
-| 9. Evidence archive | Save logs and outputs under `Andent/02_planning/98_VerificationArtifacts/pre_release_YYYYMMDD/`. | Evidence bundle contains all required files listed below. |
+| 5. Headed browser observation | `npm run test:release-gate:headed` | Chromium opens visibly; smoke/UI/bulk-action browser automation completes. |
+| 6. Live PreFormServer availability | Confirm managed PreFormServer is installed, compatible, running, and reachable at `http://127.0.0.1:44388`. | Setup status is `ready`; version is recorded. |
+| 7. Live browser handoff gate | `npx playwright test tests/release_gate/release_gate.spec.ts --project=chromium` | Browser upload reaches send-to-print, print job is persisted, and scene lookup succeeds. |
+| 8. Optional headed live handoff observation | `npm run test:release-gate:headed:live` | Chromium opens visibly and the live PreForm handoff flow completes. |
+| 9. Launch metrics validation | `python scripts/validate_launch.py --base-url http://127.0.0.1:8090 --fixtures-dir "D:\Marcus\Desktop\BM\20260409_Andent_Matt\Test Data"` | Overall pass, with non-vacuous dispatch evidence. |
+| 10. Manual operator validation | Run the checklist in `Manual Validation Runs`. | No blocker found; artifact and review-boundary notes recorded. |
+| 11. Evidence archive | Save logs and outputs under `Andent/02_planning/98_VerificationArtifacts/pre_release_YYYYMMDD/`. | Evidence bundle contains all required files listed below. |
 
 The npm script `test:release-gate` is not sufficient for release sign-off because it currently runs only `tests/release_gate/smoke.spec.ts`.
 
@@ -72,6 +75,7 @@ Required contents:
 - `pytest.log`: full backend suite output.
 - `tsc.log`: TypeScript compile output.
 - `playwright-smoke.log`: smoke/UI/bulk-action Playwright output.
+- `playwright-headed.log`: headed smoke/UI/bulk-action Playwright output plus operator note.
 - `playwright-live-preform.log`: live `release_gate.spec.ts` output.
 - `validate-launch.log`: `scripts/validate_launch.py` output.
 - `launch-check.json`: raw `GET /api/metrics/launch-check` response.
@@ -401,6 +405,7 @@ Create `verdict.md` in the dated evidence folder with this structure:
 | Backend pytest suite | PASS/FAIL | pytest.log |
 | TypeScript compile | PASS/FAIL | tsc.log |
 | Browser smoke/UI checks | PASS/FAIL | playwright-smoke.log |
+| Headed browser observation | PASS/FAIL | playwright-headed.log |
 | Live PreForm browser handoff | PASS/FAIL | playwright-live-preform.log |
 | Straight-through rate >=95% | PASS/FAIL | validate-launch.log, launch-check.json |
 | Human-review rate <=2% | PASS/FAIL | validate-launch.log, launch-check.json |

@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test:release-gate": "playwright test tests/release_gate/smoke.spec.ts --project=chromium",
-    "test:release-gate:headed": "playwright test tests/release_gate/smoke.spec.ts --project=chromium --headed"
+    "test:release-gate:headed": "playwright test tests/release_gate/smoke.spec.ts tests/release_gate/ui-hooks.spec.ts tests/release_gate/bulk-actions.spec.ts --project=chromium --headed",
+    "test:release-gate:headed:live": "playwright test tests/release_gate/release_gate.spec.ts --project=chromium --headed"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
