@@ -41,6 +41,8 @@ export async function startAppInstance(opts: {
         ...process.env,
         ANDENT_WEB_DATA_DIR: opts.dataDir,
         ANDENT_WEB_DATABASE_PATH: databasePath,
+        ANDENT_WEB_APPDATA_DIR: path.join(opts.dataDir, 'appdata'),
+        ANDENT_WEB_PRINT_HOLD_DENSITY_TARGET: '0.0',
         PREFORM_SERVER_URL: opts.preformUrl,
       },
       stdio: 'pipe',

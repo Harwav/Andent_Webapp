@@ -195,6 +195,31 @@ def test_status_route_returns_not_installed_for_fresh_app(tmp_path):
     assert response.json()["readiness"] == "not_installed"
 
 
+def test_explicit_preform_url_can_be_ready_without_managed_install(tmp_path, monkeypatch):
+    from app.services.preform_setup_service import PreFormSetupService
+
+    settings = _build_settings(tmp_path)
+    init_db(settings)
+
+    manager = PreFormSetupService(settings)
+    monkeypatch.setattr(
+        manager,
+        "_probe_server",
+        lambda: {
+            "healthy": True,
+            "version": "3.57.2.624",
+            "code": None,
+            "message": None,
+        },
+    )
+
+    status = manager.recheck()
+
+    assert status.readiness == "ready"
+    assert status.detected_version == "3.57.2.624"
+    assert status.is_running is True
+
+
 def test_send_to_print_returns_409_when_preform_not_ready(tmp_path):
     client, settings = _build_client(tmp_path)
     row_id = _seed_ready_row(settings, tmp_path)

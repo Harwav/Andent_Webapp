@@ -1,7 +1,11 @@
 import path from 'node:path';
-import { expect, test } from './helpers/fixtures';
+import { expect, test } from './helpers/fixtures.js';
 
 test('straight-through same-case multi-file handoff reaches live PreForm', async ({ page, liveApp, latestPrintJob, sceneStatus }) => {
+  const setupStatus = await page.request.get(`${liveApp.baseURL}/api/preform-setup/status`);
+  expect(setupStatus.ok()).toBeTruthy();
+  expect((await setupStatus.json()).readiness).toBe('ready');
+
   await page.goto(liveApp.baseURL);
   await page.locator('#file-input').setInputFiles([
     path.resolve('tests/release_gate/fixtures/happy/20260409_CASE123_UnsectionedModel_UpperJaw.stl'),

@@ -5,12 +5,13 @@ Live launch validation script.
 Usage:
     python scripts/validate_launch.py [--base-url http://127.0.0.1:8090] [--fixtures-dir Andent/04_customer-facing]
 
-Uploads every .stl file found under fixtures-dir, then fetches
-/api/metrics/launch-check and prints a pass/fail report.
+Uploads every .stl file found under fixtures-dir, sends one ready case to print
+when PreFormServer is ready, then fetches /api/metrics/launch-check and prints
+a pass/fail report.
 
 PreFormServer is started automatically via the Andent Web managed-install API
 if it is not already running. If no managed install exists, validation proceeds
-without dispatch proof and the dispatch_success criterion shows vacuously passing.
+without dispatch proof and the dispatch_success criterion fails.
 """
 from __future__ import annotations
 
@@ -40,6 +41,49 @@ def get_launch_check(base_url: str) -> dict:
     return resp.json()
 
 
+def select_dispatch_row_ids(upload_result: dict) -> list[int]:
+    ready_rows = [
+        row
+        for row in upload_result.get("rows", [])
+        if row.get("status") == "Ready" and row.get("row_id") is not None
+    ]
+    rows_by_case: dict[str, list[dict]] = {}
+    for row in ready_rows:
+        case_id = str(row.get("case_id") or "")
+        if case_id:
+            rows_by_case.setdefault(case_id, []).append(row)
+
+    grouped_candidates = [
+        rows for rows in rows_by_case.values()
+        if len(rows) > 1
+    ]
+    if grouped_candidates:
+        return [int(row["row_id"]) for row in grouped_candidates[0]]
+    if ready_rows:
+        return [int(ready_rows[0]["row_id"])]
+    return []
+
+
+def dispatch_ready_rows(base_url: str, row_ids: list[int]) -> list[dict]:
+    resp = httpx.post(
+        f"{base_url}/api/uploads/rows/send-to-print",
+        json={"row_ids": row_ids},
+        timeout=180.0,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_print_jobs(base_url: str) -> dict:
+    resp = httpx.get(f"{base_url}/api/print-queue/jobs", timeout=30.0)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def has_scene_dispatch_evidence(print_jobs: dict) -> bool:
+    return any(job.get("scene_id") for job in print_jobs.get("jobs", []))
+
+
 def ensure_preform_running(base_url: str) -> bool:
     """Start PreFormServer via the managed API if not already running.
 
@@ -61,10 +105,10 @@ def ensure_preform_running(base_url: str) -> bool:
         return True
 
     if readiness == "not_installed":
-        print("  PreFormServer not installed — skipping dispatch proof.")
+        print("  PreFormServer not installed - skipping dispatch proof.")
         return False
 
-    # installed_not_running or incompatible_version — attempt start
+    # installed_not_running or incompatible_version - attempt start
     print(f"  PreFormServer status: {readiness}. Attempting start ...")
     try:
         start_resp = httpx.post(f"{base_url}/api/preform-setup/start", timeout=60.0)
@@ -161,9 +205,23 @@ def main() -> int:
     elapsed = time.monotonic() - t0
     print(f"Upload complete: {result.get('file_count', '?')} rows in {elapsed:.1f}s")
 
+    scene_dispatch_proven = False
+    if preform_running:
+        row_ids = select_dispatch_row_ids(result)
+        if not row_ids:
+            print("ERROR: no Ready rows available for dispatch proof.", file=sys.stderr)
+            return 1
+        print(f"Sending {len(row_ids)} ready row(s) to print for dispatch proof ...")
+        dispatch_result = dispatch_ready_rows(args.base_url, row_ids)
+        print(f"Dispatch request returned {len(dispatch_result)} row(s).")
+        print_jobs = get_print_jobs(args.base_url)
+        scene_dispatch_proven = has_scene_dispatch_evidence(print_jobs)
+        if not scene_dispatch_proven:
+            print("ERROR: dispatch did not produce a print job with scene_id.", file=sys.stderr)
+
     check = get_launch_check(args.base_url)
     overall_pass = print_report(check, preform_running)
-    return 0 if overall_pass else 1
+    return 0 if overall_pass and scene_dispatch_proven else 1
 
 
 if __name__ == "__main__":

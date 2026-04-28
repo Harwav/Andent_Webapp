@@ -18,7 +18,9 @@ def test_dispatch_success_rate_mixed():
 
 def test_dispatch_success_rate_empty():
     svc = MetricsService()
-    assert svc.calculate_dispatch_success_rate() == 100.0  # vacuously passing
+    assert svc.calculate_dispatch_success_rate() == 0.0
+    result = svc.check_launch_targets()
+    assert result["dispatch_success"]["pass"] is False
 
 
 def test_check_launch_targets_pass():

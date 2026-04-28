@@ -147,6 +147,54 @@ def test_unsectioned_model_classifies_solid_without_thickness_sampling(tmp_path,
     assert row.status == "Ready"
 
 
+def test_modelbase_classifies_solid_without_thickness_sampling(tmp_path, monkeypatch):
+    from app.services import classification
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Named modelbase files should not need thickness sampling")
+
+    def fail_volume_if_called(*args, **kwargs):
+        raise AssertionError("Named modelbase files should not need exact volume")
+
+    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called)
+    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called)
+    stl_path = tmp_path / "2026-04-08_00084-002-8424187_Teachers_Marita_UT_A2--37-36-modelbase.stl"
+    stl_path.write_bytes(_minimal_stl_bytes())
+
+    row = classify_saved_upload(stl_path, stl_path.name)
+
+    assert row.case_id == "8424187"
+    assert row.model_type == "Ortho - Solid"
+    assert row.preset == "Ortho Solid - Flat, No Supports"
+    assert row.confidence == "high"
+    assert row.status == "Ready"
+    assert row.review_required is False
+
+
+def test_legacy_arch_model_classifies_solid_without_thickness_sampling(tmp_path, monkeypatch):
+    from app.services import classification
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Named legacy arch files should not need thickness sampling")
+
+    def fail_volume_if_called(*args, **kwargs):
+        raise AssertionError("Named legacy arch files should not need exact volume")
+
+    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called)
+    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called)
+    stl_path = tmp_path / "8425024__Green_Alan-2-UPPER.stl"
+    stl_path.write_bytes(_minimal_stl_bytes())
+
+    row = classify_saved_upload(stl_path, stl_path.name)
+
+    assert row.case_id == "8425024"
+    assert row.model_type == "Ortho - Solid"
+    assert row.preset == "Ortho Solid - Flat, No Supports"
+    assert row.confidence == "high"
+    assert row.status == "Ready"
+    assert row.review_required is False
+
+
 def test_serialize_row_for_storage_defers_thumbnail_generation(tmp_path, monkeypatch):
     from app.services import classification
 

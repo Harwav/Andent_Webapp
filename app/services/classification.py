@@ -86,8 +86,11 @@ def infer_phase0_model_type(file_name: str, artifact, structure=None) -> str | N
         return "Ortho - Hollow"
     if structure and structure.structure == STRUCTURE_SOLID:
         return "Ortho - Solid"
-    # Fallback for unsectioned models: default to solid (most common)
-    if artifact.artifact_type == ARTIFACT_MODEL and "unsectioned" in file_name.lower():
+    # Fallback for named full-arch/model-base files: default to solid (most common).
+    if (
+        artifact.artifact_type == ARTIFACT_MODEL
+        and artifact.confidence == "high"
+    ) or artifact.artifact_type == ARTIFACT_MODEL_BASE:
         return "Ortho - Solid"
     if artifact.workflow == WORKFLOW_ORTHO_IMPLANT or artifact.artifact_type in {ARTIFACT_MODEL, ARTIFACT_MODEL_BASE}:
         return None
@@ -176,6 +179,8 @@ def classify_saved_upload(stored_path: Path, original_filename: str) -> Classifi
     needs_structure_sampling = (
         artifact.artifact_type in {ARTIFACT_MODEL, ARTIFACT_MODEL_BASE}
         and "unsectionedmodel" not in original_filename.lower()
+        and artifact.artifact_type != ARTIFACT_MODEL_BASE
+        and artifact.confidence != "high"
     )
     volume_ml = get_stl_volume_ml(str(stored_path)) if needs_structure_sampling else None
     if needs_structure_sampling:

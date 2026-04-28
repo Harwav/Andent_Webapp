@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const webServerDataDir = `test-results/playwright-app-data/${Date.now()}`;
+
 export default defineConfig({
   testDir: './tests/release_gate',
   timeout: 60_000,
@@ -17,8 +19,9 @@ export default defineConfig({
     command: 'python -m uvicorn app.main:app --host 127.0.0.1 --port 8200',
     env: {
       ...process.env,
-      ANDENT_WEB_DATA_DIR: 'test-results/playwright-app-data',
-      ANDENT_WEB_DATABASE_PATH: 'test-results/playwright-app-data/andent_web.db',
+      ANDENT_WEB_DATA_DIR: webServerDataDir,
+      ANDENT_WEB_DATABASE_PATH: `${webServerDataDir}/andent_web.db`,
+      ANDENT_WEB_APPDATA_DIR: `${webServerDataDir}/appdata`,
     },
     url: 'http://127.0.0.1:8200/health',
     reuseExistingServer: false,

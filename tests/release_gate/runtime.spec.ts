@@ -1,4 +1,4 @@
-import { expect, test } from './helpers/fixtures';
+import { expect, test } from './helpers/fixtures.js';
 
 test('runtime starts live and dead-port app instances', async ({ request, liveApp, deadApp }) => {
   const liveHealth = await request.get(`${liveApp.baseURL}/health`);

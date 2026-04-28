@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { test as base } from '@playwright/test';
 import { promisify } from 'node:util';
-import { startAppInstance, stopAppInstance, type AppInstance } from './runtime';
+import { startAppInstance, stopAppInstance, type AppInstance } from './runtime.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -11,13 +11,18 @@ async function runVerify(args: string[]) {
   return JSON.parse(stdout);
 }
 
-export const test = base.extend<{
-  liveApp: AppInstance;
-  deadApp: AppInstance;
+type ReleaseGateFixtures = {
   latestPrintJob: (databasePath: string) => Promise<any>;
   sceneStatus: (baseUrl: string, sceneId: string) => Promise<any>;
-}>({
-  liveApp: [async ({}, use) => {
+};
+
+type ReleaseGateWorkerFixtures = {
+  liveApp: AppInstance;
+  deadApp: AppInstance;
+};
+
+export const test = base.extend<ReleaseGateFixtures, ReleaseGateWorkerFixtures>({
+  liveApp: [async ({}, use: (app: AppInstance) => Promise<void>) => {
     const app = await startAppInstance({
       port: 8201,
       dataDir: path.resolve('test-results/release-gate/live-app'),
@@ -27,7 +32,7 @@ export const test = base.extend<{
     await stopAppInstance(app);
   }, { scope: 'worker' }],
 
-  deadApp: [async ({}, use) => {
+  deadApp: [async ({}, use: (app: AppInstance) => Promise<void>) => {
     const app = await startAppInstance({
       port: 8202,
       dataDir: path.resolve('test-results/release-gate/dead-app'),

@@ -116,7 +116,7 @@ class MetricsService:
     def calculate_dispatch_success_rate(self) -> float:
         """Calculate dispatch success rate. Target: >=99%."""
         if not self.dispatch_events:
-            return 100.0
+            return 0.0
         successes = sum(1 for e in self.dispatch_events if e["success"])
         return (successes / len(self.dispatch_events)) * 100.0
 

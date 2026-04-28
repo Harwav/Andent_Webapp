@@ -23,6 +23,9 @@ class PreFormSetupError(RuntimeError):
         self.code = code
 
 
+PREFORM_PROBE_TIMEOUT_SECONDS = 1.0
+
+
 def get_preform_setup_status(settings: Settings) -> PreFormSetupStatus:
     return PreFormSetupService(settings).recheck()
 
@@ -91,6 +94,28 @@ class PreFormSetupService:
         state = load_preform_setup_state(self.settings)
         executable = self.settings.preform_managed_executable
         if not executable.exists():
+            probe = self._probe_server()
+            if probe["healthy"]:
+                version = str(probe["version"])
+                if not self._version_is_supported(version):
+                    return self._persist_status(
+                        readiness="incompatible_version",
+                        detected_version=version,
+                        process_id=None,
+                        is_running=True,
+                        error_code="incompatible_version",
+                        error_message=(
+                            f"Detected PreFormServer {version} is outside the supported version contract."
+                        ),
+                    )
+                return self._persist_status(
+                    readiness="ready",
+                    detected_version=version,
+                    process_id=None,
+                    is_running=True,
+                    error_code=None,
+                    error_message=None,
+                )
             return self._persist_status(
                 readiness="not_installed",
                 detected_version=None,
@@ -366,7 +391,7 @@ class PreFormSetupService:
         for endpoint in ("", "/", "/health", "/health/ready"):
             url = f"{self.settings.preform_server_url.rstrip('/')}{endpoint}"
             try:
-                response = session.get(url, timeout=5)
+                response = session.get(url, timeout=PREFORM_PROBE_TIMEOUT_SECONDS)
             except requests.RequestException as exc:
                 last_error = {
                     "healthy": False,
