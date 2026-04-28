@@ -144,8 +144,9 @@ def ensure_storage(settings: Settings) -> None:
 
 def connect(settings: Settings) -> sqlite3.Connection:
     ensure_storage(settings)
-    connection = sqlite3.connect(settings.database_path)
+    connection = sqlite3.connect(settings.database_path, timeout=30.0)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA busy_timeout=30000")
     connection.execute("PRAGMA foreign_keys=ON")
     return connection
 
@@ -161,6 +162,7 @@ def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name:
 
 def init_db(settings: Settings) -> None:
     with closing(connect(settings)) as connection:
+        connection.execute("PRAGMA journal_mode=WAL")
         for statement in SCHEMA_STATEMENTS:
             connection.execute(statement)
 

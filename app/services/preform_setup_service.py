@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import signal
+import sqlite3
 import subprocess
 import time
 import zipfile
@@ -202,18 +203,26 @@ class PreFormSetupService:
         error_code: str | None,
         error_message: str | None,
     ) -> PreFormSetupStatus:
-        state = save_preform_setup_state(
-            self.settings,
-            readiness=readiness,
-            install_path=str(self.settings.preform_managed_dir),
-            managed_executable_path=str(self.settings.preform_managed_executable),
-            detected_version=detected_version,
-            last_health_check_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            last_error_code=error_code,
-            last_error_message=error_message,
-            active_configured_source=True,
-            process_id=process_id,
-        )
+        desired_state = {
+            "readiness": readiness,
+            "install_path": str(self.settings.preform_managed_dir),
+            "managed_executable_path": str(self.settings.preform_managed_executable),
+            "detected_version": detected_version,
+            "last_health_check_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "last_error_code": error_code,
+            "last_error_message": error_message,
+            "active_configured_source": True,
+            "process_id": process_id,
+        }
+        try:
+            state = save_preform_setup_state(self.settings, **desired_state)
+        except sqlite3.OperationalError as exc:
+            if "database is locked" not in str(exc).lower():
+                raise
+            state = {
+                **desired_state,
+                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            }
         return PreFormSetupStatus(
             readiness=str(state["readiness"]),
             install_path=str(state["install_path"]),

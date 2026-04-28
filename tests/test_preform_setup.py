@@ -369,6 +369,38 @@ def test_explicit_preform_url_can_be_ready_without_managed_install(tmp_path, mon
     assert status.is_running is True
 
 
+def test_status_route_returns_probe_result_when_setup_state_write_is_locked(tmp_path, monkeypatch):
+    import sqlite3
+
+    from app.services.preform_setup_service import PreFormSetupService
+
+    monkeypatch.setattr(
+        PreFormSetupService,
+        "_probe_server",
+        lambda self: {
+            "healthy": True,
+            "version": "3.57.2.624",
+            "code": None,
+            "message": None,
+        },
+    )
+
+    def locked_save(*args, **kwargs):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr("app.services.preform_setup_service.save_preform_setup_state", locked_save)
+
+    client, _settings = _build_client(tmp_path)
+
+    response = client.get("/api/preform-setup/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["readiness"] == "ready"
+    assert payload["detected_version"] == "3.57.2.624"
+    assert payload["is_running"] is True
+
+
 def test_send_to_print_returns_409_when_preform_not_ready(tmp_path, monkeypatch):
     from app.services.preform_setup_service import PreFormSetupService
 

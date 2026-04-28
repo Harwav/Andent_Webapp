@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
 from ..schemas import (
     DispatchModeStatus,
@@ -61,7 +62,7 @@ def _dispatch_mode_response(request: Request) -> DispatchModeStatus:
 
 @router.get("/status", response_model=PreFormSetupStatus)
 async def status(request: Request) -> PreFormSetupStatus:
-    return get_preform_setup_status(request.app.state.settings)
+    return await run_in_threadpool(get_preform_setup_status, request.app.state.settings)
 
 
 @router.get("/dispatch-mode", response_model=DispatchModeStatus)
