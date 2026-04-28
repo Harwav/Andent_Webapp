@@ -1,6 +1,6 @@
 # Andent Web PRD
 
-> **Status:** Phase 0 complete (2026-04-18). Repository implementation for the current web scope, including compatibility-aware Form 4B/Form 4BL build planning, durable printer-group edits, and density-based build holding, is complete and automated verification is green as of 2026-04-27. Launch acceptance still requires live workflow evidence.
+> **Status:** Phase 1 repository implementation complete. Pre-release validation failed (2026-04-28) — 9/9 gates blocked: TypeScript compile errors, browser smoke test failures, live PreForm handoff timeout, launch validation timeout. See `Andent/02_planning/98_VerificationArtifacts/pre_release_20260428/verdict.md` for full evidence.
 
 ## Metadata
 
@@ -101,24 +101,27 @@ The system should not require human review for standard die/tooth support genera
 
 > **Note:** PreFormServer handles orient/pack, support generation, job queue management, printer dispatch, and print status tracking. Andent Web's acceptance criteria focus on intake-to-handoff accuracy.
 
-### Acceptance Checklist (2026-04-27)
+### Acceptance Checklist (2026-04-28)
 
-| Acceptance Criterion | Status | Current Basis |
+> ⚠️ Pre-release validation failed. See `Andent/02_planning/98_VerificationArtifacts/pre_release_20260428/verdict.md` for evidence.
+
+| Acceptance Criterion | Status | Evidence |
 | --- | --- | --- |
-| The system achieves `>=95%` straight-through processing at launch. | Partial | Metrics/API scaffolding exists, but live workflow evidence is not yet wired strongly enough to prove the target. |
-| Standard cases complete the following **within Andent Web** without operator touch. | Partial | Repository implementation and automated verification are now green, but launch-proof live workflow evidence is still missing. |
-| `model type detection` | Done | Implemented in `app/services/classification.py`; current repo and tests show classification behavior exists. |
-| `preset assignment` | Done | Implemented in `app/services/classification.py` via model-to-preset mapping with override support. |
-| `case ID confirmation` | Partial | Happy-path derivation exists, and missing IDs are flagged, but launch-proof acceptance evidence is still missing. |
-| Human review is reserved only for: | Partial | Low-confidence and missing/ambiguous case-ID review flags exist, but there is no complete approve/reject review queue workflow yet. |
-| `low-confidence model type matches` | Done | Implemented through confidence/review-required handling in `app/services/classification.py`. |
-| `ambiguous or missing case IDs` | Done | Implemented through case-ID validation and review-reason handling in `app/services/classification.py`. |
-| Human-reviewed outliers remain at or below `2%` of total cases. | Partial | Metrics calculations exist, but the repository does not yet contain live evidence proving the threshold. |
-| Standard die/tooth cases are not blocked by the previous MVP-era tooth support safety gate. | Done | The current web path no longer preserves the old safety block, and repository verification now covers the handoff path. |
-| Compatible mixed presets may share one Form 4B/Form 4BL build without splitting cases. | Done | Implemented through `app/services/preset_catalog.py`, `app/services/build_planning.py`, and manifest-driven handoff tests. |
-| Operators can choose and persist printer group target before handoff. | Done | Row-level and bulk printer-group updates persist through `app/database.py`, `/api/uploads/rows/{id}`, and `/api/uploads/rows/bulk-update`. |
-| Below-target final builds hold for more compatible sent cases until target, cutoff, or operator release. | Done | Implemented through `app/services/print_queue_service.py`, persisted `print_jobs` hold metadata, Print Queue details, and `/release-now`. |
-| **Andent Web sends prepared jobs to PreFormServer** (PreFormServer handles orient/pack/support/dispatch). | Done | Implemented through `/api/uploads/rows/send-to-print`, `app/services/print_queue_service.py`, and current PreForm handoff tests. |
+| The system achieves `>=95%` straight-through processing at launch. | ❌ Not Proven | Launch validation timed out during 242-file upload. Metric infrastructure exists but live proof is missing. |
+| Standard cases complete without operator touch: | | |
+| `model type detection` | ✅ Done | Repository + pytest green |
+| `preset assignment` | ✅ Done | Repository + pytest green |
+| `case ID confirmation` | ✅ Done | Happy-path derivation exists |
+| Human review reserved only for: | | |
+| `low-confidence model type matches` | ✅ Done | Implemented in `app/services/classification.py` |
+| `ambiguous or missing case IDs` | ✅ Done | Implemented in `app/services/classification.py` |
+| Human-reviewed outliers remain `<=2%` of total cases. | ❌ Not Proven | Metrics calculation exists; live proof missing |
+| Standard die/tooth cases not blocked by MVP-era safety gate. | ✅ Done | Repository + pytest green |
+| Compatible mixed presets share one Form 4B/Form 4BL build. | ✅ Done | Repository + pytest green |
+| Operators can persist printer group target. | ✅ Done | Row-level + bulk update endpoints green |
+| Below-target builds hold until target, cutoff, or release. | ✅ Done | Hold/release logic implemented |
+| **PreFormServer handoff** | ✅ Repo / ❌ Live | Repository code exists; browser handoff gate failed (timeout) |
+| Complete approve/reject review workflow | ⚠️ Partial | Row-level override exists; full review queue UI not yet built |
 
 ## Approved Phase 0 Scope
 
@@ -213,3 +216,13 @@ Current repo state no longer needs a fresh planning handoff first. The next accu
   - printer dispatch success-rate target
   - live-service behavior for mixed-compatible Form 4B/Form 4BL builds and held-build release
 - Those should be closed through stabilization and validation, not by reopening product intent.
+
+### Performance Targets (2026-04-28)
+
+The following targets were identified as missing from the original PRD and should be tracked:
+
+| Target | Value | Notes |
+|--------|-------|-------|
+| Upload-to-queue latency (p95) | `<= 30s` | For 100-file batch under representative load |
+| Dispatch success rate | `>= 99%` | Non-vacuous; excludes zero-job scenarios |
+| Mixed-model-type handling | Per-file | Each file classified individually; mixed types allowed in batch |

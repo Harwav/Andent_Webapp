@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const webServerDataDir = `test-results/playwright-app-data/${Date.now()}`;
 
 export default defineConfig({
-  testDir: './tests/release_gate',
+  testDir: './tests',
   timeout: 180_000,
   expect: {
     timeout: 10_000,
@@ -24,7 +24,7 @@ export default defineConfig({
       ANDENT_WEB_APPDATA_DIR: `${webServerDataDir}/appdata`,
     },
     url: 'http://127.0.0.1:8200/health',
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 60_000,
   },
   projects: [
