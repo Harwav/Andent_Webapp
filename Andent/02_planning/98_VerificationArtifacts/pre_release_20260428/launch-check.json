@@ -1,0 +1,23 @@
+{
+    "straight_through": {
+        "value": 0.0,
+        "target": 95.0,
+        "pass": false
+    },
+    "review_rate": {
+        "value": 0.0,
+        "target": 2.0,
+        "pass": true
+    },
+    "latency_p95": {
+        "value": 0,
+        "target": 30.0,
+        "pass": true
+    },
+    "dispatch_success": {
+        "value": 0.0,
+        "target": 99.0,
+        "pass": false
+    },
+    "overall_pass": false
+}

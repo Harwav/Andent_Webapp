@@ -1,0 +1,13 @@
+{
+    "readiness": "ready",
+    "install_path": "C:\\Users\\Marcus\\AppData\\Roaming\\Andent Web\\PreFormServer",
+    "managed_executable_path": "C:\\Users\\Marcus\\AppData\\Roaming\\Andent Web\\PreFormServer\\PreFormServer.exe",
+    "detected_version": "3.58.0.626",
+    "expected_version_min": "3.49.0",
+    "expected_version_max": null,
+    "active_configured_source": true,
+    "is_running": true,
+    "last_health_check_at": "2026-04-28T02:57:40Z",
+    "last_error_code": null,
+    "last_error_message": null
+}

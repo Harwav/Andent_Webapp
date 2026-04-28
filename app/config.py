@@ -75,7 +75,7 @@ def build_settings(
         preform_managed_executable=preform_managed_dir / "PreFormServer.exe",
         preform_server_url=os.getenv(
             "PREFORM_SERVER_URL",
-            f"http://localhost:{preform_server_port}",
+            f"http://127.0.0.1:{preform_server_port}",
         ),
         preform_server_startup_timeout_s=int(
             os.getenv("ANDENT_WEB_PREFORM_STARTUP_TIMEOUT_S", "30")

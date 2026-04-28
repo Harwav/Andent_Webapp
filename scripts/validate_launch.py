@@ -74,6 +74,26 @@ def dispatch_ready_rows(base_url: str, row_ids: list[int]) -> list[dict]:
     return resp.json()
 
 
+def clear_active_rows(base_url: str) -> int:
+    resp = httpx.get(f"{base_url}/api/uploads/queue", timeout=30.0)
+    resp.raise_for_status()
+    active = resp.json().get("active_rows", [])
+    deletable = [
+        row["row_id"]
+        for row in active
+        if row.get("row_id") and row.get("status") not in ("Submitted", "Locked")
+    ]
+    if not deletable:
+        return 0
+    del_resp = httpx.post(
+        f"{base_url}/api/uploads/rows/bulk-delete",
+        json={"row_ids": deletable},
+        timeout=30.0,
+    )
+    del_resp.raise_for_status()
+    return len(del_resp.json().get("deleted_row_ids", []))
+
+
 def get_print_jobs(base_url: str) -> dict:
     resp = httpx.get(f"{base_url}/api/print-queue/jobs", timeout=30.0)
     resp.raise_for_status()
@@ -194,6 +214,11 @@ def main() -> int:
     else:
         print("Checking PreFormServer ...")
         preform_running = ensure_preform_running(args.base_url)
+
+    # Clear stale rows to avoid content-hash duplicate detection
+    cleared = clear_active_rows(args.base_url)
+    if cleared:
+        print(f"Cleared {cleared} stale row(s) before validation run.")
 
     # Reset metrics before the run
     httpx.post(f"{args.base_url}/api/metrics/reset", timeout=10.0).raise_for_status()

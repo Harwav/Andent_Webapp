@@ -48,7 +48,7 @@ class TestPreFormClient:
                 "material_code": "FLPMBE01",
                 "print_setting": "DEFAULT",
             },
-            timeout=30
+            timeout=120
         )
 
     def test_create_scene_accepts_manifest_scene_settings(self):
@@ -82,7 +82,7 @@ class TestPreFormClient:
                 "material_code": "FLDLCL02",
                 "print_setting": "DEFAULT",
             },
-            timeout=30,
+            timeout=120,
         )
 
     def test_create_scene_failure(self):
@@ -169,7 +169,7 @@ class TestPreFormClient:
             mock_post.assert_called_with(
                 "http://localhost:44388/scene/scene-123/auto-layout/",
                 json={"allow_overlapping_supports": False, "model_spacing_mm": 1},
-                timeout=30,
+                timeout=120,
             )
 
     def test_auto_layout_rejects_public_overlap_flag(self):
@@ -215,7 +215,7 @@ class TestPreFormClient:
             assert result == {"valid": False, "errors": ["overlap"]}
             mock_get.assert_called_once_with(
                 "http://localhost:44388/scene/scene-123/print-validation",
-                timeout=30,
+                timeout=120,
             )
 
     def test_validate_scene_translates_print_validation_payload(self):
@@ -271,9 +271,9 @@ class TestPreFormClient:
         
         assert result == {"job_id": "{print-789}", "print_id": "{print-789}"}
         mock_session.post.assert_called_once_with(
-            "http://localhost:44388/scene/scene-123/print/",
+            "http://localhost:44388/scene/scene-123/print/?async=true",
             json={"job_name": "260421-001", "printer": "Form 4"},
-            timeout=30
+            timeout=120
         )
 
     def test_list_devices_success(self):

@@ -82,8 +82,11 @@ def _build_invalid_zip(tmp_path: Path) -> Path:
     return archive_path
 
 
-def test_setup_status_defaults_to_not_installed(tmp_path):
-    from app.services.preform_setup_service import get_preform_setup_status
+def test_setup_status_defaults_to_not_installed(tmp_path, monkeypatch):
+    from app.services.preform_setup_service import PreFormSetupService, get_preform_setup_status
+
+    _unhealthy = lambda self: {"healthy": False, "version": None, "code": "connection_error", "message": "no server"}
+    monkeypatch.setattr(PreFormSetupService, "_probe_server", _unhealthy)
 
     settings = _build_settings(tmp_path)
     init_db(settings)
@@ -105,6 +108,14 @@ def test_default_supported_version_accepts_working_local_preform_build(tmp_path)
     manager = PreFormSetupService(settings)
 
     assert manager._version_is_supported("3.49.0.532") is True
+
+
+def test_default_preform_url_uses_loopback_ip_not_localhost(tmp_path, monkeypatch):
+    monkeypatch.delenv("PREFORM_SERVER_URL", raising=False)
+
+    settings = _build_settings(tmp_path)
+
+    assert settings.preform_server_url == "http://127.0.0.1:44388"
 
 
 def test_launch_process_includes_managed_runtime_paths(tmp_path, monkeypatch):
@@ -186,7 +197,12 @@ def test_install_from_zip_rejects_archive_without_preformserver_exe(tmp_path):
     assert exc_info.value.code == "bad_zip"
 
 
-def test_status_route_returns_not_installed_for_fresh_app(tmp_path):
+def test_status_route_returns_not_installed_for_fresh_app(tmp_path, monkeypatch):
+    from app.services.preform_setup_service import PreFormSetupService
+
+    _unhealthy = lambda self: {"healthy": False, "version": None, "code": "connection_error", "message": "no server"}
+    monkeypatch.setattr(PreFormSetupService, "_probe_server", _unhealthy)
+
     client, _ = _build_client(tmp_path)
 
     response = client.get("/api/preform-setup/status")
@@ -220,7 +236,12 @@ def test_explicit_preform_url_can_be_ready_without_managed_install(tmp_path, mon
     assert status.is_running is True
 
 
-def test_send_to_print_returns_409_when_preform_not_ready(tmp_path):
+def test_send_to_print_returns_409_when_preform_not_ready(tmp_path, monkeypatch):
+    from app.services.preform_setup_service import PreFormSetupService
+
+    _unhealthy = lambda self: {"healthy": False, "version": None, "code": "connection_error", "message": "no server"}
+    monkeypatch.setattr(PreFormSetupService, "_probe_server", _unhealthy)
+
     client, settings = _build_client(tmp_path)
     row_id = _seed_ready_row(settings, tmp_path)
 

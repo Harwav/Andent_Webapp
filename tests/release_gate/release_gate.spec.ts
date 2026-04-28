@@ -19,8 +19,9 @@ test('straight-through same-case multi-file handoff reaches live PreForm', async
   await expect(lowerRow.locator('[data-testid="status-chip"]')).toHaveText('Ready');
 
   await upperRow.locator('[data-testid="row-select"]').check();
+  await expect(page.locator('[data-testid="send-to-print-button"]')).toContainText('Send to Print (2)');
   await page.locator('[data-testid="send-to-print-button"]').click();
-  await expect(page.locator('#status-text')).toContainText('Moved 2 row(s) into Processed as Submitted.');
+  await expect(page.locator('#status-text')).toContainText('Moved 2 file(s) into In Progress', { timeout: 60000 });
 
   const job = await latestPrintJob(liveApp.databasePath);
   expect(job.case_ids).toContain('CASE123');

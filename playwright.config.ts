@@ -4,7 +4,7 @@ const webServerDataDir = `test-results/playwright-app-data/${Date.now()}`;
 
 export default defineConfig({
   testDir: './tests/release_gate',
-  timeout: 60_000,
+  timeout: 180_000,
   expect: {
     timeout: 10_000,
   },

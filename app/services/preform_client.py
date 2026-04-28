@@ -92,10 +92,10 @@ class PreFormClient:
         payload = dict(scene_settings or DEFAULT_SCENE_SETTINGS)
         
         try:
-            response = self.session.post(url, json=payload, timeout=30)
+            response = self.session.post(url, json=payload, timeout=120)
         except requests.RequestException as e:
             raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
-        
+
         if response.status_code == 404:
             raise Exception("PreFormServer not found. Please check the server URL.")
         elif response.status_code == 503:
@@ -156,7 +156,7 @@ class PreFormClient:
         url = f"{self.base_url}/scene/{scene_id}/auto-layout/"
         payload = {"allow_overlapping_supports": False, "model_spacing_mm": 1}
 
-        response = self.session.post(url, json=payload, timeout=30)
+        response = self.session.post(url, json=payload, timeout=120)
 
         if response.status_code != 200:
             raise Exception(f"Failed to auto-layout scene: {response.status_code} - {response.text}")
@@ -168,7 +168,7 @@ class PreFormClient:
         """Validate a scene and return validity state and reported issues."""
         url = f"{self.base_url}/scene/{scene_id}/print-validation"
 
-        response = self.session.get(url, timeout=30)
+        response = self.session.get(url, timeout=120)
 
         if response.status_code != 200:
             raise Exception(f"Failed to validate scene: {response.status_code} - {response.text}")
@@ -218,26 +218,32 @@ class PreFormClient:
         Raises:
             Exception: If the API request fails
         """
-        url = f"{self.base_url}/scene/{scene_id}/print/"
+        url = f"{self.base_url}/scene/{scene_id}/print/?async=true"
         payload = {
             "job_name": job_name or scene_id,
             "printer": device_id,
         }
-        
+
         try:
-            response = self.session.post(url, json=payload, timeout=30)
+            response = self.session.post(url, json=payload, timeout=120)
         except requests.RequestException as e:
             raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
-        
+
         if response.status_code == 404:
             raise Exception(f"Scene {scene_id} or printer {device_id} not found.")
         elif response.status_code == 409:
             raise Exception(f"Printer {device_id} is busy. Please try again later.")
         elif response.status_code == 422:
             raise Exception("Scene validation failed. Please check scene configuration.")
-        elif response.status_code != 200:
+        elif response.status_code not in (200, 202):
             raise Exception(f"Failed to send to printer: {response.status_code} - {response.text}")
         
+        # 202 = async submission accepted; normalize to print_id for callers
+        if response.status_code == 202:
+            body = response.json() if response.content else {}
+            op_id = body.get("id") or body.get("operation_id") or scene_id
+            return {"print_id": op_id, "job_id": op_id, "async": True}
+
         payload = response.json()
         if isinstance(payload, dict) and "print_id" not in payload and "job_id" in payload:
             payload = {
