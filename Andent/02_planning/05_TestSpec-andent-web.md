@@ -1,14 +1,87 @@
-# Test Spec: Andent Web
+# Test Spec: Andent Web Pre-Release QA Basis
 
 ## Metadata
 - Created: 2026-04-15T08:10:00Z
-- Source plan: `Andent/02_planning/prd-andent-web-auto-prep.md`
-- Source requirements: `Andent/01_requirements/prd-andent-web-auto-prep.md`
+- Last updated: 2026-04-28
+- Status: Pre-release QA basis for MVP launch sign-off.
+- Source plan: `docs/superpowers/plans/2026-04-27-launch-validation.md`
+- Source requirements: `Andent/01_requirements/prd-andent-web.md`
+- Implementation roadmap: `Andent/02_planning/04_Roadmap-implementation.md`
 
 ## Test Objectives
 - Prove the web path can replace manual print-job preparation for standard cases.
 - Prove exception routing is limited to the allowed decision boundaries.
 - Prove exported artifacts and dispatch outcomes are durable and auditable.
+- Prove the release candidate has executable, recorded evidence for every launch gate.
+
+## Pre-Release Verdict Contract
+
+This document is the release basis, not release evidence by itself. A release candidate is `RELEASE READY` only when every mandatory gate below has passed in the current candidate and the evidence bundle has been archived.
+
+Release is `BLOCKED` when any of the following is true:
+- The full pytest suite fails.
+- The browser release gate fails.
+- `scripts/validate_launch.py` fails or only produces classification-only dispatch evidence.
+- A live PreFormServer handoff cannot be proven against `http://127.0.0.1:44388`.
+- Human review is triggered for reasons outside the PRD boundaries.
+- Required evidence is missing, stale, or from a different build/candidate.
+
+The current known production blocker remains live PreFormServer dispatch proof unless a dated evidence bundle for the current candidate records it.
+
+## Mandatory Launch Gates
+
+| Gate | Target | Source of truth | Required evidence |
+|------|--------|-----------------|-------------------|
+| Full automated backend suite | 100% passing | `tests/` | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -q` output |
+| Browser smoke and release UI flows | 100% passing | `tests/release_gate/*.spec.ts` | Playwright output and report |
+| Straight-through processing | `>=95%` | `app/services/metrics.py:123` | `/api/metrics/launch-check` plus validation script output |
+| Human-review rate | `<=2%` | `app/services/metrics.py:123` | `/api/metrics/launch-check` plus validation script output |
+| Upload p95 latency | `<=30s` | `app/config.py:103`, `app/services/metrics.py:123` | `/api/metrics/launch-check` plus validation script output |
+| Dispatch success rate | `>=99%` and non-vacuous | `app/config.py:106`, `app/services/metrics.py:116` | At least one real live PreFormServer dispatch event, not an empty-dispatch calculation |
+| Live PreFormServer handoff | Scene exists after send-to-print | `tests/release_gate/release_gate.spec.ts:4`, `tests/release_gate/helpers/fixtures.ts:24` | Playwright live handoff pass against `http://127.0.0.1:44388` |
+| Review boundaries | Only low-confidence model type or ambiguous/missing case ID | `Andent/01_requirements/prd-andent-web.md` | Guard fixture results and manual validation notes |
+| Artifact durability | `.form`/scene, screenshot/preview, print job manifest, and audit metadata are persisted | `tests/test_preform_handoff.py`, `tests/test_print_queue.py` | Database/job record proof plus operator artifact inspection |
+
+## Pre-Release Runbook
+
+Run these gates in order on the release candidate.
+
+| Step | Command / action | Pass condition |
+|------|------------------|----------------|
+| 1. Environment health | Start the app with the intended release settings and verify `/health`, `/health/live`, and `/health/ready`. | All health endpoints return success. |
+| 2. Backend suite | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/ -q` | All tests pass. |
+| 3. TypeScript compile | `npx tsc --noEmit` | No TypeScript errors. |
+| 4. Browser smoke and mocked UI release checks | `npx playwright test tests/release_gate/smoke.spec.ts tests/release_gate/ui-hooks.spec.ts tests/release_gate/bulk-actions.spec.ts --project=chromium` | All selected Playwright specs pass. |
+| 5. Live PreFormServer availability | Confirm managed PreFormServer is installed, compatible, running, and reachable at `http://127.0.0.1:44388`. | Setup status is `ready`; version is recorded. |
+| 6. Live browser handoff gate | `npx playwright test tests/release_gate/release_gate.spec.ts --project=chromium` | Browser upload reaches send-to-print, print job is persisted, and scene lookup succeeds. |
+| 7. Launch metrics validation | `python scripts/validate_launch.py --base-url http://127.0.0.1:8090 --fixtures-dir "D:\Marcus\Desktop\BM\20260409_Andent_Matt\Test Data"` | Overall pass, with non-vacuous dispatch evidence. |
+| 8. Manual operator validation | Run the checklist in `Manual Validation Runs`. | No blocker found; artifact and review-boundary notes recorded. |
+| 9. Evidence archive | Save logs and outputs under `Andent/02_planning/98_VerificationArtifacts/pre_release_YYYYMMDD/`. | Evidence bundle contains all required files listed below. |
+
+The npm script `test:release-gate` is not sufficient for release sign-off because it currently runs only `tests/release_gate/smoke.spec.ts`.
+
+## Required Evidence Bundle
+
+Create one dated folder per release candidate:
+
+```text
+Andent/02_planning/98_VerificationArtifacts/pre_release_YYYYMMDD/
+```
+
+Required contents:
+- `pytest.log`: full backend suite output.
+- `tsc.log`: TypeScript compile output.
+- `playwright-smoke.log`: smoke/UI/bulk-action Playwright output.
+- `playwright-live-preform.log`: live `release_gate.spec.ts` output.
+- `validate-launch.log`: `scripts/validate_launch.py` output.
+- `launch-check.json`: raw `GET /api/metrics/launch-check` response.
+- `preform-status.json`: raw `GET /api/preform-setup/status` response.
+- `dataset-inventory.md`: source dataset path, STL count, fixture-class mapping, and any excluded files.
+- `print-job-evidence.json`: latest print job record including `scene_id`, `preset_names`, `compatibility_key`, `case_ids`, and `manifest_json`.
+- `artifact-inventory.md`: operator-confirmed list of generated scenes/forms/screenshots or a note explaining why an artifact class is not produced in the current MVP.
+- `verdict.md`: signed release verdict using the template at the end of this document.
+
+Evidence from a run where dispatch success is vacuous because no PreFormServer was connected can support classification readiness, but cannot support production release.
 
 ## Approved Phase 0 Slice
 
@@ -121,12 +194,18 @@
 - Verify each row shows an automatic STL thumbnail.
 - Verify clicking the thumbnail opens an interactive 3D modal preview.
 
-## Launch Gates
-- Straight-through processing rate: `>=95%`
-- Human-review rate: `<=2%`
-- Review triggers limited to:
+## Launch Gate Definitions
+
+The release gates in `Mandatory Launch Gates` are interpreted as follows:
+
+- Straight-through processing means a representative standard case reaches `Ready` and print handoff without a human model-type, preset, case-ID, or printer-group correction.
+- Human-review rate counts rows/cases with `Needs Review`, `Check`, or human correction before release.
+- Review is allowed only for:
   - low-confidence model type detection
   - ambiguous or missing case IDs
+- Duplicate handling is a queue integrity workflow, not a classification failure, when the duplicate is correctly identified and not dispatched until explicitly allowed.
+- Dispatch success is non-vacuous only when at least one selected `Ready` case reaches live PreFormServer handoff and produces persisted job/scene evidence.
+- A launch metrics run with zero dispatch attempts must be labelled classification-only and cannot satisfy production release.
 
 ## Unit Coverage
 
@@ -240,7 +319,9 @@
 - Provide a report or dashboard extract suitable for launch sign-off.
 
 ## Test Data Strategy
-- Reuse existing Andent fixtures and customer-facing validation material under `Andent/04_customer-facing/`.
+- Use the external customer-style validation dataset at `D:\Marcus\Desktop\BM\20260409_Andent_Matt\Test Data` as the primary pre-release dataset.
+- Record a fresh dataset inventory for every release candidate; on 2026-04-28 this folder contained 242 STL files, including 119 `UnsectionedModel`, 36 `Tooth`, 36 `Antag`, 2 `modeldie`, and 7 `modelbase` filename patterns.
+- Use existing repo fixtures under `Andent/04_customer-facing/` and `tests/release_gate/fixtures/` as controlled guard fixtures when the external dataset does not cover a specific negative path.
 - Include representative cases for:
   - standard ortho
   - standard tooth
@@ -249,14 +330,114 @@
   - ambiguous/missing case ID cases
   - mixed-case uploads that remain in scope for the chosen web design
 
-## Manual Validation Runs
-- Run a controlled validation batch against representative uploads and confirm:
-  - `>=95%` straight-through processing
-  - `<=2%` human review
-  - zero dispatches for rejected/review-blocked jobs
-  - artifacts exist for each successful job
+### Minimum Release Fixture Set
 
-## Open Measurement Gaps
-- Upload-to-queue latency target is still undefined and must be fixed before launch sign-off.
-- Dispatch success-rate target is still undefined and must be fixed before launch sign-off.
-- Mixed-compatible Form 4B/Form 4BL upload behavior and held-build release are implemented and covered by automated tests; live PreFormServer validation is still required before launch sign-off.
+The release fixture set must include at least:
+
+| Fixture class | Source | Required proof |
+|---------------|--------|----------------|
+| Standard ortho same-case multi-file package | External dataset, plus repo happy fixtures if needed | Auto-classifies, same-case selection works, live handoff creates one persisted print job. |
+| Standard splint | External dataset if present; otherwise repo fixtures | Auto-classifies and uses the expected splint preset/handoff path. |
+| Standard tooth/die | External dataset | Does not hit retired MVP safety blocks. |
+| Ambiguous or missing case ID | External dataset if present; otherwise repo guard fixtures | Routes to review and does not dispatch. |
+| Low-confidence or manually corrected case | Repo guard fixtures unless identified in external data | Review/correction behavior is explicit and auditable. |
+| Duplicate content hash | Repo guard fixtures unless identified in external data | Duplicate is flagged, remains visible, and dispatch is blocked until `Allow Duplicate`. |
+| Compatible mixed presets | External dataset | Compatible rows can share a build manifest when printer/material/layer-height match. |
+| Incompatible mixed case | External dataset if present; otherwise repo guard fixtures | Routes to review or non-plannable output instead of partial silent processing. |
+| Held below-target build | Repo/service fixtures, plus external small remainder if practical | Holds before cutoff, persists across restart, and releases only by valid trigger. |
+
+If any fixture class is missing from the external dataset, fill the gap with repository fixtures and document that substitution in `dataset-inventory.md` and `verdict.md`.
+
+## Automated Coverage Map
+
+| Coverage area | Primary automated proof |
+|---------------|-------------------------|
+| Upload and classification | `tests/test_upload_classification.py`, `tests/test_parallel_classification.py`, `tests/test_live_validation.py` |
+| Decision boundaries and metrics | `tests/test_metrics_service.py`, `tests/test_metrics_wiring.py` |
+| Preset catalog and printer compatibility | `tests/test_preset_catalog.py`, `tests/test_release_gate_preset_normalization.py` |
+| Build planning and batching | `tests/test_build_planning.py`, `tests/test_batching.py`, `tests/test_planning_preview.py` |
+| PreFormServer client and handoff behavior | `tests/test_preform_client.py`, `tests/test_preform_handoff.py`, `tests/test_preform_setup.py` |
+| Print queue persistence and polling | `tests/test_print_queue.py`, `tests/test_print_queue_schema.py`, `tests/test_print_queue_polling.py` |
+| Frontend static contracts | `tests/test_frontend_static.py`, `tests/test_case_selection.py`, `tests/test_undo_removal.py`, `tests/test_polling.py` |
+| Browser smoke and release UI flows | `tests/release_gate/smoke.spec.ts`, `tests/release_gate/ui-hooks.spec.ts`, `tests/release_gate/bulk-actions.spec.ts` |
+| Live browser-to-PreForm handoff | `tests/release_gate/release_gate.spec.ts` |
+| Release evidence helpers | `tests/test_release_gate_verify.py`, `tests/release_gate/helpers/python/release_gate_verify.py` |
+
+## Manual Validation Runs
+- Run a controlled validation batch against representative uploads and confirm the launch gates in `Mandatory Launch Gates`.
+- Confirm PreFormServer setup UI reports `ready` before print handoff.
+- Confirm selected standard cases move from File Analysis into In Progress or History after handoff.
+- Confirm review-blocked rows do not dispatch.
+- Confirm generated job evidence exists for each successful job:
+  - persisted print job row
+  - `scene_id`
+  - manifest JSON
+  - preset names
+  - compatibility key
+  - printer group/material/layer-height metadata
+  - screenshot/preview or documented reason why unavailable
+- Confirm visible UI states are understandable to an operator without developer console access.
+- Confirm no sensitive local install path or token appears in the browser UI.
+
+## Release Verdict Template
+
+Create `verdict.md` in the dated evidence folder with this structure:
+
+```markdown
+# Andent Web Pre-Release Verdict - YYYY-MM-DD
+
+## Candidate
+- Commit:
+- Branch:
+- Operator:
+- Machine:
+- PreFormServer version:
+- Primary dataset: `D:\Marcus\Desktop\BM\20260409_Andent_Matt\Test Data`
+- App settings summary:
+
+## Gate Results
+| Gate | Result | Evidence |
+|------|--------|----------|
+| Backend pytest suite | PASS/FAIL | pytest.log |
+| TypeScript compile | PASS/FAIL | tsc.log |
+| Browser smoke/UI checks | PASS/FAIL | playwright-smoke.log |
+| Live PreForm browser handoff | PASS/FAIL | playwright-live-preform.log |
+| Straight-through rate >=95% | PASS/FAIL | validate-launch.log, launch-check.json |
+| Human-review rate <=2% | PASS/FAIL | validate-launch.log, launch-check.json |
+| Upload p95 latency <=30s | PASS/FAIL | validate-launch.log, launch-check.json |
+| Dispatch success >=99%, non-vacuous | PASS/FAIL | validate-launch.log, print-job-evidence.json |
+| Review boundaries | PASS/FAIL | fixture notes |
+| Artifact durability | PASS/FAIL | artifact-inventory.md |
+
+## Fixture Set
+- Dataset inventory: dataset-inventory.md
+- Standard ortho:
+- Standard splint:
+- Standard tooth/die:
+- Review guard:
+- Duplicate guard:
+- Mixed compatibility:
+- Held-build/release:
+
+## Decision
+- Verdict: RELEASE READY / RELEASE BLOCKED
+- Blocking failures:
+- Non-blocking risks:
+- Follow-up owner:
+```
+
+## Remaining Release Risks
+
+- Live PreFormServer dispatch proof is release-blocking until a current-candidate evidence bundle records it.
+- `scripts/validate_launch.py` can report dispatch success as vacuously passing when no PreFormServer dispatch events exist; the verdict must reject that as production evidence.
+- The package script `test:release-gate` runs only the smoke spec; release sign-off must run the broader Playwright commands in this document.
+- A representative fixture set must be reviewed before each release. If the customer case mix changes, the fixture set must change with it.
+- The planning docs include some historical phase language. The verdict should rely on this test spec, the current PRD, current code, and current evidence bundle.
+
+## Resolved Measurement Gaps
+
+| Former gap | Resolution |
+|------------|------------|
+| Upload-to-queue latency target undefined | Resolved as p95 `<=30s` via `app/config.py:103` and `app/services/metrics.py:123`. |
+| Dispatch success-rate target undefined | Resolved as `>=99%` via `app/config.py:106` and `app/services/metrics.py:116`; production evidence must be non-vacuous. |
+| Mixed-compatible Form 4B/Form 4BL behavior | Covered by build-planning and handoff tests; still requires live PreFormServer proof for the release candidate. |
