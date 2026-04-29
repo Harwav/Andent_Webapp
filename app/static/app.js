@@ -1557,17 +1557,13 @@ function renderHistoryRows() {
         dateCell.textContent = formatDate(row.current_event_at);
         tr.appendChild(dateCell);
 
-        const personCell = document.createElement("td");
-        personCell.textContent = row.person || "-";
-        tr.appendChild(personCell);
-
         elements.historyBody.appendChild(tr);
     });
 
     if (pageRows.length === 0) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 10;
+        td.colSpan = 9;
         td.className = "table-empty";
         td.textContent = "No history rows yet.";
         tr.appendChild(td);
@@ -2413,6 +2409,30 @@ async function sendRowsToPrint(rows) {
     }
 }
 
+async function uploadWithTimeout(row) {
+    const TIMEOUT_MS = 30000;
+    const timeoutId = setTimeout(() => row.abortController.abort(), TIMEOUT_MS);
+    try {
+        const formData = new FormData();
+        formData.append("files", row.file);
+        const response = await fetch("/api/uploads/classify", {
+            method: "POST",
+            body: formData,
+            signal: row.abortController.signal,
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === "AbortError" && !row.abortController.signal.aborted) {
+            const timeoutError = new Error("Upload timed out after " + (TIMEOUT_MS / 1000) + "s");
+            timeoutError.name = "TimeoutError";
+            throw timeoutError;
+        }
+        throw error;
+    }
+}
+
 async function uploadPendingRow(row) {
     row.status = "Uploading";
     row.abortController = new AbortController();
@@ -2427,13 +2447,7 @@ async function uploadPendingRow(row) {
     }, 450);
 
     try {
-        const formData = new FormData();
-        formData.append("files", row.file);
-        const response = await fetch("/api/uploads/classify", {
-            method: "POST",
-            body: formData,
-            signal: row.abortController.signal,
-        });
+        const response = await uploadWithTimeout(row);
         const payload = await response.json();
         if (!response.ok) {
             throw new Error(payload.detail || "Upload failed.");

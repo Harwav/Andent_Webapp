@@ -20,6 +20,18 @@
     --font-display: "Playfair Display", Georgia, serif;
     --font-ui: "Inter", "Helvetica Neue", sans-serif;
     --font-body: "Roboto", Arial, sans-serif;
+    /* Work queue table column widths */
+    --col-select: 42px;
+    --col-preview: 84px;
+    --col-file: 22%;
+    --col-case-id: 9%;
+    --col-model-type: 13%;
+    --col-preset: 13%;
+    --col-printer: 9%;
+    --col-status: 9%;
+    --col-dimensions: 12%;
+    --col-volume: 8%;
+    --col-remove: 60px;
 }
 
 * {
@@ -168,9 +180,9 @@ h2 {
 .setup-panel {
     display: grid;
     gap: 16px;
-    background:
-        radial-gradient(circle at top right, rgba(8, 100, 199, 0.08), transparent 30%),
-        linear-gradient(180deg, #ffffff 0%, #faf8f3 100%);
+    margin-top: 32px;
+    background: var(--surface-soft);
+    border-top: 1px solid var(--line);
 }
 
 .setup-panel-ready {
@@ -713,46 +725,67 @@ h2 {
 }
 
 .active-table th:nth-child(1),
-.active-table td:nth-child(1) { width: 42px; }
+.active-table td:nth-child(1)  { width: var(--col-select); }
 .active-table th:nth-child(2),
-.active-table td:nth-child(2) { width: 84px; }
+.active-table td:nth-child(2)  { width: var(--col-preview); }
 .active-table th:nth-child(3),
-.active-table td:nth-child(3) { width: 22%; }
+.active-table td:nth-child(3)  { width: var(--col-file); }
 .active-table th:nth-child(4),
-.active-table td:nth-child(4) { width: 9%; }
+.active-table td:nth-child(4)  { width: var(--col-case-id); }
 .active-table th:nth-child(5),
-.active-table td:nth-child(5) { width: 13%; }
+.active-table td:nth-child(5)  { width: var(--col-model-type); }
 .active-table th:nth-child(6),
-.active-table td:nth-child(6) { width: 13%; }
+.active-table td:nth-child(6)  { width: var(--col-preset); }
 .active-table th:nth-child(7),
-.active-table td:nth-child(7) { width: 9%; }
+.active-table td:nth-child(7)  { width: var(--col-printer); }
 .active-table th:nth-child(8),
-.active-table td:nth-child(8) { width: 9%; }
+.active-table td:nth-child(8)  { width: var(--col-status); }
 .active-table th:nth-child(9),
-.active-table td:nth-child(9) { width: 12%; }
+.active-table td:nth-child(9)  { width: var(--col-dimensions); }
 .active-table th:nth-child(10),
-.active-table td:nth-child(10) { width: 8%; }
+.active-table td:nth-child(10) { width: var(--col-volume); }
 .active-table th:nth-child(11),
-.active-table td:nth-child(11) { width: 60px; }
+.active-table td:nth-child(11) { width: var(--col-remove); }
+
+.progress-table th:nth-child(1),
+.progress-table td:nth-child(1)  { width: var(--col-preview); }
+.progress-table th:nth-child(2),
+.progress-table td:nth-child(2)  { width: var(--col-file); }
+.progress-table th:nth-child(3),
+.progress-table td:nth-child(3)  { width: var(--col-case-id); }
+.progress-table th:nth-child(4),
+.progress-table td:nth-child(4)  { width: var(--col-model-type); }
+.progress-table th:nth-child(5),
+.progress-table td:nth-child(5)  { width: var(--col-preset); }
+.progress-table th:nth-child(6),
+.progress-table td:nth-child(6)  { width: var(--col-printer); }
+.progress-table th:nth-child(7),
+.progress-table td:nth-child(7)  { width: var(--col-status); }
+.progress-table th:nth-child(8),
+.progress-table td:nth-child(8)  { width: var(--col-dimensions); }
+.progress-table th:nth-child(9),
+.progress-table td:nth-child(9)  { width: var(--col-volume); }
+.progress-table th:nth-child(10),
+.progress-table td:nth-child(10) { width: var(--col-remove); }
 
 .processed-table th:nth-child(1),
-.processed-table td:nth-child(1) { width: 10%; }
+.processed-table td:nth-child(1) { width: 9%; }
 .processed-table th:nth-child(2),
-.processed-table td:nth-child(2) { width: 24%; }
+.processed-table td:nth-child(2) { width: 22%; }
 .processed-table th:nth-child(3),
-.processed-table td:nth-child(3) { width: 12%; }
+.processed-table td:nth-child(3) { width: 9%; }
 .processed-table th:nth-child(4),
-.processed-table td:nth-child(4) { width: 12%; }
+.processed-table td:nth-child(4) { width: 13%; }
 .processed-table th:nth-child(5),
-.processed-table td:nth-child(5) { width: 12%; }
+.processed-table td:nth-child(5) { width: 13%; }
 .processed-table th:nth-child(6),
 .processed-table td:nth-child(6) { width: 10%; }
 .processed-table th:nth-child(7),
 .processed-table td:nth-child(7) { width: 8%; }
 .processed-table th:nth-child(8),
-.processed-table td:nth-child(8) { width: 12%; }
+.processed-table td:nth-child(8) { width: 9%; }
 .processed-table th:nth-child(9),
-.processed-table td:nth-child(9) { width: 10%; }
+.processed-table td:nth-child(9) { width: 7%; }
 
 select {
     width: 100%;
