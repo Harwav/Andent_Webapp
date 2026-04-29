@@ -301,6 +301,23 @@ async function fetchPreformPrinters() {
     state.preformSetup.printers = payload;
 }
 
+function handlePreformPrinterFetchError(error) {
+    state.preformSetup.printers = {
+        printers: [],
+        available: false,
+        message: error.message || "Could not load local printers.",
+    };
+}
+
+async function refreshPreformPrintersQuietly() {
+    try {
+        await fetchPreformPrinters();
+    } catch (error) {
+        handlePreformPrinterFetchError(error);
+        console.warn("Local printer refresh failed:", error.message);
+    }
+}
+
 async function runPreformAction(url, options, successMessage) {
     state.preformSetup.loading = true;
     renderPreformSetup();
@@ -311,7 +328,7 @@ async function runPreformAction(url, options, successMessage) {
             throw new Error(payload.detail || payload.message || "PreFormServer action failed.");
         }
         state.preformSetup.status = payload.status;
-        await fetchPreformPrinters();
+        await refreshPreformPrintersQuietly();
         setStatus(payload.message || successMessage);
     } catch (error) {
         setStatus(error.message, true);
@@ -483,11 +500,7 @@ async function refreshPreformPrinters() {
         await fetchPreformPrinters();
         setStatus("Local printer status refreshed.");
     } catch (error) {
-        state.preformSetup.printers = {
-            printers: [],
-            available: false,
-            message: error.message,
-        };
+        handlePreformPrinterFetchError(error);
         setStatus(error.message, true);
     } finally {
         state.preformSetup.printersLoading = false;
@@ -2746,7 +2759,7 @@ window.setInterval(async () => {
     try {
         await fetchQueue();
         await fetchPreformSetupStatus();
-        await fetchPreformPrinters();
+        await refreshPreformPrintersQuietly();
         render();
         console.log("Queue auto-refreshed");
     } catch (error) {
@@ -2789,7 +2802,7 @@ async function bootstrap() {
         await fetchQueue();
         await fetchPrintQueue();
         await fetchPreformSetupStatus();
-        await fetchPreformPrinters();
+        await refreshPreformPrintersQuietly();
         await fetchDispatchMode();
         render();
         if (canPrint()) {

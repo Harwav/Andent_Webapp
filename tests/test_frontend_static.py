@@ -173,3 +173,34 @@ def test_setup_center_displays_local_printer_status():
     assert "preform-printer-table" in styles_css
     assert "preform-printer-status-pill" in styles_css
     assert "preform-printer-card" not in styles_css
+
+
+def test_local_printer_refresh_isolated_from_queue_refresh():
+    app_js = APP_JS.read_text(encoding="utf-8")
+
+    assert "function handlePreformPrinterFetchError(error)" in app_js
+    assert "async function refreshPreformPrintersQuietly()" in app_js
+    assert "state.preformSetup.status = payload.status;\n        await refreshPreformPrintersQuietly();" in app_js
+    assert (
+        "await fetchPreformSetupStatus();\n"
+        "        await refreshPreformPrintersQuietly();\n"
+        "        render();"
+    ) in app_js
+    assert (
+        "await fetchPreformSetupStatus();\n"
+        "        await refreshPreformPrintersQuietly();\n"
+        "        await fetchDispatchMode();"
+    ) in app_js
+    assert "available: false" in app_js
+    assert "message: error.message" in app_js
+
+
+def test_local_printer_material_prefers_readable_name_over_code():
+    app_js = APP_JS.read_text(encoding="utf-8")
+
+    material_name_index = app_js.index("const materialName = printer.material_name")
+    material_code_index = app_js.index("const materialCode = printer.material_code")
+
+    assert material_name_index < material_code_index
+    assert 'label: materialName || materialCode || "-"' in app_js
+    assert "materialCell.title = material.code;" in app_js
