@@ -536,6 +536,99 @@ def test_printers_route_keeps_code_from_name_like_field_as_fallback(tmp_path, mo
     assert printer["material_code"] == "FLBMAM01"
 
 
+def test_printers_route_only_returns_real_form4b_and_form4bl_devices(tmp_path, monkeypatch):
+    from app.services.preform_client import PreFormClient
+    from app.services.preform_setup_service import PreFormSetupService
+
+    monkeypatch.setattr(
+        PreFormSetupService,
+        "_probe_server",
+        lambda self: {
+            "healthy": True,
+            "version": "3.58.0.626",
+            "code": None,
+            "message": None,
+        },
+    )
+    monkeypatch.setattr(
+        PreFormClient,
+        "list_devices",
+        lambda self: {
+            "count": 5,
+            "devices": [
+                {
+                    "connection_type": "WIFI",
+                    "id": "form-4bl-ready",
+                    "product_name": "Form 4BL",
+                    "status": "Ready",
+                    "tank_material_code": "FLTO1502",
+                },
+                {
+                    "connection_type": "WIFI",
+                    "id": "form-4b-ready",
+                    "product_name": "Form 4B",
+                    "status": "Ready",
+                    "tank_material_code": "FLBMAM01",
+                },
+                {
+                    "connection_type": "WIFI",
+                    "id": "fuse-device",
+                    "product_name": "Fuse 1",
+                    "status": "Idle",
+                },
+                {
+                    "connection_type": "VIRTUAL",
+                    "id": "virtual-form-4b",
+                    "product_name": "Form 4B",
+                    "status": "Virtual Printer",
+                },
+                {
+                    "connection_type": "WIFI",
+                    "id": "form-3b-device",
+                    "product_name": "Form 3B",
+                    "status": "Ready",
+                },
+            ],
+        },
+    )
+
+    client, _settings = _build_client(tmp_path)
+
+    response = client.get("/api/preform-setup/printers")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [printer["device_id"] for printer in payload["printers"]] == [
+        "form-4bl-ready",
+        "form-4b-ready",
+    ]
+    assert {printer["model"] for printer in payload["printers"]} == {"Form 4BL", "Form 4B"}
+
+
+def test_printers_route_returns_clear_unavailable_state(tmp_path, monkeypatch):
+    from app.services.preform_setup_service import PreFormSetupService
+
+    monkeypatch.setattr(
+        PreFormSetupService,
+        "_probe_server",
+        lambda self: {
+            "healthy": False,
+            "version": None,
+            "code": "connection_error",
+            "message": "no server",
+        },
+    )
+
+    client, _settings = _build_client(tmp_path)
+
+    response = client.get("/api/preform-setup/printers")
+
+    assert response.status_code == 200
+    assert response.json()["available"] is False
+    assert response.json()["printers"] == []
+    assert response.json()["message"] == "no server"
+
+
 def test_explicit_preform_url_can_be_ready_without_managed_install(tmp_path, monkeypatch):
     from app.services.preform_setup_service import PreFormSetupService
 

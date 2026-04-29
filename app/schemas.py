@@ -106,7 +106,7 @@ class PreFormPrinterStatus(BaseModel):
 
 class PreFormPrinterListResponse(BaseModel):
     printers: list[PreFormPrinterStatus] = Field(default_factory=list)
-    available: bool
+    available: bool = True
     message: str | None = None
 
 
