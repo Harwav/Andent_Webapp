@@ -1627,6 +1627,12 @@ function createReleaseButton(job) {
     return button;
 }
 
+function truncatePresetNames(presetNames, preset, maxVisible = 2) {
+    if (!presetNames || presetNames.length === 0) return preset || "-";
+    if (presetNames.length <= maxVisible) return presetNames.join(", ");
+    return `${presetNames.slice(0, maxVisible).join(", ")} +${presetNames.length - maxVisible} more`;
+}
+
 function createPrintQueueRow(job) {
     const tr = document.createElement("tr");
     tr.dataset.jobId = String(job.id);
@@ -1661,11 +1667,7 @@ function createPrintQueueRow(job) {
     const nameDiv = document.createElement("div");
     nameDiv.className = "file-name";
     nameDiv.textContent = job.job_name;
-    const presetDiv = document.createElement("div");
-    presetDiv.className = "file-meta";
-    presetDiv.textContent = (job.preset_names || []).length > 0 ? job.preset_names.join(", ") : job.preset;
     jobCell.appendChild(nameDiv);
-    jobCell.appendChild(presetDiv);
     tr.appendChild(jobCell);
 
     const casesCell = document.createElement("td");
@@ -1775,9 +1777,7 @@ function createJobCard(job) {
     const detailsDiv = document.createElement("div");
     detailsDiv.className = "job-details";
 
-    const presetList = (job.preset_names || []).length > 0
-        ? job.preset_names.join(", ")
-        : job.preset;
+    const presetList = truncatePresetNames(job.preset_names, job.preset);
     detailsDiv.appendChild(createJobDetailItem("Presets:", presetList));
     detailsDiv.appendChild(createJobDetailItem("Build Profile:", job.compatibility_key));
     if (job.estimated_density != null) {
