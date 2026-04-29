@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Thumbnail Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+    </style>
+</head>
+<body>
+    <h2>Frontend PNG (Three.js WebGL)</h2>
+    <div id="png-container" style="width:160px;height:160px;background:#f8f3ec;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#666">Loading PNG...</div>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+        
+        const filePath = '/data/uploads/8d2bb9567bd043fc9053d2ef090e5b58/20260407_10935386_SCDL__10935386_UnsectionedModel_LowerJaw.stl';
+        
+        try {
+            const response = await fetch(filePath);
+            if (!response.ok) throw new Error('Fetch failed: ' + response.status);
+            const buffer = await response.arrayBuffer();
+            const loader = new STLLoader();
+            const geometry = loader.parse(buffer);
+            geometry.computeBoundingBox();
+            geometry.center();
+            geometry.computeVertexNormals();
+
+            const size = 160;
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+            renderer.setPixelRatio(1);
+            renderer.setSize(size, size, false);
+
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf8f3ec);
+            const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 5000);
+            scene.add(new THREE.AmbientLight(0xffffff, 1.15));
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.7);
+            keyLight.position.set(45, 60, 110);
+            scene.add(keyLight);
+            const fillLight = new THREE.DirectionalLight(0xfff2df, 0.9);
+            fillLight.position.set(-60, -40, 80);
+            scene.add(fillLight);
+
+            const material = new THREE.MeshStandardMaterial({ color: 0xff7a2b, metalness: 0.08, roughness: 0.5 });
+            const mesh = new THREE.Mesh(geometry, material);
+            const group = new THREE.Group();
+            group.rotation.set(-0.58, -0.62, 0.08);
+            group.add(mesh);
+            scene.add(group);
+
+            const bounds = geometry.boundingBox;
+            const modelSize = new THREE.Vector3();
+            bounds.getSize(modelSize);
+            const maxDimension = Math.max(modelSize.x, modelSize.y, modelSize.z) || 1;
+            camera.position.set(0, maxDimension * 0.16, maxDimension * 2.35);
+            camera.lookAt(0, 0, 0);
+
+            renderer.render(scene, camera);
+            const dataUrl = renderer.domElement.toDataURL('image/png');
+            
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            img.style.borderRadius = '12px';
+            const container = document.getElementById('png-container');
+            container.innerHTML = '';
+            container.appendChild(img);
+            
+            geometry.dispose();
+            material.dispose();
+            renderer.dispose();
+            
+            document.body.insertAdjacentHTML('beforeend', '<p style="color:green;margin-top:20px">PNG rendered! Length: ' + dataUrl.length + '</p>');
+        } catch (e) {
+            document.body.insertAdjacentHTML('beforeend', '<p style="color:red;margin-top:20px">Error: ' + e.message + '</p>');
+        }
+    </script>
+</body>
+</html>
