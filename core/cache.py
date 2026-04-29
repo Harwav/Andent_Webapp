@@ -20,6 +20,7 @@ class STLCache:
         self._dimensions_cache: "OrderedDict[str, Dict[str, float]]" = OrderedDict()
         self._volume_cache: "OrderedDict[str, float]" = OrderedDict()
         self._thickness_cache: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+        self._mesh_cache: "OrderedDict[str, Any]" = OrderedDict()  # Stores parsed mesh objects
         self._lock = RLock()
 
     def _get_file_key(self, file_path: str) -> str:
@@ -78,12 +79,31 @@ class STLCache:
         """Cache STL thickness statistics."""
         self._set(self._thickness_cache, file_path, thickness_stats)
 
+    def get_mesh(self, file_path: str) -> Optional[Any]:
+        """Get cached parsed STL mesh object."""
+        key = self._get_file_key(file_path)
+        with self._lock:
+            if key in self._mesh_cache:
+                self._mesh_cache.move_to_end(key)
+                return self._mesh_cache[key]
+        return None
+
+    def set_mesh(self, file_path: str, stl_mesh: Any) -> None:
+        """Cache parsed STL mesh object."""
+        key = self._get_file_key(file_path)
+        with self._lock:
+            if key in self._mesh_cache:
+                self._mesh_cache.move_to_end(key)
+            self._mesh_cache[key] = stl_mesh
+            self._evict_if_needed(self._mesh_cache)
+
     def clear(self) -> None:
         """Clear all cache buckets."""
         with self._lock:
             self._dimensions_cache.clear()
             self._volume_cache.clear()
             self._thickness_cache.clear()
+            self._mesh_cache.clear()
 
 
 _stl_cache: Optional[STLCache] = None

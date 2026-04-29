@@ -79,7 +79,11 @@ def get_stl_dimensions(file_path: str) -> Optional[STLDimensions]:
             logging.debug(f"Cache hit for STL dimensions: {os.path.basename(file_path)}")
             return STLDimensions(file_path=file_path, **cached_dimensions)
 
-        stl_mesh = mesh.Mesh.from_file(file_path)
+        # Try to get cached mesh first, otherwise parse and cache it
+        stl_mesh = cache.get_mesh(file_path)
+        if stl_mesh is None:
+            stl_mesh = mesh.Mesh.from_file(file_path)
+            cache.set_mesh(file_path, stl_mesh)
 
         # Get bounding box
         min_coords = stl_mesh.min_
@@ -127,7 +131,12 @@ def get_stl_volume_ml(file_path: str) -> Optional[float]:
             logging.debug(f"Cache hit for STL volume: {os.path.basename(file_path)}")
             return cached_volume
 
-        stl_mesh = mesh.Mesh.from_file(file_path)
+        # Try to get cached mesh first, otherwise parse and cache it
+        stl_mesh = cache.get_mesh(file_path)
+        if stl_mesh is None:
+            stl_mesh = mesh.Mesh.from_file(file_path)
+            cache.set_mesh(file_path, stl_mesh)
+
         volume_mm3, _, _ = stl_mesh.get_mass_properties()
         volume_ml = round(abs(volume_mm3) / 1000.0, 3)
         cache.set_volume(file_path, volume_ml)

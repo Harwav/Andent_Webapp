@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from .constants import STL_MIN_FILE_SIZE, STL_MAX_FILE_SIZE, STL_WARN_LARGE_SIZE
+from .cache import get_cache
 
 
 class ValidationStatus(Enum):
@@ -188,7 +189,8 @@ class STLValidator:
 
         # Check 5: Try to parse mesh (if numpy-stl available)
         if self._numpy_stl_available:
-            mesh_valid, mesh_error = self._try_parse_mesh(file_path)
+            mesh_valid, mesh_error, mesh_warnings = self._try_parse_mesh(file_path)
+            warnings.extend(mesh_warnings)
             if not mesh_valid:
                 return ValidationResult(
                     is_valid=False,
@@ -266,30 +268,44 @@ class STLValidator:
         except Exception as e:
             return False, f"Format validation error: {e}"
 
-    def _try_parse_mesh(self, file_path: str) -> Tuple[bool, Optional[str]]:
+    def _try_parse_mesh(self, file_path: str) -> Tuple[bool, Optional[str], List[str]]:
         """Try to parse the STL file using numpy-stl.
 
         Args:
             file_path: Path to the STL file
 
         Returns:
-            (is_valid, error_message)
+            (is_valid, error_message, warnings_list)
         """
+        warnings_list = []
         try:
-            from stl import mesh
-            stl_mesh = mesh.Mesh.from_file(file_path)
+            import warnings as warnings_module
+            with warnings_module.catch_warnings(record=True) as w:
+                warnings_module.simplefilter("always")
+                from stl import mesh
+                # Try to get cached mesh first, otherwise parse and cache it
+                cache = get_cache()
+                stl_mesh = cache.get_mesh(file_path)
+                if stl_mesh is None:
+                    stl_mesh = mesh.Mesh.from_file(file_path)
+                    cache.set_mesh(file_path, stl_mesh)
 
-            # Basic sanity checks
-            if len(stl_mesh.vectors) == 0:
-                return False, "STL contains no triangles"
+                # Check for "mesh is not closed" warning
+                for warning in w:
+                    if "mesh is not closed" in str(warning.message).lower():
+                        warnings_list.append("Mesh is not closed (has holes) - PreFormServer may reject this file")
 
-            return True, None
+                # Basic sanity checks
+                if len(stl_mesh.vectors) == 0:
+                    return False, "STL contains no triangles", warnings_list
+
+                return True, None, warnings_list
 
         except Exception as e:
             error_msg = str(e)
             if len(error_msg) > 100:
                 error_msg = error_msg[:100] + "..."
-            return False, error_msg
+            return False, error_msg, warnings_list
 
     def validate_batch(self, file_paths: List[str],
                        seen_filenames: Optional[Dict[str, str]] = None) -> BatchValidationResult:
