@@ -287,3 +287,107 @@ def test_scheduled_printer_refresh_does_not_wait_for_slow_discovery_before_conti
 
     assert result["beforeCompletion"] == ["refresh-start", "after-schedule"]
     assert result["final"] == ["refresh-start", "after-schedule", "refresh-end", "render-printers"]
+
+
+def test_newer_manual_printer_refresh_wins_over_older_scheduled_result():
+    app_js = APP_JS.read_text(encoding="utf-8")
+    fetch_preform_printers = _extract_function_source(app_js, "fetchPreformPrinters")
+    start_printer_refresh = _extract_function_source(app_js, "startPreformPrinterRefresh")
+    commit_printer_payload = _extract_function_source(app_js, "commitPreformPrinterPayload")
+    handle_printer_fetch_error = _extract_function_source(app_js, "handlePreformPrinterFetchError")
+    refresh_printers_quietly = _extract_function_source(app_js, "refreshPreformPrintersQuietly")
+    schedule_refresh = _extract_function_source(app_js, "schedulePreformPrinterRefresh")
+    refresh_printers = _extract_function_source(app_js, "refreshPreformPrinters")
+    script = textwrap.dedent(
+        f"""
+        const state = {{
+            preformSetup: {{
+                printers: null,
+                printersLoading: false,
+                printerRefreshRequestId: 0,
+            }},
+        }};
+        const renders = [];
+        const statusMessages = [];
+        const responses = [
+            {{
+                delay: 40,
+                payload: {{
+                    available: true,
+                    message: null,
+                    printers: [{{ name: "scheduled-stale" }}],
+                }},
+            }},
+            {{
+                delay: 10,
+                payload: {{
+                    available: true,
+                    message: null,
+                    printers: [{{ name: "manual-newer" }}],
+                }},
+            }},
+        ];
+
+        function renderPreformSetup() {{
+            renders.push({{
+                source: "setup",
+                value: state.preformSetup.printers?.printers?.[0]?.name || null,
+            }});
+        }}
+
+        function renderPreformPrinters() {{
+            renders.push({{
+                source: "printers",
+                value: state.preformSetup.printers?.printers?.[0]?.name || null,
+            }});
+        }}
+
+        function render() {{
+            renders.push({{
+                source: "render",
+                value: state.preformSetup.printers?.printers?.[0]?.name || null,
+            }});
+        }}
+
+        function setStatus(message, isError = false) {{
+            statusMessages.push({{ message, isError }});
+        }}
+
+        async function fetch(url) {{
+            const next = responses.shift();
+            await new Promise((resolve) => setTimeout(resolve, next.delay));
+            return {{
+                ok: true,
+                async json() {{
+                    return next.payload;
+                }},
+            }};
+        }}
+
+        {fetch_preform_printers}
+        {start_printer_refresh}
+        {commit_printer_payload}
+        {handle_printer_fetch_error}
+        {refresh_printers_quietly}
+        {schedule_refresh}
+        {refresh_printers}
+
+        (async () => {{
+            schedulePreformPrinterRefresh();
+            await new Promise((resolve) => setTimeout(resolve, 1));
+            await refreshPreformPrinters();
+            await new Promise((resolve) => setTimeout(resolve, 60));
+            console.log(JSON.stringify({{
+                finalPrinter: state.preformSetup.printers?.printers?.[0]?.name || null,
+                lastRenderedPrinter: renders.at(-1)?.value || null,
+                renders,
+                statusMessages,
+            }}));
+        }})();
+        """
+    )
+
+    result = json.loads(_run_node(script))
+
+    assert result["finalPrinter"] == "manual-newer"
+    assert result["lastRenderedPrinter"] == "manual-newer"

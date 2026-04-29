@@ -77,6 +77,7 @@ const state = {
         status: null,
         dispatchMode: null,
         printers: null,
+        printerRefreshRequestId: 0,
         printersLoading: false,
         loading: false,
         wizardDismissed: false,
@@ -298,22 +299,37 @@ async function fetchPreformPrinters() {
     if (!response.ok) {
         throw new Error(payload.detail || "Could not load local printers.");
     }
-    state.preformSetup.printers = payload;
+    return payload;
 }
 
-function handlePreformPrinterFetchError(error) {
-    state.preformSetup.printers = {
+function startPreformPrinterRefresh() {
+    state.preformSetup.printerRefreshRequestId += 1;
+    return state.preformSetup.printerRefreshRequestId;
+}
+
+function commitPreformPrinterPayload(requestId, payload) {
+    if (requestId !== state.preformSetup.printerRefreshRequestId) {
+        return false;
+    }
+    state.preformSetup.printers = payload;
+    return true;
+}
+
+function handlePreformPrinterFetchError(error, requestId) {
+    return commitPreformPrinterPayload(requestId, {
         printers: [],
         available: false,
         message: error.message || "Could not load local printers.",
-    };
+    });
 }
 
 async function refreshPreformPrintersQuietly() {
+    const requestId = startPreformPrinterRefresh();
     try {
-        await fetchPreformPrinters();
+        const payload = await fetchPreformPrinters();
+        commitPreformPrinterPayload(requestId, payload);
     } catch (error) {
-        handlePreformPrinterFetchError(error);
+        handlePreformPrinterFetchError(error, requestId);
         console.warn("Local printer refresh failed:", error.message);
     }
 }
@@ -500,14 +516,18 @@ function renderPreformPrinters() {
 }
 
 async function refreshPreformPrinters() {
+    const requestId = startPreformPrinterRefresh();
     state.preformSetup.printersLoading = true;
     renderPreformSetup();
     try {
-        await fetchPreformPrinters();
-        setStatus("Local printer status refreshed.");
+        const payload = await fetchPreformPrinters();
+        if (commitPreformPrinterPayload(requestId, payload)) {
+            setStatus("Local printer status refreshed.");
+        }
     } catch (error) {
-        handlePreformPrinterFetchError(error);
-        setStatus(error.message, true);
+        if (handlePreformPrinterFetchError(error, requestId)) {
+            setStatus(error.message, true);
+        }
     } finally {
         state.preformSetup.printersLoading = false;
         render();
