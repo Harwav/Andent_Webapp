@@ -45,6 +45,7 @@ andent_web/data/
 *.log
 .omx/
 .omc/
+.superpowers/
 
 # Environment
 .env

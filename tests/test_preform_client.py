@@ -201,6 +201,38 @@ class TestPreFormClient:
             assert "500" in str(exc_info.value)
             assert "layout failed" in str(exc_info.value)
 
+    def test_auto_support_posts_scene_endpoint_with_model_selection(self):
+        """Test auto-support posts selected models to the scene endpoint."""
+        with patch("requests.Session.post") as mock_post:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"status": "ok"}
+            mock_post.return_value = mock_response
+
+            client = PreFormClient("http://localhost:44388")
+            result = client.auto_support("scene-123", models=["model-tooth"])
+
+            assert result == {"status": "ok"}
+            mock_post.assert_called_with(
+                "http://localhost:44388/scene/scene-123/auto-support/",
+                json={"models": ["model-tooth"]},
+                timeout=120,
+            )
+
+    def test_auto_support_accepts_successful_empty_response(self):
+        """Test auto-support handles PreFormServer success responses without JSON."""
+        with patch("requests.Session.post") as mock_post:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.text = ""
+            mock_response.json.side_effect = ValueError("No JSON body")
+            mock_post.return_value = mock_response
+
+            client = PreFormClient("http://localhost:44388")
+            result = client.auto_support("scene-123", models=["model-tooth"])
+
+            assert result == {"status": "ok"}
+
     def test_validate_scene_returns_clean_boolean_and_errors(self):
         """Test scene validation returns the API validation payload."""
         with patch("requests.Session.get") as mock_get:
@@ -294,6 +326,32 @@ class TestPreFormClient:
         assert "500" in str(exc_info.value)
         assert "save failed" in str(exc_info.value)
 
+    def test_save_screenshot_success(self, tmp_path):
+        """Test saving a scene screenshot to a local PNG file path."""
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "ok"}
+        mock_session.post.return_value = mock_response
+
+        client = PreFormClient()
+        client.session = mock_session
+        output_path = tmp_path / "260421-001.png"
+
+        result = client.save_screenshot("scene-123", output_path)
+
+        assert result == {"status": "ok"}
+        mock_session.post.assert_called_once_with(
+            "http://localhost:44388/scene/scene-123/save-screenshot/",
+            json={
+                "file": str(output_path.resolve()),
+                "view_type": "ZOOM_ON_MODELS",
+                "crop_to_models": True,
+                "image_size_px": 820,
+            },
+            timeout=120,
+        )
+
     def test_send_to_printer_success(self):
         """Test sending print job to printer successfully."""
         mock_session = Mock()
@@ -332,7 +390,10 @@ class TestPreFormClient:
         
         assert len(result) == 2
         assert result[0]["device_id"] == "printer-01"
-        mock_session.get.assert_called_once_with("http://localhost:44388/devices/")
+        mock_session.get.assert_called_once_with(
+            "http://localhost:44388/devices/",
+            timeout=5,
+        )
 
     def test_list_devices_empty(self):
         """Test listing devices when none available."""

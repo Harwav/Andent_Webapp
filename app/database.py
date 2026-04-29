@@ -17,6 +17,9 @@ from .services.classification import (
 )
 
 
+DEFAULT_PRINTER_GROUP = "Form 4BL"
+
+
 SCHEMA_STATEMENTS: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS upload_sessions (
@@ -700,7 +703,7 @@ def persist_upload_session(settings: Settings, session_id: str, rows: Iterable[d
                     1 if row.get("structure_locked") else 0,
                     1 if row["review_required"] else 0,
                     row["review_reason"],
-                    row.get("printer"),
+                    row.get("printer") or DEFAULT_PRINTER_GROUP,
                     row.get("person"),
                     created_at,
                     row.get("handoff_stage"),

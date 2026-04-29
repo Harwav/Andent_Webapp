@@ -11,14 +11,17 @@ This module provides functionality for:
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import struct
 import zlib
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterable
 
 from .formlabs_web_client import FormlabsWebClient
+from .preset_catalog import get_preset_profile
 
 if TYPE_CHECKING:
     from ..config import Settings
@@ -31,6 +34,9 @@ _screenshot_cache: dict[int, tuple[datetime, bytes]] = {}
 CACHE_TTL_SECONDS = 5
 HOLDING_STATUS = "Holding for More Cases"
 _held_job_ids_created_this_process: set[int] = set()
+MAX_PRINT_JOB_NAME_LENGTH = 120
+PRINT_JOB_NAME_HASH_LENGTH = 10
+_UNSAFE_JOB_NAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 def _now() -> datetime:
@@ -296,14 +302,57 @@ def _generate_print_job_preview_png(job: "PrintJob") -> bytes:
     return _encode_png(width, height, pixels)
 
 
-def generate_job_name(date: datetime, batch_number: int) -> str:
-    """Generate job name in YYMMDD-NNN format."""
+def _safe_job_name_token(case_id: str) -> str:
+    token = _UNSAFE_JOB_NAME_CHARS.sub("-", case_id.strip()).strip("._-")
+    return token or "case"
+
+
+def _fit_job_name_to_limit(job_name: str) -> str:
+    if len(job_name) <= MAX_PRINT_JOB_NAME_LENGTH:
+        return job_name
+
+    digest = hashlib.sha1(job_name.encode("utf-8")).hexdigest()[:PRINT_JOB_NAME_HASH_LENGTH]
+    date_part, _, case_part = job_name.partition("_")
+    suffix = f"_{digest}"
+    case_limit = MAX_PRINT_JOB_NAME_LENGTH - len(date_part) - 1 - len(suffix)
+    trimmed_case_part = case_part[:case_limit].rstrip("._-") or "case"
+    return f"{date_part}_{trimmed_case_part}{suffix}"
+
+
+def _dedupe_job_name(job_name: str, existing_names: set[str] | None) -> str:
+    if not existing_names or job_name not in existing_names:
+        return job_name
+
+    for counter in range(2, 1000):
+        suffix = f"_{counter:02d}"
+        trimmed = job_name[: MAX_PRINT_JOB_NAME_LENGTH - len(suffix)].rstrip("._-")
+        candidate = f"{trimmed}{suffix}"
+        if candidate not in existing_names:
+            return candidate
+
+    raise RuntimeError("Could not generate a unique print job name.")
+
+
+def generate_job_name(
+    date: datetime,
+    case_ids: Iterable[str],
+    *,
+    existing_names: set[str] | None = None,
+) -> str:
+    """Generate a file-safe YYMMDD_case-id name.
+
+    Names longer than MAX_PRINT_JOB_NAME_LENGTH are trimmed and suffixed with a
+    stable hash of the full name so the filesystem component remains bounded.
+    """
     date_part = date.strftime("%y%m%d")
-    number_part = f"{batch_number:03d}"
-    return f"{date_part}-{number_part}"
+    safe_case_ids = [_safe_job_name_token(str(case_id)) for case_id in case_ids]
+    if not safe_case_ids:
+        safe_case_ids = ["case"]
+    job_name = _fit_job_name_to_limit(f"{date_part}_{'_'.join(safe_case_ids)}")
+    return _dedupe_job_name(job_name, existing_names)
 
 
-def _next_job_batch_number(connection, date: datetime) -> int:
+def _existing_job_names_for_date(connection, date: datetime) -> set[str]:
     date_part = date.strftime("%y%m%d")
     rows = connection.execute(
         """
@@ -311,14 +360,17 @@ def _next_job_batch_number(connection, date: datetime) -> int:
         FROM print_jobs
         WHERE job_name LIKE ?
         """,
-        (f"{date_part}-%",),
+        (f"{date_part}_%",),
     ).fetchall()
-    highest = 0
-    for row in rows:
-        suffix = str(row["job_name"]).removeprefix(f"{date_part}-")
-        if suffix.isdigit():
-            highest = max(highest, int(suffix))
-    return highest + 1
+    return {str(row["job_name"]) for row in rows}
+
+
+def _generate_unique_job_name_for_manifest(connection, date: datetime, manifest: "BuildManifest") -> str:
+    return generate_job_name(
+        date,
+        _manifest_case_ids_by_file_order(manifest),
+        existing_names=_existing_job_names_for_date(connection, date),
+    )
 
 
 def _resolve_device_id(rows: list["ClassificationRow"], manifest: "BuildManifest" | None = None) -> str:
@@ -563,6 +615,10 @@ def _form_output_path_from_manifest(manifest: "BuildManifest", job_name: str) ->
     return Path(ordered_files[0].file_path).parent / f"{job_name}.form"
 
 
+def _screenshot_output_path_from_form_path(form_path: Path) -> Path:
+    return form_path.with_suffix(".png")
+
+
 def assert_preform_ready(settings: "Settings") -> None:
     from .preform_setup_service import get_preform_setup_status
 
@@ -586,7 +642,6 @@ def process_print_manifest(
     if manifest.planning_status != "planned" or not manifest.import_groups:
         raise ValueError("Cannot process a non-plannable build manifest.")
 
-    job_name = job_name or generate_job_name(datetime.now(), batch_number)
     row_lookup = {
         row.row_id: row
         for row in rows
@@ -595,6 +650,7 @@ def process_print_manifest(
     active_case_ids = _manifest_case_ids_by_file_order(manifest)
     if not active_case_ids:
         raise ValueError("Build manifest does not contain any cases.")
+    job_name = job_name or generate_job_name(datetime.now(), active_case_ids)
     active_rows = _manifest_rows(manifest, row_lookup)
     if not active_rows:
         raise ValueError("No valid STL files found for manifest")
@@ -614,17 +670,27 @@ def process_print_manifest(
             raise Exception("Failed to create scene: no scene_id returned")
 
         imported_any = False
+        support_model_ids: list[str] = []
         for file_spec in _ordered_manifest_file_specs(manifest):
             stl_path = Path(file_spec.file_path)
             if not stl_path.exists():
                 raise ValueError(f"STL file not found for manifest: {file_spec.file_path}")
-            client.import_model(scene_id, str(stl_path), preset=file_spec.preform_hint)
+            import_result = client.import_model(scene_id, str(stl_path), preset=file_spec.preform_hint)
+            profile = get_preset_profile(file_spec.preset_name)
+            if profile is not None and profile.requires_supports:
+                model_id = import_result.get("model_id") or import_result.get("id")
+                if not model_id:
+                    raise Exception("Support generation requires imported tooth model IDs.")
+                support_model_ids.append(str(model_id))
             imported_any = True
 
         if not imported_any:
             raise ValueError("No valid STL files found for manifest")
 
         client.auto_layout(scene_id)
+        if support_model_ids:
+            client.auto_support(scene_id, models=support_model_ids)
+            client.auto_layout(scene_id)
         validation_result = (
             client.validate_scene(scene_id)
             if settings.preform_validation_enabled
@@ -634,6 +700,13 @@ def process_print_manifest(
         form_path = _form_output_path_from_manifest(manifest, job_name)
         client.save_form(scene_id, form_path)
         form_file_path = str(form_path.resolve())
+        screenshot_url = None
+        screenshot_path = _screenshot_output_path_from_form_path(form_path)
+        try:
+            client.save_screenshot(scene_id, screenshot_path)
+            screenshot_url = str(screenshot_path.resolve())
+        except Exception:
+            screenshot_url = None
         print_job_id = _dispatch_scene_if_enabled(
             client=client,
             settings=settings,
@@ -647,6 +720,7 @@ def process_print_manifest(
             "scene_id": scene_id,
             "print_job_id": print_job_id,
             "form_file_path": form_file_path,
+            "screenshot_url": screenshot_url,
             "preset": _manifest_preset_summary(manifest),
             "preset_names": manifest.preset_names,
             "compatibility_key": manifest.compatibility_key,
@@ -949,7 +1023,6 @@ def send_ready_rows_to_print(
 
     with closing(connect(settings)) as connection:
         try:
-            batch_number = _next_job_batch_number(connection, datetime.now())
             if held_job_ids:
                 connection.execute(
                     f"""
@@ -1033,7 +1106,11 @@ def send_ready_rows_to_print(
                     final_index_by_compatibility,
                     hold_now,
                 ):
-                    job_name = generate_job_name(datetime.now(), batch_number)
+                    job_name = _generate_unique_job_name_for_manifest(
+                        connection,
+                        datetime.now(),
+                        manifest,
+                    )
                     held_job = _held_print_job_from_manifest(
                         settings,
                         manifest,
@@ -1042,7 +1119,6 @@ def send_ready_rows_to_print(
                     )
                     created_print_job_id = _insert_print_job(connection, held_job, now)
                     _held_job_ids_created_this_process.add(created_print_job_id)
-                    batch_number += 1
                     for row in manifest_rows:
                         connection.execute(
                             """
@@ -1085,11 +1161,17 @@ def send_ready_rows_to_print(
                 active_manifest = manifest
                 while True:
                     active_rows = _manifest_rows(active_manifest, rows_by_id)
+                    job_name = _generate_unique_job_name_for_manifest(
+                        connection,
+                        datetime.now(),
+                        active_manifest,
+                    )
                     result = process_print_manifest(
                         settings,
                         active_manifest,
                         active_rows,
-                        batch_number,
+                        batch_number=1,
+                        job_name=job_name,
                     )
                     active_case_ids = _manifest_case_ids_by_file_order(active_manifest)
                     if not result.get("review_required", False) or len(active_case_ids) == 1:
@@ -1180,6 +1262,7 @@ def send_ready_rows_to_print(
                     scene_id=result["scene_id"],
                     print_job_id=result["print_job_id"],
                     form_file_path=result.get("form_file_path"),
+                    screenshot_url=result.get("screenshot_url"),
                     status=result.get("status", "Queued"),
                     preset=result["preset"],
                     preset_names=result.get("preset_names", []),
@@ -1196,7 +1279,6 @@ def send_ready_rows_to_print(
                 )
 
                 created_print_job_id = _insert_print_job(connection, print_job, now)
-                batch_number += 1
 
                 for row in accepted_rows:
                     connection.execute(
@@ -1351,6 +1433,7 @@ def release_held_print_job(
                 SET scene_id = ?,
                     print_job_id = ?,
                     form_file_path = ?,
+                    screenshot_url = ?,
                     status = ?,
                     preset = ?,
                     preset_names_json = ?,
@@ -1373,6 +1456,7 @@ def release_held_print_job(
                     result["scene_id"],
                     result["print_job_id"],
                     result.get("form_file_path"),
+                    result.get("screenshot_url"),
                     result.get("status", "Queued"),
                     result["preset"],
                     json.dumps(result.get("preset_names", [])),

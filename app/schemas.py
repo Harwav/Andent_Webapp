@@ -93,6 +93,23 @@ class PreFormSetupActionResponse(BaseModel):
     message: str
 
 
+class PreFormPrinterStatus(BaseModel):
+    device_id: str | None = None
+    name: str
+    model: str | None = None
+    status: str | None = None
+    material: str | None = None
+    material_name: str | None = None
+    material_code: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class PreFormPrinterListResponse(BaseModel):
+    printers: list[PreFormPrinterStatus] = Field(default_factory=list)
+    available: bool = True
+    message: str | None = None
+
+
 class DispatchModeStatus(BaseModel):
     mode: str
     default_mode: str
@@ -204,7 +221,7 @@ PrintJobStatus = Literal["Queued", "Printing", "Failed", "Paused", "Completed", 
 class PrintJob(BaseModel):
     """Print job schema for the print queue."""
     id: int | None = None
-    job_name: str = Field(pattern=r"^\d{6}-\d{3}$")
+    job_name: str = Field(max_length=120, pattern=r"^\d{6}(?:-\d{3}|_[A-Za-z0-9._-]+)$")
     scene_id: str | None = None
     print_job_id: str | None = None
     status: PrintJobStatus = "Queued"

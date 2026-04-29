@@ -24,6 +24,13 @@ DEFAULT_SCENE_SETTINGS = {
     "material_code": "FLPMBE01",
     "print_setting": "DEFAULT",
 }
+PREFORM_LIST_DEVICES_TIMEOUT_SECONDS = 5
+
+DEFAULT_SCREENSHOT_SETTINGS = {
+    "view_type": "ZOOM_ON_MODELS",
+    "crop_to_models": True,
+    "image_size_px": 820,
+}
 
 
 def retry_on_failure(max_retries: int = 3, backoff_factor: float = 2.0):
@@ -165,6 +172,25 @@ class PreFormClient:
         return response.json()
 
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
+    def auto_support(self, scene_id: str, models: object = "ALL") -> Dict[str, Any]:
+        """Trigger automatic support generation for selected scene models."""
+        url = f"{self.base_url}/scene/{scene_id}/auto-support/"
+        payload = {"models": models}
+
+        response = self.session.post(url, json=payload, timeout=120)
+
+        if response.status_code not in (200, 202):
+            raise Exception(f"Failed to auto-support scene: {response.status_code} - {response.text}")
+
+        if not response.text:
+            return {"status": "ok"}
+        try:
+            return response.json()
+        except ValueError:
+            return {"status": "ok"}
+
+
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def validate_scene(self, scene_id: str) -> Dict[str, Any]:
         """Validate a scene and return validity state and reported issues."""
         url = f"{self.base_url}/scene/{scene_id}/print-validation"
@@ -217,6 +243,26 @@ class PreFormClient:
             raise Exception(f"Scene {scene_id} not found. Please check the scene ID.")
         elif response.status_code != 200:
             raise Exception(f"Failed to save form file: {response.status_code} - {response.text}")
+
+        return response.json() if response.content else {"file": str(resolved_path)}
+
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
+    def save_screenshot(self, scene_id: str, output_path: str | Path) -> Dict[str, Any]:
+        """Save a PreForm scene screenshot to a local PNG file path."""
+        resolved_path = Path(output_path).resolve()
+        resolved_path.parent.mkdir(parents=True, exist_ok=True)
+        url = f"{self.base_url}/scene/{scene_id}/save-screenshot/"
+        payload = {"file": str(resolved_path), **DEFAULT_SCREENSHOT_SETTINGS}
+
+        try:
+            response = self.session.post(url, json=payload, timeout=120)
+        except requests.RequestException as e:
+            raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
+
+        if response.status_code == 404:
+            raise Exception(f"Scene {scene_id} not found. Please check the scene ID.")
+        elif response.status_code != 200:
+            raise Exception(f"Failed to save screenshot: {response.status_code} - {response.text}")
 
         return response.json() if response.content else {"file": str(resolved_path)}
     
@@ -284,7 +330,7 @@ class PreFormClient:
         """
         url = f"{self.base_url}/devices/"
         
-        response = self.session.get(url)
+        response = self.session.get(url, timeout=PREFORM_LIST_DEVICES_TIMEOUT_SECONDS)
         
         if response.status_code != 200:
             raise Exception(f"Failed to list devices: {response.status_code} - {response.text}")

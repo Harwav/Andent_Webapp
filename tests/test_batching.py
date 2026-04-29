@@ -44,25 +44,30 @@ def _row(
     )
 
 
-def test_generate_job_name_format():
-    """Job name should be in YYMMDD-NNN format."""
+def test_generate_job_name_includes_date_and_case_ids_in_order():
+    """Job name should include date prefix and case IDs in build order."""
     date = datetime(2026, 4, 21)
-    job_name = generate_job_name(date, 1)
-    assert job_name == "260421-001"
+    job_name = generate_job_name(date, ["10936293", "10935421", "8425357"])
+    assert job_name == "260421_10936293_10935421_8425357"
 
 
-def test_generate_job_name_double_digit():
-    """Job name should handle double digit batch numbers."""
+def test_generate_job_name_sanitizes_case_ids_for_form_paths():
+    """Unsafe case ID characters should not appear in generated file names."""
     date = datetime(2026, 4, 21)
-    job_name = generate_job_name(date, 12)
-    assert job_name == "260421-012"
+    job_name = generate_job_name(date, ["CASE/001", "Case:002", "case 003"])
+    assert job_name == "260421_CASE-001_Case-002_case-003"
 
 
-def test_generate_job_name_triple_digit():
-    """Job name should handle triple digit batch numbers."""
+def test_generate_job_name_truncates_long_names_with_stable_hash():
+    """Very long names should stay file-safe and retain a stable digest."""
     date = datetime(2026, 4, 21)
-    job_name = generate_job_name(date, 123)
-    assert job_name == "260421-123"
+    job_name = generate_job_name(date, [f"CASE{i:03d}" for i in range(40)])
+    repeated_job_name = generate_job_name(date, [f"CASE{i:03d}" for i in range(40)])
+
+    assert len(job_name) <= 120
+    assert job_name == repeated_job_name
+    assert job_name.startswith("260421_CASE000_CASE001")
+    assert "-" not in job_name[-10:]
 
 
 def test_plan_build_manifests_splits_incompatible_compatibility_groups(monkeypatch):
