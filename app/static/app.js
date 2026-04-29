@@ -318,6 +318,12 @@ async function refreshPreformPrintersQuietly() {
     }
 }
 
+function schedulePreformPrinterRefresh() {
+    refreshPreformPrintersQuietly().then(() => {
+        renderPreformPrinters();
+    });
+}
+
 async function runPreformAction(url, options, successMessage) {
     state.preformSetup.loading = true;
     renderPreformSetup();
@@ -328,7 +334,7 @@ async function runPreformAction(url, options, successMessage) {
             throw new Error(payload.detail || payload.message || "PreFormServer action failed.");
         }
         state.preformSetup.status = payload.status;
-        await refreshPreformPrintersQuietly();
+        schedulePreformPrinterRefresh();
         setStatus(payload.message || successMessage);
     } catch (error) {
         setStatus(error.message, true);
@@ -2759,7 +2765,7 @@ window.setInterval(async () => {
     try {
         await fetchQueue();
         await fetchPreformSetupStatus();
-        await refreshPreformPrintersQuietly();
+        schedulePreformPrinterRefresh();
         render();
         console.log("Queue auto-refreshed");
     } catch (error) {
@@ -2802,7 +2808,7 @@ async function bootstrap() {
         await fetchQueue();
         await fetchPrintQueue();
         await fetchPreformSetupStatus();
-        await refreshPreformPrintersQuietly();
+        schedulePreformPrinterRefresh();
         await fetchDispatchMode();
         render();
         if (canPrint()) {

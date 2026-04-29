@@ -2,12 +2,46 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import re
+import subprocess
+import textwrap
 
 
 APP_JS = Path("app/static/app.js")
 INDEX_HTML = Path("app/static/index.html")
 STYLES_CSS = Path("app/static/styles.css")
+
+
+def _extract_function_source(source: str, name: str) -> str:
+    match = re.search(rf"(?:async\s+)?function\s+{name}\s*\(", source)
+    if not match:
+        raise AssertionError(f"Could not find function {name} in app/static/app.js")
+
+    start = match.start()
+    body_start = source.index("{", match.start())
+    depth = 0
+    for index in range(body_start, len(source)):
+        char = source[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return source[start:index + 1]
+
+    raise AssertionError(f"Could not parse function body for {name}")
+
+
+def _run_node(script: str) -> str:
+    completed = subprocess.run(
+        ["node", "-e", script],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout.strip()
 
 
 def test_primary_upload_action_does_not_use_browser_folder_picker_prompt():
@@ -177,30 +211,79 @@ def test_setup_center_displays_local_printer_status():
 
 def test_local_printer_refresh_isolated_from_queue_refresh():
     app_js = APP_JS.read_text(encoding="utf-8")
+    run_preform_action = _extract_function_source(app_js, "runPreformAction")
+    bootstrap = _extract_function_source(app_js, "bootstrap")
+    queue_poll_start = app_js.index("// Queue polling - auto-refresh every 10 seconds")
+    queue_poll_end = app_js.index("// Print queue polling - auto-refresh every 5 seconds")
+    queue_poll_block = app_js[queue_poll_start:queue_poll_end]
 
-    assert "function handlePreformPrinterFetchError(error)" in app_js
-    assert "async function refreshPreformPrintersQuietly()" in app_js
-    assert "state.preformSetup.status = payload.status;\n        await refreshPreformPrintersQuietly();" in app_js
-    assert (
-        "await fetchPreformSetupStatus();\n"
-        "        await refreshPreformPrintersQuietly();\n"
-        "        render();"
-    ) in app_js
-    assert (
-        "await fetchPreformSetupStatus();\n"
-        "        await refreshPreformPrintersQuietly();\n"
-        "        await fetchDispatchMode();"
-    ) in app_js
+    assert "function schedulePreformPrinterRefresh()" in app_js
     assert "available: false" in app_js
     assert "message: error.message" in app_js
+    assert "schedulePreformPrinterRefresh();" in run_preform_action
+    assert "await refreshPreformPrintersQuietly();" not in run_preform_action
+    assert "schedulePreformPrinterRefresh();" in queue_poll_block
+    assert "await refreshPreformPrintersQuietly();" not in queue_poll_block
+    assert "schedulePreformPrinterRefresh();" in bootstrap
+    assert "await refreshPreformPrintersQuietly();" not in bootstrap
 
 
 def test_local_printer_material_prefers_readable_name_over_code():
     app_js = APP_JS.read_text(encoding="utf-8")
+    format_printer_material = _extract_function_source(app_js, "formatPrinterMaterial")
+    printer_payload = {
+        "name": "Form 4BL Front Desk",
+        "material_code": "FLGPCL04",
+        "metadata": {
+            "material_name": "Clear Resin V4",
+        },
+    }
+    script = textwrap.dedent(
+        f"""
+        {format_printer_material}
+        const result = formatPrinterMaterial({json.dumps(printer_payload)});
+        console.log(JSON.stringify(result));
+        """
+    )
 
-    material_name_index = app_js.index("const materialName = printer.material_name")
-    material_code_index = app_js.index("const materialCode = printer.material_code")
+    material = json.loads(_run_node(script))
 
-    assert material_name_index < material_code_index
-    assert 'label: materialName || materialCode || "-"' in app_js
-    assert "materialCell.title = material.code;" in app_js
+    assert material == {"label": "Clear Resin V4", "code": "FLGPCL04"}
+
+
+def test_scheduled_printer_refresh_does_not_wait_for_slow_discovery_before_continuing():
+    app_js = APP_JS.read_text(encoding="utf-8")
+    schedule_refresh = _extract_function_source(app_js, "schedulePreformPrinterRefresh")
+    script = textwrap.dedent(
+        f"""
+        const timeline = [];
+
+        async function refreshPreformPrintersQuietly() {{
+            timeline.push("refresh-start");
+            await new Promise((resolve) => setTimeout(() => {{
+                timeline.push("refresh-end");
+                resolve();
+            }}, 30));
+        }}
+
+        function renderPreformPrinters() {{
+            timeline.push("render-printers");
+        }}
+
+        {schedule_refresh}
+
+        (async () => {{
+            schedulePreformPrinterRefresh();
+            timeline.push("after-schedule");
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            const beforeCompletion = [...timeline];
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            console.log(JSON.stringify({{ beforeCompletion, final: timeline }}));
+        }})();
+        """
+    )
+
+    result = json.loads(_run_node(script))
+
+    assert result["beforeCompletion"] == ["refresh-start", "after-schedule"]
+    assert result["final"] == ["refresh-start", "after-schedule", "refresh-end", "render-printers"]
