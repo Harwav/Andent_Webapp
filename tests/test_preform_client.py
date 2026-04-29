@@ -201,6 +201,38 @@ class TestPreFormClient:
             assert "500" in str(exc_info.value)
             assert "layout failed" in str(exc_info.value)
 
+    def test_auto_support_posts_scene_endpoint_with_model_selection(self):
+        """Test auto-support posts selected models to the scene endpoint."""
+        with patch("requests.Session.post") as mock_post:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"status": "ok"}
+            mock_post.return_value = mock_response
+
+            client = PreFormClient("http://localhost:44388")
+            result = client.auto_support("scene-123", models=["model-tooth"])
+
+            assert result == {"status": "ok"}
+            mock_post.assert_called_with(
+                "http://localhost:44388/scene/scene-123/auto-support/",
+                json={"models": ["model-tooth"]},
+                timeout=120,
+            )
+
+    def test_auto_support_accepts_successful_empty_response(self):
+        """Test auto-support handles PreFormServer success responses without JSON."""
+        with patch("requests.Session.post") as mock_post:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.text = ""
+            mock_response.json.side_effect = ValueError("No JSON body")
+            mock_post.return_value = mock_response
+
+            client = PreFormClient("http://localhost:44388")
+            result = client.auto_support("scene-123", models=["model-tooth"])
+
+            assert result == {"status": "ok"}
+
     def test_validate_scene_returns_clean_boolean_and_errors(self):
         """Test scene validation returns the API validation payload."""
         with patch("requests.Session.get") as mock_get:

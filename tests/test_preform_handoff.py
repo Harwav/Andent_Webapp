@@ -33,6 +33,7 @@ class StubPreFormClient:
         self.created_scenes: list[tuple[str, str]] = []
         self.imported_models: list[tuple[str, str, str | None]] = []
         self.layout_calls: list[str] = []
+        self.support_calls: list[tuple[str, object]] = []
         self.validation_results: list[dict[str, object]] = []
         self.validation_calls: list[str] = []
         self.saved_forms: list[tuple[str, str]] = []
@@ -51,6 +52,10 @@ class StubPreFormClient:
 
     def auto_layout(self, scene_id: str):
         self.layout_calls.append(scene_id)
+        return {"status": "ok"}
+
+    def auto_support(self, scene_id: str, models: object = "ALL"):
+        self.support_calls.append((scene_id, models))
         return {"status": "ok"}
 
     def validate_scene(self, scene_id: str):
@@ -230,7 +235,8 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
     assert stub_client.base_url == settings.preform_server_url
     assert len(stub_client.created_scenes) == 1
     assert len(stub_client.imported_models) == 3
-    assert len(stub_client.layout_calls) == 1
+    assert len(stub_client.layout_calls) == 2
+    assert stub_client.support_calls == [("scene-1", ["model-3"])]
     assert stub_client.print_jobs == []
 
     submitted_rows = {row["file_name"]: row["status"] for row in response.json()}
@@ -563,6 +569,8 @@ def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
         ("scene-1", str(case_a), "ortho_solid_v1"),
         ("scene-1", str(case_b), "tooth_v1"),
     ]
+    assert stub_client.support_calls == [("scene-1", ["model-2"])]
+    assert stub_client.layout_calls == ["scene-1", "scene-1"]
 
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1

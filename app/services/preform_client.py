@@ -165,6 +165,25 @@ class PreFormClient:
         return response.json()
 
     @retry_on_failure(max_retries=3, backoff_factor=2.0)
+    def auto_support(self, scene_id: str, models: object = "ALL") -> Dict[str, Any]:
+        """Trigger automatic support generation for selected scene models."""
+        url = f"{self.base_url}/scene/{scene_id}/auto-support/"
+        payload = {"models": models}
+
+        response = self.session.post(url, json=payload, timeout=120)
+
+        if response.status_code not in (200, 202):
+            raise Exception(f"Failed to auto-support scene: {response.status_code} - {response.text}")
+
+        if not response.text:
+            return {"status": "ok"}
+        try:
+            return response.json()
+        except ValueError:
+            return {"status": "ok"}
+
+
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
     def validate_scene(self, scene_id: str) -> Dict[str, Any]:
         """Validate a scene and return validity state and reported issues."""
         url = f"{self.base_url}/scene/{scene_id}/print-validation"

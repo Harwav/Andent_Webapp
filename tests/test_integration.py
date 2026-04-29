@@ -205,6 +205,7 @@ class TestFullPrintHandoffFlow:
             mock_instance.create_scene.return_value = {"scene_id": "scene-123"}
             mock_instance.import_model.return_value = {"model_id": "model-123"}
             mock_instance.auto_layout.return_value = {"status": "ok"}
+            mock_instance.auto_support.return_value = {"status": "ok"}
             mock_instance.validate_scene.return_value = {"valid": False, "errors": ["overlap"]}
             mock_instance.save_form.return_value = {"status": "ok"}
             MockClient.return_value = mock_instance
@@ -214,7 +215,11 @@ class TestFullPrintHandoffFlow:
 
             assert mock_instance.create_scene.call_count == 1
             assert mock_instance.import_model.call_count == 2
-            assert mock_instance.auto_layout.call_count == 1
+            assert mock_instance.auto_layout.call_count == 2
+            mock_instance.auto_support.assert_called_once_with(
+                "scene-123",
+                models=["model-123"],
+            )
             assert mock_instance.validate_scene.call_count == 1
             mock_instance.save_form.assert_called_once_with("scene-123", expected_form_path)
             assert mock_instance.send_to_printer.call_count == 0

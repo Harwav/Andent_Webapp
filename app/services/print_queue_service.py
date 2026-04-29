@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .formlabs_web_client import FormlabsWebClient
+from .preset_catalog import get_preset_profile
 
 if TYPE_CHECKING:
     from ..config import Settings
@@ -614,17 +615,27 @@ def process_print_manifest(
             raise Exception("Failed to create scene: no scene_id returned")
 
         imported_any = False
+        support_model_ids: list[str] = []
         for file_spec in _ordered_manifest_file_specs(manifest):
             stl_path = Path(file_spec.file_path)
             if not stl_path.exists():
                 raise ValueError(f"STL file not found for manifest: {file_spec.file_path}")
-            client.import_model(scene_id, str(stl_path), preset=file_spec.preform_hint)
+            import_result = client.import_model(scene_id, str(stl_path), preset=file_spec.preform_hint)
+            profile = get_preset_profile(file_spec.preset_name)
+            if profile is not None and profile.requires_supports:
+                model_id = import_result.get("model_id") or import_result.get("id")
+                if not model_id:
+                    raise Exception("Support generation requires imported tooth model IDs.")
+                support_model_ids.append(str(model_id))
             imported_any = True
 
         if not imported_any:
             raise ValueError("No valid STL files found for manifest")
 
         client.auto_layout(scene_id)
+        if support_model_ids:
+            client.auto_support(scene_id, models=support_model_ids)
+            client.auto_layout(scene_id)
         validation_result = (
             client.validate_scene(scene_id)
             if settings.preform_validation_enabled
