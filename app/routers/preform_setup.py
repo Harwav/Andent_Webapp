@@ -103,6 +103,11 @@ def _first_material_code(device: dict) -> str | None:
         "tank_material_code",
         "resin_code",
         "resin_material_code",
+        "material_name",
+        "tank_material_name",
+        "resin_name",
+        "display_material",
+        "material_label",
         "material",
         "resin",
     ):

@@ -494,6 +494,48 @@ def test_printers_route_keeps_material_code_as_fallback(tmp_path, monkeypatch):
     assert printer["material_code"] == "FLBMAM01"
 
 
+def test_printers_route_keeps_code_from_name_like_field_as_fallback(tmp_path, monkeypatch):
+    from app.services.preform_client import PreFormClient
+    from app.services.preform_setup_service import PreFormSetupService
+
+    monkeypatch.setattr(
+        PreFormSetupService,
+        "_probe_server",
+        lambda self: {
+            "healthy": True,
+            "version": "3.58.0.626",
+            "code": None,
+            "message": None,
+        },
+    )
+    monkeypatch.setattr(
+        PreFormClient,
+        "list_devices",
+        lambda self: {
+            "count": 1,
+            "devices": [
+                {
+                    "connection_type": "WIFI",
+                    "id": "form-4b-ready",
+                    "product_name": "Form 4B",
+                    "status": "Ready",
+                    "tank_material_name": "FLBMAM01",
+                }
+            ],
+        },
+    )
+
+    client, _settings = _build_client(tmp_path)
+
+    response = client.get("/api/preform-setup/printers")
+
+    assert response.status_code == 200
+    [printer] = response.json()["printers"]
+    assert printer["material"] == "FLBMAM01"
+    assert printer["material_name"] is None
+    assert printer["material_code"] == "FLBMAM01"
+
+
 def test_explicit_preform_url_can_be_ready_without_managed_install(tmp_path, monkeypatch):
     from app.services.preform_setup_service import PreFormSetupService
 
