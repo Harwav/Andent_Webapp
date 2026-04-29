@@ -253,23 +253,43 @@ def test_local_printer_material_prefers_readable_name_over_code():
 
 def test_scheduled_printer_refresh_does_not_wait_for_slow_discovery_before_continuing():
     app_js = APP_JS.read_text(encoding="utf-8")
+    start_printer_refresh = _extract_function_source(app_js, "startPreformPrinterRefresh")
+    commit_printer_payload = _extract_function_source(app_js, "commitPreformPrinterPayload")
+    handle_printer_fetch_error = _extract_function_source(app_js, "handlePreformPrinterFetchError")
+    refresh_printers_quietly = _extract_function_source(app_js, "refreshPreformPrintersQuietly")
     schedule_refresh = _extract_function_source(app_js, "schedulePreformPrinterRefresh")
     script = textwrap.dedent(
         f"""
         const timeline = [];
+        const state = {{
+            preformSetup: {{
+                printerRefreshRequestId: 0,
+                printerRefreshInFlightCount: 0,
+                printers: null,
+            }},
+        }};
 
-        async function refreshPreformPrintersQuietly() {{
+        async function fetchPreformPrinters() {{
             timeline.push("refresh-start");
             await new Promise((resolve) => setTimeout(() => {{
                 timeline.push("refresh-end");
                 resolve();
             }}, 30));
+            return {{
+                available: true,
+                message: null,
+                printers: [],
+            }};
         }}
 
         function renderPreformPrinters() {{
             timeline.push("render-printers");
         }}
 
+        {start_printer_refresh}
+        {commit_printer_payload}
+        {handle_printer_fetch_error}
+        {refresh_printers_quietly}
         {schedule_refresh}
 
         (async () => {{
@@ -287,6 +307,71 @@ def test_scheduled_printer_refresh_does_not_wait_for_slow_discovery_before_conti
 
     assert result["beforeCompletion"] == ["refresh-start", "after-schedule"]
     assert result["final"] == ["refresh-start", "after-schedule", "refresh-end", "render-printers"]
+
+
+def test_scheduled_printer_refresh_skips_overlapping_fetches():
+    app_js = APP_JS.read_text(encoding="utf-8")
+    start_printer_refresh = _extract_function_source(app_js, "startPreformPrinterRefresh")
+    commit_printer_payload = _extract_function_source(app_js, "commitPreformPrinterPayload")
+    handle_printer_fetch_error = _extract_function_source(app_js, "handlePreformPrinterFetchError")
+    refresh_printers_quietly = _extract_function_source(app_js, "refreshPreformPrintersQuietly")
+    schedule_refresh = _extract_function_source(app_js, "schedulePreformPrinterRefresh")
+    script = textwrap.dedent(
+        f"""
+        const timeline = [];
+        const state = {{
+            preformSetup: {{
+                printerRefreshRequestId: 0,
+                printerRefreshInFlightCount: 0,
+                printers: null,
+            }},
+        }};
+        let fetchCalls = 0;
+
+        async function fetchPreformPrinters() {{
+            fetchCalls += 1;
+            timeline.push(`fetch-${{fetchCalls}}-start`);
+            await new Promise((resolve) => setTimeout(() => {{
+                timeline.push(`fetch-${{fetchCalls}}-end`);
+                resolve();
+            }}, 30));
+            return {{
+                available: true,
+                message: null,
+                printers: [{{ name: `printer-${{fetchCalls}}` }}],
+            }};
+        }}
+
+        function renderPreformPrinters() {{
+            timeline.push(`render-${{state.preformSetup.printers?.printers?.[0]?.name || "none"}}`);
+        }}
+
+        {start_printer_refresh}
+        {commit_printer_payload}
+        {handle_printer_fetch_error}
+        {refresh_printers_quietly}
+        {schedule_refresh}
+
+        (async () => {{
+            schedulePreformPrinterRefresh();
+            schedulePreformPrinterRefresh();
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            console.log(JSON.stringify({{
+                fetchCalls,
+                inFlightCount: state.preformSetup.printerRefreshInFlightCount,
+                finalPrinter: state.preformSetup.printers?.printers?.[0]?.name || null,
+                timeline,
+            }}));
+        }})();
+        """
+    )
+
+    result = json.loads(_run_node(script))
+
+    assert result["fetchCalls"] == 1
+    assert result["inFlightCount"] == 0
+    assert result["finalPrinter"] == "printer-1"
+    assert result["timeline"] == ["fetch-1-start", "fetch-1-end", "render-printer-1"]
 
 
 def test_newer_manual_printer_refresh_wins_over_older_scheduled_result():

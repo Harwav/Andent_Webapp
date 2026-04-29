@@ -78,6 +78,7 @@ const state = {
         dispatchMode: null,
         printers: null,
         printerRefreshRequestId: 0,
+        printerRefreshInFlightCount: 0,
         printersLoading: false,
         loading: false,
         wizardDismissed: false,
@@ -325,16 +326,25 @@ function handlePreformPrinterFetchError(error, requestId) {
 
 async function refreshPreformPrintersQuietly() {
     const requestId = startPreformPrinterRefresh();
+    state.preformSetup.printerRefreshInFlightCount += 1;
     try {
         const payload = await fetchPreformPrinters();
         commitPreformPrinterPayload(requestId, payload);
     } catch (error) {
         handlePreformPrinterFetchError(error, requestId);
         console.warn("Local printer refresh failed:", error.message);
+    } finally {
+        state.preformSetup.printerRefreshInFlightCount = Math.max(
+            0,
+            state.preformSetup.printerRefreshInFlightCount - 1
+        );
     }
 }
 
 function schedulePreformPrinterRefresh() {
+    if (state.preformSetup.printerRefreshInFlightCount > 0) {
+        return;
+    }
     refreshPreformPrintersQuietly().then(() => {
         renderPreformPrinters();
     });
@@ -517,6 +527,7 @@ function renderPreformPrinters() {
 
 async function refreshPreformPrinters() {
     const requestId = startPreformPrinterRefresh();
+    state.preformSetup.printerRefreshInFlightCount += 1;
     state.preformSetup.printersLoading = true;
     renderPreformSetup();
     try {
@@ -529,6 +540,10 @@ async function refreshPreformPrinters() {
             setStatus(error.message, true);
         }
     } finally {
+        state.preformSetup.printerRefreshInFlightCount = Math.max(
+            0,
+            state.preformSetup.printerRefreshInFlightCount - 1
+        );
         state.preformSetup.printersLoading = false;
         render();
     }

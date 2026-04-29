@@ -364,7 +364,10 @@ class TestPreFormClient:
         
         assert len(result) == 2
         assert result[0]["device_id"] == "printer-01"
-        mock_session.get.assert_called_once_with("http://localhost:44388/devices/")
+        mock_session.get.assert_called_once_with(
+            "http://localhost:44388/devices/",
+            timeout=5,
+        )
 
     def test_list_devices_empty(self):
         """Test listing devices when none available."""

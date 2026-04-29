@@ -24,6 +24,7 @@ DEFAULT_SCENE_SETTINGS = {
     "material_code": "FLPMBE01",
     "print_setting": "DEFAULT",
 }
+PREFORM_LIST_DEVICES_TIMEOUT_SECONDS = 5
 
 
 def retry_on_failure(max_retries: int = 3, backoff_factor: float = 2.0):
@@ -303,7 +304,7 @@ class PreFormClient:
         """
         url = f"{self.base_url}/devices/"
         
-        response = self.session.get(url)
+        response = self.session.get(url, timeout=PREFORM_LIST_DEVICES_TIMEOUT_SECONDS)
         
         if response.status_code != 200:
             raise Exception(f"Failed to list devices: {response.status_code} - {response.text}")
