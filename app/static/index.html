@@ -30,63 +30,7 @@
 
         <section id="preform-banner" class="panel setup-banner hidden"></section>
 
-        <section id="preform-setup-panel" class="panel setup-panel">
-            <div class="setup-panel-header">
-                <div>
-                    <p class="eyebrow">PreFormServer</p>
-                    <h2>Setup Center</h2>
-                </div>
-                <span id="preform-readiness-pill" class="status-pill status-pill-neutral">Checking...</span>
-            </div>
-            <p id="preform-summary" class="setup-summary">
-                Checking managed PreFormServer readiness.
-            </p>
-            <div class="setup-meta-grid">
-                <div class="setup-meta-item">
-                    <span>Detected Version</span>
-                    <strong id="preform-version">-</strong>
-                </div>
-                <div class="setup-meta-item">
-                    <span>Supported Range</span>
-                    <strong id="preform-version-range">-</strong>
-                </div>
-                <div class="setup-meta-item">
-                    <span>Last Check</span>
-                    <strong id="preform-last-check">-</strong>
-                </div>
-                <div class="setup-meta-item setup-dispatch-item">
-                    <span>Print Handoff</span>
-                    <label class="dispatch-toggle" for="preform-dispatch-toggle">
-                        <input id="preform-dispatch-toggle" type="checkbox">
-                        <span class="dispatch-toggle-track" aria-hidden="true"></span>
-                        <strong>Virtual printer debug</strong>
-                    </label>
-                    <small id="preform-dispatch-summary">Save .form only</small>
-                </div>
-            </div>
-            <div class="setup-actions">
-                <input id="preform-zip-input" type="file" accept=".zip" hidden>
-                <button id="preform-install-button" type="button" class="primary-button">Install or Replace ZIP</button>
-                <button id="preform-start-button" type="button" class="secondary-button">Start</button>
-                <button id="preform-stop-button" type="button" class="ghost-button">Stop</button>
-                <button id="preform-restart-button" type="button" class="secondary-button">Restart</button>
-                <button id="preform-recheck-button" type="button" class="ghost-button">Re-check</button>
-            </div>
-            <div class="setup-printers">
-                <div class="setup-printers-header">
-                    <div>
-                        <p class="eyebrow">Local Printers</p>
-                        <h3>Discovered Devices</h3>
-                    </div>
-                    <button id="preform-printer-refresh-button" type="button" class="ghost-button">Refresh</button>
-                </div>
-                <div id="preform-printer-list" class="preform-printer-list" aria-live="polite">
-                    Checking local printers.
-                </div>
-            </div>
-        </section>
-
-        <section class="panel uploader-panel">
+                <section class="panel uploader-panel">
             <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload STL files or folders">
                 <input id="file-input" type="file" accept=".stl" multiple hidden>
                 <p class="dropzone-title">Drop STL files or folders here</p>
@@ -242,6 +186,65 @@
                 </div>
                 <div id="print-queue-pagination-bottom" class="pagination"></div>
             </div>
+
+
+<section id="preform-setup-panel" class="panel setup-panel">
+            <div class="setup-panel-header">
+                <div>
+                    <p class="eyebrow">PreFormServer</p>
+                    <h2>Setup Center</h2>
+                </div>
+                <span id="preform-readiness-pill" class="status-pill status-pill-neutral">Checking...</span>
+            </div>
+            <p id="preform-summary" class="setup-summary">
+                Checking managed PreFormServer readiness.
+            </p>
+            <div class="setup-meta-grid">
+                <div class="setup-meta-item">
+                    <span>Detected Version</span>
+                    <strong id="preform-version">-</strong>
+                </div>
+                <div class="setup-meta-item">
+                    <span>Supported Range</span>
+                    <strong id="preform-version-range">-</strong>
+                </div>
+                <div class="setup-meta-item">
+                    <span>Last Check</span>
+                    <strong id="preform-last-check">-</strong>
+                </div>
+                <div class="setup-meta-item setup-dispatch-item">
+                    <span>Print Handoff</span>
+                    <label class="dispatch-toggle" for="preform-dispatch-toggle">
+                        <input id="preform-dispatch-toggle" type="checkbox">
+                        <span class="dispatch-toggle-track" aria-hidden="true"></span>
+                        <strong>Virtual printer debug</strong>
+                    </label>
+                    <small id="preform-dispatch-summary">Save .form only</small>
+                </div>
+            </div>
+            <div class="setup-actions">
+                <input id="preform-zip-input" type="file" accept=".zip" hidden>
+                <button id="preform-install-button" type="button" class="primary-button">Install or Replace ZIP</button>
+                <button id="preform-start-button" type="button" class="secondary-button">Start</button>
+                <button id="preform-stop-button" type="button" class="ghost-button">Stop</button>
+                <button id="preform-restart-button" type="button" class="secondary-button">Restart</button>
+                <button id="preform-recheck-button" type="button" class="ghost-button">Re-check</button>
+            </div>
+            <div class="setup-printers">
+                <div class="setup-printers-header">
+                    <div>
+                        <p class="eyebrow">Local Printers</p>
+                        <h3>Discovered Devices</h3>
+                    </div>
+                    <button id="preform-printer-refresh-button" type="button" class="ghost-button">Refresh</button>
+                </div>
+                <div id="preform-printer-list" class="preform-printer-list" aria-live="polite">
+                    Checking local printers.
+                </div>
+            </div>
+        </section>
+
+
         </section>
     </main>
 
