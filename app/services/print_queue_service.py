@@ -13,15 +13,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import os
 import re
+import shutil
 import struct
 import zlib
+from contextlib import closing
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
 
 from .formlabs_web_client import FormlabsWebClient
 from .preset_catalog import get_preset_profile
+from core.stl_validator import validate_stl_file, ValidationStatus
 
 if TYPE_CHECKING:
     from ..config import Settings
@@ -163,9 +168,12 @@ def get_print_job_screenshot(settings: "Settings", job_id: int) -> bytes:
     if job is None:
         raise LookupError("Job not found")
 
-    screenshot_path = Path(job.screenshot_url) if job.screenshot_url else None
-    if screenshot_path is not None and screenshot_path.exists():
-        screenshot_bytes = screenshot_path.read_bytes()
+    # Try local screenshot beside the .form file (saved by process_print_manifest)
+    local_screenshot_path = (
+        Path(job.form_file_path).with_suffix(".png") if job.form_file_path else None
+    )
+    if local_screenshot_path is not None and local_screenshot_path.exists():
+        screenshot_bytes = local_screenshot_path.read_bytes()
         _screenshot_cache[job_id] = (_now(), screenshot_bytes)
         return screenshot_bytes
 
@@ -187,7 +195,8 @@ def get_print_job_screenshot(settings: "Settings", job_id: int) -> bytes:
     screenshot_dir.mkdir(parents=True, exist_ok=True)
     screenshot_path = screenshot_dir / f"job_{job_id}.png"
     screenshot_path.write_bytes(screenshot_bytes)
-    update_print_job(settings, job_id, screenshot_url=str(screenshot_path))
+    # Store API endpoint so the browser can fetch via /api/print-queue/jobs/{id}/screenshot
+    update_print_job(settings, job_id, screenshot_url=f"/api/print-queue/jobs/{job_id}/screenshot")
     _screenshot_cache[job_id] = (_now(), screenshot_bytes)
     return screenshot_bytes
 
@@ -608,15 +617,91 @@ def _validation_errors(validation_result: dict[str, Any]) -> list[str]:
     return [str(error) for error in errors]
 
 
-def _form_output_path_from_manifest(manifest: "BuildManifest", job_name: str) -> Path:
-    ordered_files = _ordered_manifest_file_specs(manifest)
-    if not ordered_files:
-        raise ValueError("Build manifest does not contain any STL files.")
-    return Path(ordered_files[0].file_path).parent / f"{job_name}.form"
+def _form_output_path_from_manifest(settings: "Settings", manifest: "BuildManifest", job_name: str) -> Path:
+    output_job_dir = settings.output_dir / job_name
+    output_job_dir.mkdir(parents=True, exist_ok=True)
+    return output_job_dir / f"{job_name}.form"
 
 
 def _screenshot_output_path_from_form_path(form_path: Path) -> Path:
     return form_path.with_suffix(".png")
+
+
+def migrate_print_job_outputs_to_output_dir(settings: "Settings") -> None:
+    """Migrate existing .form and .png files to output_dir structure.
+
+    Copies each job's .form and screenshot to output/{job_name}/, then updates
+    the DB to point to the new paths and use the API endpoint for screenshot_url.
+    """
+    from ..database import connect, list_print_jobs, update_print_job
+
+    output_dir = settings.output_dir
+    screenshot_dir = settings.data_dir / "screenshots"
+
+    jobs = list_print_jobs(settings)
+    migrated = 0
+    skipped = 0
+
+    for job in jobs:
+        if not job.form_file_path or not job.job_name:
+            continue
+
+        old_form_path = Path(job.form_file_path)
+        if not old_form_path.exists():
+            skipped += 1
+            logging.debug("Migration skip: form file missing for job %s", job.job_name)
+            continue
+
+        new_job_dir = output_dir / job.job_name
+        new_form_path = new_job_dir / f"{job.job_name}.form"
+        new_screenshot_path = new_job_dir / f"{job.job_name}.png"
+
+        # Skip if already migrated
+        if new_form_path.exists():
+            continue
+
+        new_job_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            shutil.copy2(old_form_path, new_form_path)
+        except Exception as exc:
+            logging.error("Migration failed to copy form for job %s: %s", job.job_name, exc)
+            continue
+
+        # Find screenshot: beside old form, or in screenshots dir
+        old_screenshot: Path | None = None
+        candidates = [
+            old_form_path.with_suffix(".png"),
+            screenshot_dir / f"job_{job.id}.png",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                old_screenshot = candidate
+                break
+
+        if old_screenshot:
+            try:
+                shutil.copy2(old_screenshot, new_screenshot_path)
+            except Exception as exc:
+                logging.warning("Migration: screenshot copy failed for job %s: %s", job.job_name, exc)
+
+        # Update DB
+        try:
+            update_print_job(
+                settings,
+                job.id,
+                form_file_path=str(new_form_path),
+                screenshot_url=f"/api/print-queue/jobs/{job.id}/screenshot",
+            )
+            migrated += 1
+        except Exception as exc:
+            logging.error("Migration: DB update failed for job %s: %s", job.job_name, exc)
+
+    logging.info(
+        "Print job output migration complete: %d migrated, %d skipped (no form or already migrated)",
+        migrated,
+        skipped,
+    )
 
 
 def assert_preform_ready(settings: "Settings") -> None:
@@ -671,21 +756,48 @@ def process_print_manifest(
 
         imported_any = False
         support_model_ids: list[str] = []
+        failed_cases: set[str] = set()
+
+        # Group files by case_id for case-aware import
+        case_files: dict[str, list] = {}
         for file_spec in _ordered_manifest_file_specs(manifest):
-            stl_path = Path(file_spec.file_path)
-            if not stl_path.exists():
-                raise ValueError(f"STL file not found for manifest: {file_spec.file_path}")
-            import_result = client.import_model(scene_id, str(stl_path), preset=file_spec.preform_hint)
-            profile = get_preset_profile(file_spec.preset_name)
-            if profile is not None and profile.requires_supports:
-                model_id = import_result.get("model_id") or import_result.get("id")
-                if not model_id:
-                    raise Exception("Support generation requires imported tooth model IDs.")
-                support_model_ids.append(str(model_id))
-            imported_any = True
+            case_id = file_spec.case_id
+            if case_id not in case_files:
+                case_files[case_id] = []
+            case_files[case_id].append(file_spec)
+
+        # Import each case as a unit - if any file in a case fails, block the entire case
+        for case_id, file_specs in case_files.items():
+            case_failed = False
+            for file_spec in file_specs:
+                stl_path = Path(file_spec.file_path)
+                if not stl_path.exists():
+                    logging.error("STL file not found for case %s: %s", case_id, file_spec.file_path)
+                    case_failed = True
+                    break
+                try:
+                    import_result = client.import_model(scene_id, str(stl_path), preset=file_spec.preform_hint)
+                    profile = get_preset_profile(file_spec.preset_name)
+                    if profile is not None and profile.requires_supports:
+                        model_id = import_result.get("model_id") or import_result.get("id")
+                        if not model_id:
+                            logging.error("Support generation requires imported tooth model IDs for: %s (case: %s)", stl_path, case_id)
+                            case_failed = True
+                            break
+                        support_model_ids.append(str(model_id))
+                except Exception as exc:
+                    logging.error("Failed to import %s (case: %s): %s", stl_path, case_id, exc)
+                    case_failed = True
+                    break
+
+            if case_failed:
+                failed_cases.add(case_id)
+                logging.error("Case %s blocked due to import failure", case_id)
+            else:
+                imported_any = True
 
         if not imported_any:
-            raise ValueError("No valid STL files found for manifest")
+            raise ValueError(f"No valid cases could be imported. Failed cases: {sorted(failed_cases)}")
 
         client.auto_layout(scene_id)
         if support_model_ids:
@@ -697,16 +809,17 @@ def process_print_manifest(
             else {"valid": True, "errors": []}
         )
         validation_errors = _validation_errors(validation_result)
-        form_path = _form_output_path_from_manifest(manifest, job_name)
+        form_path = _form_output_path_from_manifest(settings, manifest, job_name)
         client.save_form(scene_id, form_path)
         form_file_path = str(form_path.resolve())
-        screenshot_url = None
+        # Save screenshot locally for traceability, but don't store local path as screenshot_url.
+        # The API endpoint (/api/print-queue/jobs/{id}/screenshot) serves screenshots instead.
         screenshot_path = _screenshot_output_path_from_form_path(form_path)
         try:
             client.save_screenshot(scene_id, screenshot_path)
-            screenshot_url = str(screenshot_path.resolve())
         except Exception:
-            screenshot_url = None
+            pass  # screenshot unavailable — API endpoint will generate a placeholder
+        screenshot_url = None
         print_job_id = _dispatch_scene_if_enabled(
             client=client,
             settings=settings,
@@ -847,7 +960,7 @@ def _insert_print_job(
         ),
     )
     created_id = int(cursor.lastrowid)
-    if print_job.scene_id and not print_job.screenshot_url:
+    if not print_job.screenshot_url:
         connection.execute(
             """
             UPDATE print_jobs

@@ -20,6 +20,7 @@ class Settings:
     preform_server_port: int
     preform_managed_dir: Path
     preform_managed_executable: Path
+    output_dir: Path
     preform_server_url: str
     preform_server_startup_timeout_s: int
     preform_server_shutdown_timeout_s: int
@@ -86,6 +87,7 @@ def build_settings(
         server_host=os.getenv("ANDENT_WEB_HOST", "127.0.0.1"),
         server_port=int(os.getenv("ANDENT_WEB_PORT", "8090")),
         project_root=repo_root,
+        output_dir=repo_root / "output",
         data_dir=resolved_data_dir,
         uploads_dir=resolved_data_dir / "uploads",
         static_dir=app_dir / "static",

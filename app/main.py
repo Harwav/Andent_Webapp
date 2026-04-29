@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import Settings, get_settings
 from .database import init_db
+from .services.print_queue_service import migrate_print_job_outputs_to_output_dir
 from .routers.uploads import router as uploads_router
 from .routers.metrics import router as metrics_router
 from .routers.preform_setup import router as preform_setup_router
@@ -21,6 +22,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        resolved_settings.output_dir.mkdir(parents=True, exist_ok=True)
+        migrate_print_job_outputs_to_output_dir(resolved_settings)
         yield
 
     app = FastAPI(
@@ -32,7 +35,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = resolved_settings
     app.state.default_print_dispatch_mode = resolved_settings.print_dispatch_mode
 
+    resolved_settings.output_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(resolved_settings.static_dir)), name="static")
+    app.mount("/output", StaticFiles(directory=str(resolved_settings.output_dir)), name="output")
     app.include_router(uploads_router)
     app.include_router(metrics_router)
     app.include_router(preform_setup_router)
