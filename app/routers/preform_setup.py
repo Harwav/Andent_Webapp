@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 import shutil
 from dataclasses import replace
 from pathlib import Path
@@ -10,10 +12,13 @@ from fastapi.concurrency import run_in_threadpool
 
 from ..schemas import (
     DispatchModeStatus,
+    PreFormPrinterListResponse,
+    PreFormPrinterStatus,
     PreFormSetupActionResponse,
     PreFormSetupStatus,
     UpdateDispatchModeRequest,
 )
+from ..services.preform_client import PreFormClient
 from ..services.preform_setup_service import (
     PreFormSetupError,
     PreFormSetupService,
@@ -60,6 +65,155 @@ def _dispatch_mode_response(request: Request) -> DispatchModeStatus:
     )
 
 
+def _first_text(device: dict, keys: tuple[str, ...]) -> str | None:
+    for key in keys:
+        value = device.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def _looks_like_material_code(value: str) -> bool:
+    normalized = value.strip().upper()
+    return bool(re.fullmatch(r"FL[A-Z0-9]{5,}", normalized))
+
+
+def _first_readable_material_name(device: dict) -> str | None:
+    for key in (
+        "material_name",
+        "tank_material_name",
+        "resin_name",
+        "display_material",
+        "material_label",
+        "material",
+        "resin",
+    ):
+        value = _first_text(device, (key,))
+        if value and not _looks_like_material_code(value):
+            return value
+    return None
+
+
+def _first_material_code(device: dict) -> str | None:
+    for key in (
+        "material_code",
+        "tank_material_code",
+        "resin_code",
+        "resin_material_code",
+        "material",
+        "resin",
+    ):
+        value = _first_text(device, (key,))
+        if value and _looks_like_material_code(value):
+            return value
+    return None
+
+
+def _device_identity_text(device: dict) -> str:
+    parts = []
+    for key in (
+        "id",
+        "device_id",
+        "printer_id",
+        "name",
+        "model",
+        "product_name",
+        "type",
+        "connection_type",
+        "status",
+    ):
+        value = device.get(key)
+        if value:
+            parts.append(str(value))
+    return " ".join(parts).lower()
+
+
+def _is_virtual_device(device: dict) -> bool:
+    for key in ("is_virtual", "virtual", "isVirtual"):
+        value = device.get(key)
+        if isinstance(value, bool):
+            return value
+    return "virtual" in _device_identity_text(device)
+
+
+def _is_setup_center_printer(device: dict) -> bool:
+    if _is_virtual_device(device):
+        return False
+    identity = _device_identity_text(device)
+    return "form 4bl" in identity or "form 4b" in identity
+
+
+def _normalize_device_list(payload) -> list[dict]:
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            return []
+    if isinstance(payload, dict):
+        devices = payload.get("devices")
+        payload = devices if isinstance(devices, list) else []
+    if not isinstance(payload, list):
+        return []
+    return [device for device in payload if isinstance(device, dict)]
+
+
+def _normalize_printer(device: dict) -> PreFormPrinterStatus:
+    device_id = _first_text(device, ("device_id", "id", "printer_id"))
+    model = _first_text(device, ("model", "product_name", "type"))
+    name = _first_text(device, ("name", "display_name"))
+    status = _first_text(device, ("status", "state", "availability"))
+    material_name = _first_readable_material_name(device)
+    material_code = _first_material_code(device)
+    material = material_name or material_code
+
+    return PreFormPrinterStatus(
+        device_id=device_id,
+        name=name or device_id or model or "Unnamed printer",
+        model=model,
+        status=status,
+        material=material,
+        material_name=material_name,
+        material_code=material_code,
+        metadata=device,
+    )
+
+
+def _list_setup_center_printers(settings) -> PreFormPrinterListResponse:
+    probe = PreFormSetupService(settings)._probe_server()
+    if not probe.get("healthy"):
+        return PreFormPrinterListResponse(
+            printers=[],
+            available=False,
+            message=probe.get("message") or "PreFormServer is not ready.",
+        )
+
+    client = PreFormClient(settings.preform_server_url)
+    try:
+        devices = _normalize_device_list(client.list_devices())
+    except Exception as exc:
+        return PreFormPrinterListResponse(
+            printers=[],
+            available=False,
+            message=str(exc),
+        )
+    finally:
+        client.close()
+
+    printers = [
+        _normalize_printer(device)
+        for device in devices
+        if _is_setup_center_printer(device)
+    ]
+    return PreFormPrinterListResponse(
+        printers=printers,
+        available=True,
+        message=None,
+    )
+
+
 @router.get("/status", response_model=PreFormSetupStatus)
 async def status(request: Request) -> PreFormSetupStatus:
     return await run_in_threadpool(get_preform_setup_status, request.app.state.settings)
@@ -80,6 +234,11 @@ async def update_dispatch_mode(
         print_dispatch_mode=payload.mode,
     )
     return _dispatch_mode_response(request)
+
+
+@router.get("/printers", response_model=PreFormPrinterListResponse)
+async def get_printers(request: Request) -> PreFormPrinterListResponse:
+    return await run_in_threadpool(_list_setup_center_printers, request.app.state.settings)
 
 
 @router.post("/install-from-zip", response_model=PreFormSetupActionResponse)
