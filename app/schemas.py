@@ -93,6 +93,23 @@ class PreFormSetupActionResponse(BaseModel):
     message: str
 
 
+class PreFormPrinterStatus(BaseModel):
+    device_id: str | None = None
+    name: str
+    model: str | None = None
+    status: str | None = None
+    material: str | None = None
+    material_name: str | None = None
+    material_code: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class PreFormPrinterListResponse(BaseModel):
+    printers: list[PreFormPrinterStatus] = Field(default_factory=list)
+    available: bool
+    message: str | None = None
+
+
 class DispatchModeStatus(BaseModel):
     mode: str
     default_mode: str
