@@ -85,3 +85,4 @@ curl http://localhost:8090/health/ready
 - **Data directory**: Defaults to `./data/` for SQLite DB and uploads
 - **Static assets**: Served from `app/static/` (index.html, app.js, styles.css)
 - **PreFormServer handoff**: Phase 1+ will integrate with external PreFormServer for print orchestration
+- **Required completion verification**: Before reporting work as done, always run or attach to a live PreFormServer session and verify the relevant app behavior against it. At minimum, confirm live PreFormServer readiness plus the task-specific handoff/UI/API path. If live PreFormServer cannot be started or reached, do not claim completion; report the missing live-session proof as a blocker.
