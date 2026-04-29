@@ -76,6 +76,8 @@ const state = {
     preformSetup: {
         status: null,
         dispatchMode: null,
+        printers: null,
+        printersLoading: false,
         loading: false,
         wizardDismissed: false,
     },
@@ -100,6 +102,8 @@ const elements = {
     preformDispatchToggle: document.getElementById("preform-dispatch-toggle"),
     preformInstallButton: document.getElementById("preform-install-button"),
     preformLastCheck: document.getElementById("preform-last-check"),
+    preformPrinterList: document.getElementById("preform-printer-list"),
+    preformPrinterRefreshButton: document.getElementById("preform-printer-refresh-button"),
     preformReadinessPill: document.getElementById("preform-readiness-pill"),
     preformRecheckButton: document.getElementById("preform-recheck-button"),
     preformRestartButton: document.getElementById("preform-restart-button"),
@@ -288,6 +292,15 @@ async function fetchPreformSetupStatus() {
     state.preformSetup.status = payload;
 }
 
+async function fetchPreformPrinters() {
+    const response = await fetch("/api/preform-setup/printers");
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.detail || "Could not load local printers.");
+    }
+    state.preformSetup.printers = payload;
+}
+
 async function runPreformAction(url, options, successMessage) {
     state.preformSetup.loading = true;
     renderPreformSetup();
@@ -298,6 +311,7 @@ async function runPreformAction(url, options, successMessage) {
             throw new Error(payload.detail || payload.message || "PreFormServer action failed.");
         }
         state.preformSetup.status = payload.status;
+        await fetchPreformPrinters();
         setStatus(payload.message || successMessage);
     } catch (error) {
         setStatus(error.message, true);
@@ -337,7 +351,148 @@ function renderPreformSetup() {
     elements.preformRestartButton.disabled = state.preformSetup.loading || !status || status.readiness === "not_installed";
     elements.preformRecheckButton.disabled = state.preformSetup.loading || !status;
     elements.preformInstallButton.disabled = state.preformSetup.loading;
+    if (elements.preformPrinterRefreshButton) {
+        elements.preformPrinterRefreshButton.disabled = state.preformSetup.loading || state.preformSetup.printersLoading;
+    }
+    renderPreformPrinters();
     renderPreformWizard();
+}
+
+function formatPrinterMaterial(printer) {
+    const materialName = printer.material_name
+        || printer.metadata?.material_name
+        || printer.metadata?.tank_material_name
+        || printer.metadata?.resin_name
+        || printer.metadata?.material
+        || printer.metadata?.resin;
+    const materialCode = printer.material_code
+        || printer.metadata?.material_code
+        || printer.metadata?.tank_material_code;
+    return {
+        label: materialName || materialCode || "-",
+        code: materialCode || "",
+    };
+}
+
+function formatPrinterStatus(printer) {
+    return printer.status || printer.metadata?.availability || printer.metadata?.state || "Unknown";
+}
+
+function getPrinterStatusTone(status) {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized.includes("ready") && !normalized.includes("not ready")) {
+        return "ready";
+    }
+    if (
+        normalized.includes("not ready")
+        || normalized.includes("offline")
+        || normalized.includes("error")
+        || normalized.includes("failed")
+    ) {
+        return "blocked";
+    }
+    return "unknown";
+}
+
+function createPrinterStatusPill(status) {
+    const pill = document.createElement("span");
+    pill.className = `preform-printer-status-pill preform-printer-status-${getPrinterStatusTone(status)}`;
+    pill.textContent = status;
+    return pill;
+}
+
+function renderPreformPrinters() {
+    if (!elements.preformPrinterList) {
+        return;
+    }
+
+    const payload = state.preformSetup.printers;
+    if (state.preformSetup.printersLoading) {
+        elements.preformPrinterList.className = "preform-printer-list preform-printer-list-empty";
+        elements.preformPrinterList.textContent = "Refreshing local printers.";
+        return;
+    }
+    if (!payload) {
+        elements.preformPrinterList.className = "preform-printer-list preform-printer-list-empty";
+        elements.preformPrinterList.textContent = "Checking local printers.";
+        return;
+    }
+    if (!payload.available) {
+        elements.preformPrinterList.className = "preform-printer-list preform-printer-list-empty";
+        elements.preformPrinterList.textContent = payload.message || "Local printer discovery is unavailable.";
+        return;
+    }
+    if (payload.printers.length === 0) {
+        elements.preformPrinterList.className = "preform-printer-list preform-printer-list-empty";
+        elements.preformPrinterList.textContent = "No local printers discovered.";
+        return;
+    }
+
+    elements.preformPrinterList.className = "preform-printer-list";
+    elements.preformPrinterList.innerHTML = "";
+
+    const table = document.createElement("table");
+    table.className = "preform-printer-table";
+
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    ["Printer", "Model", "Status", "Material"].forEach((label) => {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.textContent = label;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    payload.printers.forEach((printer) => {
+        const row = document.createElement("tr");
+
+        const nameCell = document.createElement("td");
+        nameCell.className = "preform-printer-name-cell";
+        nameCell.textContent = printer.name || "Unnamed printer";
+        row.appendChild(nameCell);
+
+        const modelCell = document.createElement("td");
+        modelCell.textContent = printer.model || "-";
+        row.appendChild(modelCell);
+
+        const statusCell = document.createElement("td");
+        statusCell.appendChild(createPrinterStatusPill(formatPrinterStatus(printer)));
+        row.appendChild(statusCell);
+
+        const material = formatPrinterMaterial(printer);
+        const materialCell = document.createElement("td");
+        materialCell.textContent = material.label;
+        if (material.code && material.code !== material.label) {
+            materialCell.title = material.code;
+        }
+        row.appendChild(materialCell);
+
+        tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    elements.preformPrinterList.appendChild(table);
+}
+
+async function refreshPreformPrinters() {
+    state.preformSetup.printersLoading = true;
+    renderPreformSetup();
+    try {
+        await fetchPreformPrinters();
+        setStatus("Local printer status refreshed.");
+    } catch (error) {
+        state.preformSetup.printers = {
+            printers: [],
+            available: false,
+            message: error.message,
+        };
+        setStatus(error.message, true);
+    } finally {
+        state.preformSetup.printersLoading = false;
+        render();
+    }
 }
 
 function renderPreformWizard() {
@@ -2559,6 +2714,10 @@ elements.preformRecheckButton.addEventListener("click", async () => {
     await runPreformAction("/api/preform-setup/recheck", { method: "POST" }, "PreFormServer readiness refreshed.");
 });
 
+if (elements.preformPrinterRefreshButton) {
+    elements.preformPrinterRefreshButton.addEventListener("click", refreshPreformPrinters);
+}
+
 elements.preformDispatchToggle.addEventListener("change", async (event) => {
     await setDispatchMode(event.target.checked ? "virtual" : "save_form");
 });
@@ -2587,6 +2746,7 @@ window.setInterval(async () => {
     try {
         await fetchQueue();
         await fetchPreformSetupStatus();
+        await fetchPreformPrinters();
         render();
         console.log("Queue auto-refreshed");
     } catch (error) {
@@ -2629,6 +2789,7 @@ async function bootstrap() {
         await fetchQueue();
         await fetchPrintQueue();
         await fetchPreformSetupStatus();
+        await fetchPreformPrinters();
         await fetchDispatchMode();
         render();
         if (canPrint()) {
@@ -2643,3 +2804,4 @@ async function bootstrap() {
 }
 
 bootstrap();
+

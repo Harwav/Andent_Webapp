@@ -156,3 +156,20 @@ def test_setup_center_exposes_temporary_virtual_printer_toggle():
     assert "setDispatchMode" in app_js
     assert '"/api/preform-setup/dispatch-mode"' in app_js
     assert ".dispatch-toggle" in styles_css
+
+
+def test_setup_center_displays_local_printer_status():
+    index_html = INDEX_HTML.read_text(encoding="utf-8")
+    app_js = APP_JS.read_text(encoding="utf-8")
+    styles_css = STYLES_CSS.read_text(encoding="utf-8")
+
+    assert 'id="preform-printer-list"' in index_html
+    assert 'id="preform-printer-refresh-button"' in index_html
+    assert "fetchPreformPrinters" in app_js
+    assert '"/api/preform-setup/printers"' in app_js
+    assert "renderPreformPrinters" in app_js
+    assert "formatPrinterMaterial" in app_js
+    assert "createPrinterStatusPill" in app_js
+    assert "preform-printer-table" in styles_css
+    assert "preform-printer-status-pill" in styles_css
+    assert "preform-printer-card" not in styles_css
