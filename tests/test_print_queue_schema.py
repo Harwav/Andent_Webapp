@@ -38,6 +38,20 @@ def test_print_job_schema_creation():
     assert len(job.case_ids) == 2
 
 
+def test_print_job_schema_accepts_case_id_job_names():
+    """PrintJob schema should accept descriptive, file-safe job names."""
+    from app.schemas import PrintJob
+
+    job = PrintJob(
+        job_name="260429_10936293_10935421_8425357",
+        preset="Ortho Solid - Flat, No Supports",
+        case_ids=["10936293", "10935421", "8425357"],
+        form_file_path="D:/cases/260429_10936293_10935421_8425357.form",
+    )
+
+    assert job.job_name == "260429_10936293_10935421_8425357"
+
+
 def test_print_job_case_ids_json():
     """case_ids should be stored as JSON."""
     from app.schemas import PrintJob

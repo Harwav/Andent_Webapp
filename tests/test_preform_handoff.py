@@ -37,6 +37,8 @@ class StubPreFormClient:
         self.validation_results: list[dict[str, object]] = []
         self.validation_calls: list[str] = []
         self.saved_forms: list[tuple[str, str]] = []
+        self.saved_screenshots: list[tuple[str, str]] = []
+        self.fail_screenshot = False
         self.devices: list[dict[str, object]] = []
         self.device_list_calls = 0
         self.print_jobs: list[tuple[str, str, str | None]] = []
@@ -66,6 +68,13 @@ class StubPreFormClient:
 
     def save_form(self, scene_id: str, output_path: Path):
         self.saved_forms.append((scene_id, str(Path(output_path).resolve())))
+        return {"status": "ok"}
+
+    def save_screenshot(self, scene_id: str, output_path: Path):
+        self.saved_screenshots.append((scene_id, str(Path(output_path).resolve())))
+        if self.fail_screenshot:
+            raise Exception("screenshot unavailable")
+        Path(output_path).write_bytes(b"preform-screenshot-png")
         return {"status": "ok"}
 
     def list_devices(self):
@@ -296,7 +305,8 @@ def test_virtual_dispatch_mode_sends_to_preform_virtual_printer_and_records_prin
         ("scene-1", "virtual-device-1", jobs[0].job_name)
     ]
     assert jobs[0].print_job_id == "print-1"
-    assert jobs[0].screenshot_url == f"/api/print-queue/jobs/{jobs[0].id}/screenshot"
+    expected_screenshot_path = case_file.parent / f"{jobs[0].job_name}.png"
+    assert jobs[0].screenshot_url == str(expected_screenshot_path.resolve())
     assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
     assert response.json()[0]["status"] == "Submitted"
 
@@ -304,6 +314,93 @@ def test_virtual_dispatch_mode_sends_to_preform_virtual_printer_and_records_prin
 
     assert screenshot_response.status_code == 200
     assert screenshot_response.headers["content-type"] == "image/png"
+    assert screenshot_response.content == b"preform-screenshot-png"
+
+
+def test_save_form_handoff_stores_preform_screenshot_beside_form_file(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "screenshot-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-SCREENSHOT",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-screenshot",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    expected_screenshot_path = case_file.parent / f"{jobs[0].job_name}.png"
+    assert stub_client.saved_screenshots == [
+        ("scene-1", str(expected_screenshot_path.resolve()))
+    ]
+    assert jobs[0].screenshot_url == str(expected_screenshot_path.resolve())
+
+    screenshot_response = client.get(f"/api/print-queue/jobs/{jobs[0].id}/screenshot")
+
+    assert screenshot_response.status_code == 200
+    assert screenshot_response.content == b"preform-screenshot-png"
+
+
+def test_screenshot_capture_failure_keeps_generated_preview_fallback(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "fallback-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-FALLBACK",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-fallback",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.fail_screenshot = True
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert stub_client.saved_screenshots == [
+        ("scene-1", str((case_file.parent / f"{jobs[0].job_name}.png").resolve()))
+    ]
+    assert jobs[0].screenshot_url == f"/api/print-queue/jobs/{jobs[0].id}/screenshot"
+
+    from app.services import print_queue_service
+
+    print_queue_service._screenshot_cache.clear()
+    screenshot_response = client.get(f"/api/print-queue/jobs/{jobs[0].id}/screenshot")
+
+    assert screenshot_response.status_code == 200
     assert screenshot_response.content.startswith(b"\x89PNG\r\n\x1a\n")
 
 
@@ -384,17 +481,17 @@ def test_virtual_dispatch_accepts_preform_json_string_device_payload(tmp_path):
     assert stub_client.print_jobs == [("scene-1", "Form 4BL", jobs[0].job_name)]
 
 
-def test_send_to_print_uses_next_available_job_name_for_today(tmp_path):
+def test_send_to_print_dedupes_descriptive_job_name_for_today(tmp_path):
     settings = _build_virtual_settings(tmp_path)
     today_prefix = datetime.now().strftime("%y%m%d")
     init_db(settings)
     create_print_job(
         settings,
         PrintJob(
-            job_name=f"{today_prefix}-001",
+            job_name=f"{today_prefix}_CASE-NEXT-JOB",
             preset="Ortho Solid - Flat, No Supports",
             status="Queued",
-            case_ids=["EXISTING"],
+            case_ids=["CASE-NEXT-JOB"],
         ),
     )
 
@@ -428,8 +525,11 @@ def test_send_to_print_uses_next_available_job_name_for_today(tmp_path):
 
     assert response.status_code == 200
     jobs = list_print_jobs(settings)
-    assert [job.job_name for job in jobs] == [f"{today_prefix}-002", f"{today_prefix}-001"]
-    assert stub_client.print_jobs == [("scene-1", "Form 4BL", f"{today_prefix}-002")]
+    assert [job.job_name for job in jobs] == [
+        f"{today_prefix}_CASE-NEXT-JOB_02",
+        f"{today_prefix}_CASE-NEXT-JOB",
+    ]
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL", f"{today_prefix}_CASE-NEXT-JOB_02")]
 
 
 def test_virtual_dispatch_can_skip_preform_validation_when_disabled(tmp_path):
@@ -574,6 +674,7 @@ def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
 
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
+    assert jobs[0].job_name == f"{datetime.now().strftime('%y%m%d')}_CASE-A_CASE-B"
     assert jobs[0].preset_names == [
         "Ortho Solid - Flat, No Supports",
         "Tooth - With Supports",
@@ -697,7 +798,7 @@ def test_send_to_print_submits_single_validation_warning_after_saving_form(tmp_p
     assert row["status"] == "Submitted"
     assert row["review_required"] is False
     assert row["review_reason"] is None
-    expected_form_path = case_file.parent / f"{datetime.now().strftime('%y%m%d')}-001.form"
+    expected_form_path = case_file.parent / f"{datetime.now().strftime('%y%m%d')}_CASE-INVALID.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
@@ -857,7 +958,9 @@ def test_release_held_job_dispatches_and_records_operator_release(tmp_path):
 
     assert hold_response.status_code == 200
     assert release_response.status_code == 200
-    assert stub_client.created_scenes == [("CASE-RELEASE", datetime.now().strftime("%y%m%d") + "-001")]
+    assert stub_client.created_scenes == [
+        ("CASE-RELEASE", datetime.now().strftime("%y%m%d") + "_CASE-RELEASE")
+    ]
     assert stub_client.print_jobs == []
 
     jobs = list_print_jobs(settings)
@@ -1022,7 +1125,7 @@ def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
     assert row["status"] == "Submitted"
     assert row["queue_section"] == "history"
     assert row["handoff_stage"] == "Queued"
-    assert row["linked_job_name"] == f"{datetime.now().strftime('%y%m%d')}-001"
+    assert row["linked_job_name"] == f"{datetime.now().strftime('%y%m%d')}_CASE-HISTORY"
 
 
 def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeypatch):
@@ -1062,7 +1165,7 @@ def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeyp
     assert row["queue_section"] == "history"
     assert row["handoff_stage"] == "Queued"
     assert stub_client.created_scenes == [
-        ("CASE-VOLUME", f"{datetime.now().strftime('%y%m%d')}-001")
+        ("CASE-VOLUME", f"{datetime.now().strftime('%y%m%d')}_CASE-VOLUME")
     ]
     updated = get_upload_row_by_id(settings, row_ids[0])
     assert updated is not None

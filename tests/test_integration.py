@@ -312,19 +312,19 @@ class TestBatchingIntegration:
         assert len(manifests) == 1
         assert [group.preset_name for group in manifests[0].import_groups] == sorted(presets)
 
-    def test_job_names_auto_increment(self):
-        """Job names should auto-increment."""
+    def test_job_names_include_case_ids(self):
+        """Job names should include date prefix and case IDs."""
         from app.services.print_queue_service import generate_job_name
         
         date = datetime(2026, 4, 21)
         
-        job1 = generate_job_name(date, 1)
-        job2 = generate_job_name(date, 2)
-        job3 = generate_job_name(date, 3)
+        job1 = generate_job_name(date, ["CASE001"])
+        job2 = generate_job_name(date, ["CASE002", "CASE003"])
+        job3 = generate_job_name(date, ["CASE/004"])
         
-        assert job1 == "260421-001"
-        assert job2 == "260421-002"
-        assert job3 == "260421-003"
+        assert job1 == "260421_CASE001"
+        assert job2 == "260421_CASE002_CASE003"
+        assert job3 == "260421_CASE-004"
 
 
 class TestFormlabsWebClientIntegration:

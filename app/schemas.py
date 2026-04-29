@@ -221,7 +221,7 @@ PrintJobStatus = Literal["Queued", "Printing", "Failed", "Paused", "Completed", 
 class PrintJob(BaseModel):
     """Print job schema for the print queue."""
     id: int | None = None
-    job_name: str = Field(pattern=r"^\d{6}-\d{3}$")
+    job_name: str = Field(max_length=120, pattern=r"^\d{6}(?:-\d{3}|_[A-Za-z0-9._-]+)$")
     scene_id: str | None = None
     print_job_id: str | None = None
     status: PrintJobStatus = "Queued"

@@ -114,6 +114,10 @@ Andent_Webapp/
 - `GET /api/print-queue/jobs/{job_id}/screenshot` - Fetch cached or remote job screenshot
 - `POST /api/print-queue/jobs/{job_id}/release-now` - Release a held build to PreFormServer
 
+### Print Job Naming
+
+Generated print jobs use `YYMMDD_CASEID_CASEID` names in build order. Case IDs are sanitized to filename-safe tokens before the name is used for local `.form` and `.png` outputs. Names longer than 120 characters are trimmed and suffixed with a stable 10-character hash of the full untrimmed name; same-day collisions receive a numeric suffix.
+
 ### System
 
 - `GET /health` - Health check with timestamp

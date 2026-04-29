@@ -26,6 +26,12 @@ DEFAULT_SCENE_SETTINGS = {
 }
 PREFORM_LIST_DEVICES_TIMEOUT_SECONDS = 5
 
+DEFAULT_SCREENSHOT_SETTINGS = {
+    "view_type": "ZOOM_ON_MODELS",
+    "crop_to_models": True,
+    "image_size_px": 820,
+}
+
 
 def retry_on_failure(max_retries: int = 3, backoff_factor: float = 2.0):
     """Decorator to retry API calls on failure with exponential backoff.
@@ -237,6 +243,26 @@ class PreFormClient:
             raise Exception(f"Scene {scene_id} not found. Please check the scene ID.")
         elif response.status_code != 200:
             raise Exception(f"Failed to save form file: {response.status_code} - {response.text}")
+
+        return response.json() if response.content else {"file": str(resolved_path)}
+
+    @retry_on_failure(max_retries=3, backoff_factor=2.0)
+    def save_screenshot(self, scene_id: str, output_path: str | Path) -> Dict[str, Any]:
+        """Save a PreForm scene screenshot to a local PNG file path."""
+        resolved_path = Path(output_path).resolve()
+        resolved_path.parent.mkdir(parents=True, exist_ok=True)
+        url = f"{self.base_url}/scene/{scene_id}/save-screenshot/"
+        payload = {"file": str(resolved_path), **DEFAULT_SCREENSHOT_SETTINGS}
+
+        try:
+            response = self.session.post(url, json=payload, timeout=120)
+        except requests.RequestException as e:
+            raise Exception(f"Failed to connect to PreFormServer: {str(e)}. Please ensure PreFormServer is running.")
+
+        if response.status_code == 404:
+            raise Exception(f"Scene {scene_id} not found. Please check the scene ID.")
+        elif response.status_code != 200:
+            raise Exception(f"Failed to save screenshot: {response.status_code} - {response.text}")
 
         return response.json() if response.content else {"file": str(resolved_path)}
     

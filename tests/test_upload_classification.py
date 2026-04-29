@@ -106,6 +106,25 @@ def test_classify_upload_persists_single_row(tmp_path):
     assert stored[0]["content_hash"]
 
 
+def test_classify_upload_defaults_printer_to_form4bl(tmp_path):
+    settings = _build_settings(tmp_path)
+    client = TestClient(create_app(settings))
+
+    response = client.post(
+        "/api/uploads/classify",
+        files=[("files", ("P001_die.stl", io.BytesIO(_minimal_stl_bytes()), "model/stl"))],
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["rows"][0]["printer"] == "Form 4BL"
+
+    with connect(settings) as connection:
+        stored = connection.execute("SELECT printer FROM upload_rows").fetchone()
+
+    assert stored["printer"] == "Form 4BL"
+
+
 def test_classify_upload_marks_existing_hash_as_duplicate(tmp_path):
     settings = _build_settings(tmp_path)
     client = TestClient(create_app(settings))

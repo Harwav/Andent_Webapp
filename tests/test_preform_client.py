@@ -326,6 +326,32 @@ class TestPreFormClient:
         assert "500" in str(exc_info.value)
         assert "save failed" in str(exc_info.value)
 
+    def test_save_screenshot_success(self, tmp_path):
+        """Test saving a scene screenshot to a local PNG file path."""
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "ok"}
+        mock_session.post.return_value = mock_response
+
+        client = PreFormClient()
+        client.session = mock_session
+        output_path = tmp_path / "260421-001.png"
+
+        result = client.save_screenshot("scene-123", output_path)
+
+        assert result == {"status": "ok"}
+        mock_session.post.assert_called_once_with(
+            "http://localhost:44388/scene/scene-123/save-screenshot/",
+            json={
+                "file": str(output_path.resolve()),
+                "view_type": "ZOOM_ON_MODELS",
+                "crop_to_models": True,
+                "image_size_px": 820,
+            },
+            timeout=120,
+        )
+
     def test_send_to_printer_success(self):
         """Test sending print job to printer successfully."""
         mock_session = Mock()
