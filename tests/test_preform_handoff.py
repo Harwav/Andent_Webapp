@@ -93,6 +93,7 @@ def _build_settings(tmp_path: Path):
     data_dir = tmp_path / "data"
     return replace(
         build_settings(data_dir=data_dir, database_path=data_dir / "andent_web.db"),
+        output_dir=tmp_path / "output",
         print_hold_density_target=0.0,
         preform_validation_enabled=True,
     )
@@ -102,6 +103,7 @@ def _build_holding_settings(tmp_path: Path):
     data_dir = tmp_path / "data"
     return replace(
         build_settings(data_dir=data_dir, database_path=data_dir / "andent_web.db"),
+        output_dir=tmp_path / "output",
         print_hold_density_target=0.40,
         print_hold_cutoff_local_time="23:59",
     )
@@ -256,7 +258,7 @@ def test_send_to_print_creates_preform_batches_and_print_job_records(tmp_path):
 
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
-    expected_form_path = case_files[0].parent / f"{jobs[0].job_name}.form"
+    expected_form_path = settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     assert jobs[0].form_file_path == str(expected_form_path.resolve())
     assert jobs[0].print_job_id is None
@@ -305,9 +307,9 @@ def test_virtual_dispatch_mode_sends_to_preform_virtual_printer_and_records_prin
         ("scene-1", "virtual-device-1", jobs[0].job_name)
     ]
     assert jobs[0].print_job_id == "print-1"
-    expected_screenshot_path = case_file.parent / f"{jobs[0].job_name}.png"
-    assert jobs[0].screenshot_url == str(expected_screenshot_path.resolve())
-    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
+    assert jobs[0].screenshot_url == f"/api/print-queue/jobs/{jobs[0].id}/screenshot"
+    expected_form_path = settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form"
+    assert jobs[0].form_file_path == str(expected_form_path.resolve())
     assert response.json()[0]["status"] == "Submitted"
 
     screenshot_response = client.get(f"/api/print-queue/jobs/{jobs[0].id}/screenshot")
@@ -347,11 +349,11 @@ def test_save_form_handoff_stores_preform_screenshot_beside_form_file(tmp_path):
     assert response.status_code == 200
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
-    expected_screenshot_path = case_file.parent / f"{jobs[0].job_name}.png"
+    expected_screenshot_path = settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.png"
     assert stub_client.saved_screenshots == [
         ("scene-1", str(expected_screenshot_path.resolve()))
     ]
-    assert jobs[0].screenshot_url == str(expected_screenshot_path.resolve())
+    assert jobs[0].screenshot_url == f"/api/print-queue/jobs/{jobs[0].id}/screenshot"
 
     screenshot_response = client.get(f"/api/print-queue/jobs/{jobs[0].id}/screenshot")
 
@@ -390,8 +392,9 @@ def test_screenshot_capture_failure_keeps_generated_preview_fallback(tmp_path):
     assert response.status_code == 200
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
+    expected_screenshot_path = settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.png"
     assert stub_client.saved_screenshots == [
-        ("scene-1", str((case_file.parent / f"{jobs[0].job_name}.png").resolve()))
+        ("scene-1", str(expected_screenshot_path.resolve()))
     ]
     assert jobs[0].screenshot_url == f"/api/print-queue/jobs/{jobs[0].id}/screenshot"
 
@@ -682,7 +685,7 @@ def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
     assert jobs[0].compatibility_key == "form-4bl|precision-model-v1|100"
     assert jobs[0].manifest_json is not None
     assert jobs[0].manifest_json["case_ids"] == ["CASE-A", "CASE-B"]
-    expected_form_path = case_a.parent / f"{jobs[0].job_name}.form"
+    expected_form_path = settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     assert jobs[0].form_file_path == str(expected_form_path.resolve())
 
@@ -755,7 +758,7 @@ def test_send_to_print_records_validation_warnings_without_rollback(tmp_path):
     ]
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
-    expected_form_path = case_files[0].parent / f"{jobs[0].job_name}.form"
+    expected_form_path = settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     assert jobs[0].validation_passed is False
     assert jobs[0].validation_errors == ["overlap"]
@@ -798,7 +801,8 @@ def test_send_to_print_submits_single_validation_warning_after_saving_form(tmp_p
     assert row["status"] == "Submitted"
     assert row["review_required"] is False
     assert row["review_reason"] is None
-    expected_form_path = case_file.parent / f"{datetime.now().strftime('%y%m%d')}_CASE-INVALID.form"
+    expected_job_name = f"{datetime.now().strftime('%y%m%d')}_CASE-INVALID"
+    expected_form_path = settings.output_dir / expected_job_name / f"{expected_job_name}.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
@@ -839,7 +843,7 @@ def test_send_to_print_passes_preset_hint_and_selected_printer(tmp_path):
     assert stub_client.imported_models == [("scene-1", str(case_file), "tooth_v1")]
     assert stub_client.print_jobs == []
     jobs = list_print_jobs(settings)
-    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
+    assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
 
 
 def test_send_to_print_defaults_to_form4bl_when_no_printer_selected(tmp_path):
@@ -873,7 +877,7 @@ def test_send_to_print_defaults_to_form4bl_when_no_printer_selected(tmp_path):
     assert stub_client.print_jobs == []
     jobs = list_print_jobs(settings)
     assert jobs[0].printer_type == "Form 4BL"
-    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
+    assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
 
 
 def test_send_to_print_holds_final_below_target_build_without_preform_dispatch(tmp_path):
@@ -967,7 +971,7 @@ def test_release_held_job_dispatches_and_records_operator_release(tmp_path):
     assert len(jobs) == 1
     assert jobs[0].status == "Queued"
     assert jobs[0].print_job_id is None
-    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
+    assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
     assert jobs[0].release_reason == "operator_release"
     assert jobs[0].released_by_operator is True
 
@@ -1016,7 +1020,7 @@ def test_cutoff_poll_releases_held_job_created_in_current_process(tmp_path):
     jobs = list_print_jobs(settings)
     assert jobs[0].status == "Queued"
     assert jobs[0].print_job_id is None
-    assert jobs[0].form_file_path == str((case_file.parent / f"{jobs[0].job_name}.form").resolve())
+    assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
     assert jobs[0].release_reason == "cutoff_release"
     assert jobs[0].released_by_operator is False
 
@@ -1089,7 +1093,7 @@ def test_new_compatible_rows_replan_with_existing_held_build(tmp_path):
     assert len(jobs) == 1
     assert jobs[0].status == "Queued"
     assert jobs[0].print_job_id is None
-    assert jobs[0].form_file_path == str((filler_file.parent / f"{jobs[0].job_name}.form").resolve())
+    assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
     assert set(jobs[0].case_ids) == {"CASE-HELD", "CASE-FILLER"}
 
 
@@ -1128,7 +1132,7 @@ def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
     assert row["linked_job_name"] == f"{datetime.now().strftime('%y%m%d')}_CASE-HISTORY"
 
 
-def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeypatch):
+def test_send_to_print_does_not_require_volume_before_handoff(tmp_path, monkeypatch):
     settings = _build_settings(tmp_path)
     app = create_app(settings)
     client = TestClient(app)
@@ -1151,7 +1155,10 @@ def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeyp
 
     from app.services import volume_enrichment
 
-    monkeypatch.setattr(volume_enrichment, "get_stl_volume_ml", lambda path: 2.75)
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Send-to-print should not compute exact STL volume")
+
+    monkeypatch.setattr(volume_enrichment, "get_stl_volume_ml", fail_if_called)
     stub_client = StubPreFormClient(settings.preform_server_url)
     with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
         "app.services.preform_setup_service.get_preform_setup_status",
@@ -1169,7 +1176,7 @@ def test_send_to_print_completes_missing_volume_before_handoff(tmp_path, monkeyp
     ]
     updated = get_upload_row_by_id(settings, row_ids[0])
     assert updated is not None
-    assert updated.volume_ml == 2.75
+    assert updated.volume_ml is None
 
 
 def test_send_to_print_returns_502_when_preform_unavailable(tmp_path):

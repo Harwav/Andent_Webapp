@@ -1076,7 +1076,6 @@ def send_ready_rows_to_print(
     from ..database import _load_rows_by_ids, _now_iso, connect, get_upload_row_by_id
     from ..schemas import PrintJob
     from .build_planning import plan_build_manifests
-    from .volume_enrichment import enrich_upload_row_volumes
 
     if not row_ids:
         return []
@@ -1089,20 +1088,7 @@ def send_ready_rows_to_print(
         if row:
             rows.append(row)
 
-    missing_volume_ids = [
-        row.row_id
-        for row in rows
-        if row.row_id is not None and row.status == "Ready" and row.volume_ml is None
-    ]
-    if missing_volume_ids:
-        enrich_upload_row_volumes(settings, missing_volume_ids)
-        rows = []
-        for row_id in row_ids:
-            row = get_upload_row_by_id(settings, row_id)
-            if row:
-                rows.append(row)
-
-    ready_rows = [r for r in rows if r.status == "Ready" and r.volume_ml is not None]
+    ready_rows = [r for r in rows if r.status == "Ready"]
     if not ready_rows:
         return rows
 

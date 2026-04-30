@@ -31,10 +31,8 @@ from core.andent_classification import (
     WORKFLOW_SPLINT,
     classify_artifact,
     extract_case_id,
-    measure_mesh_thickness_stats,
-    resolve_ortho_structure,
 )
-from core.batch_optimizer import get_stl_dimensions, get_stl_volume_ml
+from core.batch_optimizer import get_stl_dimensions
 from stl import mesh as stl_mesh_module
 from core.stl_validator import validate_stl_file
 
@@ -81,6 +79,12 @@ def infer_phase0_model_type(file_name: str, artifact, structure=None) -> str | N
     if artifact.artifact_type == ARTIFACT_TOOTH:
         return "Tooth"
     if artifact.artifact_type == ARTIFACT_ANTAGONIST:
+        # Phase 0 intentionally treats antagonists as one standard model type.
+        # High-confidence antagonist files therefore stay on the fast-path
+        # "Antagonist" -> "Ortho Solid - Flat, No Supports" mapping for now.
+        # Solid/hollow differentiation is deferred because it requires expensive
+        # geometry analysis and does not yet change the operator workflow enough
+        # to justify the upload-time cost.
         return "Antagonist"
     if structure and structure.structure == STRUCTURE_HOLLOW:
         return "Ortho - Hollow"
@@ -178,21 +182,10 @@ def classify_saved_upload(stored_path: Path, original_filename: str) -> Classifi
         raise ValueError(validation.message)
     artifact = classify_artifact(original_filename, dims=dimensions)
     structure = None
-    needs_structure_sampling = (
-        artifact.artifact_type in {ARTIFACT_MODEL, ARTIFACT_MODEL_BASE}
-        and "unsectionedmodel" not in original_filename.lower()
-        and artifact.artifact_type != ARTIFACT_MODEL_BASE
-        and artifact.confidence != "high"
-    )
-    volume_ml = get_stl_volume_ml(str(stored_path)) if needs_structure_sampling else None
-    if needs_structure_sampling:
-        thickness_stats = measure_mesh_thickness_stats(str(stored_path))
-        structure = resolve_ortho_structure(
-            artifact,
-            dims=dimensions,
-            volume_ml=volume_ml,
-            thickness_stats=thickness_stats,
-        )
+    # Keep upload classification limited to cheap filename and dimensions signals.
+    # Exact volume and wall-thickness sampling are deferred out of the active
+    # web flow because current packing uses XY dimensions, not mesh volume.
+    volume_ml = None
     model_type = infer_phase0_model_type(original_filename, artifact, structure)
     preset = default_preset(model_type)
     review_required = bool(artifact.review_required or artifact.review_reason or model_type is None)

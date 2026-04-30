@@ -52,6 +52,7 @@ Phase-1 `Model Type` values:
 - `Die`
 - `Tooth`
 - `Splint`
+- `Antagonist`
 
 ## Out-of-Scope / Non-goals
 
@@ -84,6 +85,7 @@ The system should not require human review for standard die/tooth support genera
 - Human review should be limited to outliers and should not exceed `2%` of cases.
 - Prior MVP-era safeguards blocking tooth-model auto-prep and printer auto-dispatch should be removed for standard cases in this PRD.
 - This is a phase-1 PRD for a web product, not a desktop-only extension.
+- Upload classification should keep synchronous geometry work minimal: bounding-box dimensions are required because current packing uses XY footprint, but exact STL volume is not part of the active web workflow, UI, or print-handoff gate.
 
 ## Testable Acceptance Criteria
 
@@ -139,6 +141,7 @@ Implemented in the repository:
 - PreFormServer handoff route and print job persistence
 - Print Queue UI, Formlabs job polling, and screenshot retrieval/caching
 - read-only plan preview endpoints backed by the same build-manifest planner used for handoff
+- exact STL volume calculation removed from the active upload, queue, visible UI, and send-to-print flow; nullable `volume_ml` remains only as a legacy/future data field
 
 Not yet proven complete against launch acceptance:
 
@@ -226,3 +229,7 @@ The following targets were identified as missing from the original PRD and shoul
 | Upload-to-queue latency (p95) | `<= 30s` | For 100-file batch under representative load |
 | Dispatch success rate | `>= 99%` | Non-vacuous; excludes zero-job scenarios |
 | Mixed-model-type handling | Per-file | Each file classified individually; mixed types allowed in batch |
+
+### Active Geometry Scope (2026-04-30)
+
+Andent Web now treats bounding-box dimensions as the only required synchronous STL geometry during intake. Dimensions remain visible and are required for plan preview/build planning. Exact mesh volume is intentionally not computed in the active web workflow and is not shown in the Work Queue/History UI because current packing decisions use calibrated XY footprint, not volume.

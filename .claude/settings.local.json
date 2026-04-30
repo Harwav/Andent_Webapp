@@ -8,7 +8,9 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(python -m pytest tests/test_preform_setup.py -q)",
-      "Bash(python -m pytest tests/test_preform_setup.py -q -p no:mcp_eval)"
+      "Bash(python -m pytest tests/test_preform_setup.py -q -p no:mcp_eval)",
+      "Bash(git push *)",
+      "Bash(PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_preset_catalog.py tests/test_build_planning.py tests/test_batching.py tests/test_integration.py -q)"
     ]
   }
 }

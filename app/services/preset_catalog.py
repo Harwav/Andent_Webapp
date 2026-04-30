@@ -126,13 +126,7 @@ _PRINTER_BUILD_AREAS_MM2: dict[str, float] = {
     "Form 4L": 335.0 * 200.0,
     "Form 4BL": 353.0 * 196.0,
 }
-_PRINTER_XY_BUDGETS_MM2: dict[str, float] = {
-    "Form 4": 10820.9,
-    "Form 4B": _PRINTER_BUILD_AREAS_MM2["Form 4B"],
-    "Form 4L": 29000.0,
-    "Form 4BL": _PRINTER_BUILD_AREAS_MM2["Form 4BL"],
-}
-_DEFAULT_XY_BUDGET_MM2 = min(_PRINTER_XY_BUDGETS_MM2.values())
+_DEFAULT_XY_BUDGET_MM2: float = _PRINTER_BUILD_AREAS_MM2["Form 4B"]
 
 LEGACY_PRESET_ALIASES: dict[str, str] = {
     "Ortho - Solid": "Ortho Solid - Flat, No Supports",
@@ -185,7 +179,7 @@ def get_preform_preset_hint(preset_name: str | None) -> str | None:
 def get_printer_xy_budget(printer_name: str | None) -> float:
     if not printer_name:
         return _DEFAULT_XY_BUDGET_MM2
-    return _PRINTER_XY_BUDGETS_MM2.get(printer_name, _DEFAULT_XY_BUDGET_MM2)
+    return _PRINTER_BUILD_AREAS_MM2.get(printer_name, _DEFAULT_XY_BUDGET_MM2)
 
 
 def build_compatibility_key(

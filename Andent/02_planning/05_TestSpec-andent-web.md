@@ -199,6 +199,7 @@ Observed artifact outcome:
 
 ### In Progress And History Sections
 - Verify `Send to Print` moves selected `Ready` rows out of File Analysis into In Progress or History, depending on handoff state.
+- Verify `Send to Print` does not compute exact STL volume and does not require `volume_ml` before PreFormServer handoff.
 - Verify held rows appear in In Progress as `Holding for More Cases`.
 - Verify submitted/printed rows are read-only after handoff.
 - Verify In Progress rows expose individual removal but stay excluded from selection, bulk edits, and send-to-print actions.
@@ -208,7 +209,6 @@ Observed artifact outcome:
   - `Case ID`
   - `Model Type`
   - `Preset`
-  - `Volume`
   - `Printer`
   - `Date`
   - `Person`
@@ -226,7 +226,7 @@ Observed artifact outcome:
 - Verify the `Active` table avoids horizontal scrolling at target viewport widths.
 - Verify file names wrap up to 3 full lines without ellipsis.
 - Verify `Dimensions` remains visible.
-- Verify `Volume (mL)` is computed from raw STL mesh volume.
+- Verify exact `Volume (mL)` is not shown in the Work Queue or History UI.
 - Verify each row shows an automatic STL thumbnail.
 - Verify clicking the thumbnail opens an interactive 3D modal preview.
 
@@ -485,3 +485,4 @@ Create `verdict.md` in the dated evidence folder with this structure:
 | Mixed-compatible Form 4B/Form 4BL behavior | Covered by build-planning and handoff tests plus live virtual/debug PreForm proof for the 2026-04-28 candidate. |
 | Virtual PreForm devices returned as wrapped/string payloads | Covered by `tests/test_preform_handoff.py`; virtual mode accepts PreForm's `{"count": ..., "devices": [...]}` shape and selects the manifest/preferred virtual printer. |
 | Virtual/debug job preview unavailable without Formlabs Web screenshot | Covered by `tests/test_preform_handoff.py` and `tests/release_gate/operator-demo.spec.ts`; virtual/debug jobs expose a generated PNG build preview through the same screenshot zoom modal. |
+| Exact STL volume on the critical path | Removed from active upload, Work Queue/History UI, and send-to-print gating; dimensions remain the geometry input for classification fallback and packing. |

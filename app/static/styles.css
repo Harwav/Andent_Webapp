@@ -30,7 +30,6 @@
     --col-printer: 9%;
     --col-status: 9%;
     --col-dimensions: 12%;
-    --col-volume: 8%;
     --col-remove: 60px;
 }
 
@@ -744,9 +743,7 @@ h2 {
 .active-table th:nth-child(9),
 .active-table td:nth-child(9)  { width: var(--col-dimensions); }
 .active-table th:nth-child(10),
-.active-table td:nth-child(10) { width: var(--col-volume); }
-.active-table th:nth-child(11),
-.active-table td:nth-child(11) { width: var(--col-remove); }
+.active-table td:nth-child(10) { width: var(--col-remove); }
 
 .progress-table th:nth-child(1),
 .progress-table td:nth-child(1)  { width: var(--col-preview); }
@@ -765,9 +762,7 @@ h2 {
 .progress-table th:nth-child(8),
 .progress-table td:nth-child(8)  { width: var(--col-dimensions); }
 .progress-table th:nth-child(9),
-.progress-table td:nth-child(9)  { width: var(--col-volume); }
-.progress-table th:nth-child(10),
-.progress-table td:nth-child(10) { width: var(--col-remove); }
+.progress-table td:nth-child(9)  { width: var(--col-remove); }
 
 .processed-table th:nth-child(1),
 .processed-table td:nth-child(1) { width: 9%; }
@@ -782,11 +777,9 @@ h2 {
 .processed-table th:nth-child(6),
 .processed-table td:nth-child(6) { width: 10%; }
 .processed-table th:nth-child(7),
-.processed-table td:nth-child(7) { width: 8%; }
+.processed-table td:nth-child(7) { width: 9%; }
 .processed-table th:nth-child(8),
-.processed-table td:nth-child(8) { width: 9%; }
-.processed-table th:nth-child(9),
-.processed-table td:nth-child(9) { width: 7%; }
+.processed-table td:nth-child(8) { width: 7%; }
 
 select {
     width: 100%;
@@ -827,7 +820,6 @@ select:focus {
 .status-check,
 .status-analyzing,
 .status-uploading,
-.status-calculating-volume,
 .status-processing,
 .status-importing,
 .status-layout,
@@ -837,7 +829,6 @@ select:focus {
 }
 
 .status-analyzing::before,
-.status-calculating-volume::before,
 .status-processing::before,
 .status-importing::before,
 .status-layout::before,

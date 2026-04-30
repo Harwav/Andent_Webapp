@@ -295,8 +295,8 @@ def test_antag_upload_classifies_with_case_id_and_ortho_solid_preset(tmp_path, m
     def fail_volume_if_called(*args, **kwargs):
         raise AssertionError("Antag filename classification should not need exact volume")
 
-    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called)
-    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called)
+    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called, raising=False)
+    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called, raising=False)
     stl_path = tmp_path / "20260408_8425357__Kaleen_Shium_Antag.stl"
     stl_path.write_bytes(_minimal_stl_bytes())
 
@@ -316,8 +316,8 @@ def test_unsectioned_model_classifies_solid_without_thickness_sampling(tmp_path,
     def fail_volume_if_called(*args, **kwargs):
         raise AssertionError("Named unsectioned models should not need exact volume")
 
-    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called)
-    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called)
+    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called, raising=False)
+    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called, raising=False)
     stl_path = tmp_path / "20260408_8425357__Kaleen_Shium_UnsectionedModel_LowerJaw.stl"
     stl_path.write_bytes(_minimal_stl_bytes())
 
@@ -338,8 +338,8 @@ def test_modelbase_classifies_solid_without_thickness_sampling(tmp_path, monkeyp
     def fail_volume_if_called(*args, **kwargs):
         raise AssertionError("Named modelbase files should not need exact volume")
 
-    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called)
-    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called)
+    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called, raising=False)
+    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called, raising=False)
     stl_path = tmp_path / "2026-04-08_00084-002-8424187_Teachers_Marita_UT_A2--37-36-modelbase.stl"
     stl_path.write_bytes(_minimal_stl_bytes())
 
@@ -362,8 +362,8 @@ def test_legacy_arch_model_classifies_solid_without_thickness_sampling(tmp_path,
     def fail_volume_if_called(*args, **kwargs):
         raise AssertionError("Named legacy arch files should not need exact volume")
 
-    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called)
-    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called)
+    monkeypatch.setattr(classification, "measure_mesh_thickness_stats", fail_if_called, raising=False)
+    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_volume_if_called, raising=False)
     stl_path = tmp_path / "8425024__Green_Alan-2-UPPER.stl"
     stl_path.write_bytes(_minimal_stl_bytes())
 
@@ -446,17 +446,22 @@ def test_enrich_upload_row_volumes_updates_missing_volume(tmp_path, monkeypatch)
     assert updated.volume_ml == 1.234
 
 
-def test_classify_upload_defers_volume_to_background_queue_update(tmp_path, monkeypatch):
-    from app.services import classification, volume_enrichment
+def test_classify_upload_does_not_compute_or_enqueue_volume(tmp_path, monkeypatch):
+    from app.routers import uploads
+    from app.services import classification
 
     settings = _build_settings(tmp_path)
     client = TestClient(create_app(settings))
+    enrichment_calls = []
 
     def fail_if_called(*args, **kwargs):
         raise AssertionError("Initial fast-path classification should not compute exact volume")
 
-    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_if_called)
-    monkeypatch.setattr(volume_enrichment, "get_stl_volume_ml", lambda path: 2.5)
+    def record_enrichment_call(*args, **kwargs):
+        enrichment_calls.append((args, kwargs))
+
+    monkeypatch.setattr(classification, "get_stl_volume_ml", fail_if_called, raising=False)
+    monkeypatch.setattr(uploads, "enrich_upload_row_volumes", record_enrichment_call, raising=False)
 
     response = client.post(
         "/api/uploads/classify",
@@ -480,7 +485,8 @@ def test_classify_upload_defers_volume_to_background_queue_update(tmp_path, monk
     queue_response = client.get("/api/uploads/queue")
     assert queue_response.status_code == 200
     queued_row = queue_response.json()["active_rows"][0]
-    assert queued_row["volume_ml"] == 2.5
+    assert queued_row["volume_ml"] is None
+    assert enrichment_calls == []
 
 
 def test_classification_row_accepts_antagonist_model_type():

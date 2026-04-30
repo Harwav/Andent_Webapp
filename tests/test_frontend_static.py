@@ -70,12 +70,11 @@ def test_analyzing_status_has_motion_affordance():
 def test_in_progress_handoff_statuses_have_motion_affordance():
     styles_css = STYLES_CSS.read_text(encoding="utf-8")
 
-    assert ".status-calculating-volume" in styles_css
+    assert ".status-calculating-volume" not in styles_css
     assert ".status-processing" in styles_css
     assert ".status-importing" in styles_css
     assert ".status-layout" in styles_css
     assert ".status-validating" in styles_css
-    assert ".status-calculating-volume::before" in styles_css
     assert ".status-processing::before" in styles_css
 
 
@@ -131,12 +130,15 @@ def test_in_progress_rows_expose_individual_remove_without_bulk_editing():
     assert "if ((row.queue_section || \"analysis\") === \"in_progress\")" in app_js
 
 
-def test_send_to_print_does_not_gate_on_calculating_volume():
+def test_work_queue_does_not_show_volume_column_or_stage():
+    index_html = INDEX_HTML.read_text(encoding="utf-8")
     app_js = APP_JS.read_text(encoding="utf-8")
 
-    assert 'return "Calculating..."' in app_js
+    assert '<th class="col-volume">Volume</th>' not in index_html
+    assert "function formatVolume" not in app_js
+    assert "formatVolume(row)" not in app_js
     assert 'return !row.is_temp && !isRowPendingDelete(row) && row.status === "Ready";' in app_js
-    assert 'row.volume_ml == null ? "Calculating Volume" : stage' in app_js
+    assert "Calculating Volume" not in app_js
 
 
 def test_removal_undo_window_is_five_seconds():

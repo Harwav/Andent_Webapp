@@ -85,13 +85,13 @@ def test_get_printer_xy_budget_uses_live_form4bl_platform_budget():
     assert form4b_budget == 25000.0
 
 
-def test_get_printer_xy_budget_fails_closed_for_unknown_printer():
-    assert get_printer_xy_budget("Unknown Printer") == 10820.9
+def test_get_printer_xy_budget_falls_back_to_form4b_for_unknown_printer():
+    assert get_printer_xy_budget("Unknown Printer") == 25000.0
 
 
-def test_get_printer_xy_budget_fails_closed_for_missing_printer_name():
-    assert get_printer_xy_budget(None) == 10820.9
-    assert get_printer_xy_budget("") == 10820.9
+def test_get_printer_xy_budget_falls_back_to_form4b_for_missing_printer_name():
+    assert get_printer_xy_budget(None) == 25000.0
+    assert get_printer_xy_budget("") == 25000.0
 
 
 def test_get_printer_xy_budget_keeps_form4b_below_form4bl():

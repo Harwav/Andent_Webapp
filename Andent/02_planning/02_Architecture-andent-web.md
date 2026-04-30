@@ -1,7 +1,7 @@
 # Architecture: Andent Web Auto Prep
 
 > **Created:** 2026-04-18
-> **Updated:** 2026-04-27
+> **Updated:** 2026-04-30
 > **Status:** Approved intent; current repository implementation is complete, planner behavior is printer-aware, automated verification is green, and live-service acceptance is still pending
 
 ---
@@ -17,7 +17,8 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 
 - Implemented: intake/classification queue, editable model/preset/printer overrides, preset catalog, compatibility-aware Form 4B/Form 4BL build planning, printer-aware XY budgets, printer-aware startup case seeding, descending-to-filler planner flow, density-based Holding for More Cases, send-to-print handoff route, print job persistence, Print Queue tab, Formlabs polling, screenshot retrieval, and plan preview endpoints.
 - Verified in repository: the upload/classification route, Form 4B/Form 4BL planner, planner ordering/budget logic, handoff route, print-queue flows, row/bulk printer edits, held-build release UI, a clean full-suite pytest run (`250 passed` with plugin autoload disabled in this environment), TypeScript checking, and the affected Playwright bulk-actions spec.
-- Still not proven from repository-only evidence: launch metrics against real workflow volume, and a live external-service run through PreFormServer/Formlabs hardware/cloud.
+- Still not proven from repository-only evidence: launch metrics against representative workflow load, and a live external-service run through PreFormServer/Formlabs hardware/cloud.
+- Active geometry policy: upload/classification computes bounding-box dimensions for classification fallback and XY packing, but does not compute exact STL volume. Volume is not displayed in the Work Queue/History UI and does not gate send-to-print.
 
 ---
 
@@ -128,6 +129,7 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 |------|-------------|--------|
 | STL Upload | Browser drag-drop upload to server | ✅ Phase 0 |
 | Classification | Detect model type + case ID from filename/geometry | ✅ Phase 0 |
+| Dimension Extraction | Compute bounding-box dimensions for fallback classification, previews, and XY packing | Implemented and repository-verified |
 | Preset Assignment | Map model type to preset | ✅ Phase 0 |
 | Build Planning | Whole-case Form 4B/Form 4BL manifests grouped by compatible printer group/material/layer-height, with printer-aware budgets and startup seeding | Implemented and repository-verified |
 | Printer Group Selection | Operator row and bulk edits for `Form 4BL` or `Form 4B` | Implemented and repository-verified |
@@ -159,6 +161,7 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | `Die` | Dental die model |
 | `Tooth` | Single tooth model |
 | `Splint` | Dental splint |
+| `Antagonist` | Opposing arch; high-confidence antagonist files intentionally use the standard antagonist fast path and default solid-model preset for now |
 
 ---
 
@@ -194,6 +197,8 @@ Andent Web is a browser-based STL intake and classification system for dental 3D
 | Queue update refresh | 5-10s polling | UI auto-refresh |
 
 Current state: implementation and automated verification are now in place, but the repository still does not record enough live workflow evidence to claim the production targets are met.
+
+Exact STL volume is not a success metric or prerequisite for readiness in the current architecture. If future packing, resin usage, or quoting features need mesh volume, they should introduce an explicit on-demand/background computation path rather than putting volume back into the upload critical path.
 
 ---
 
@@ -254,6 +259,7 @@ andent_web/
 | 2026-04-21 | Updated after Form 4BL build layout completion: compatibility-aware build manifests, mixed-preset queue display, and 187-test verification |
 | 2026-04-23 | Updated after printer-aware planner enhancement: `Form 4B`/`Form 4BL` startup seeding, printer-specific XY budgets, and descending-to-filler behavior |
 | 2026-04-27 | Marked preset/printer/holding policy complete: Form 4B/Form 4BL planning, printer-group edits, density holding, Release now, 250-test verification, TypeScript, and affected Playwright bulk-actions release gate |
+| 2026-04-30 | Documented active geometry policy: dimensions stay required for XY packing; exact volume is removed from active upload, UI, and send-to-print gating |
 
 ---
 

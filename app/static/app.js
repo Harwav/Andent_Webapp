@@ -808,13 +808,6 @@ function formatDimensions(dimensions) {
     return `${dimensions.x_mm.toFixed(1)} x ${dimensions.y_mm.toFixed(1)} x ${dimensions.z_mm.toFixed(1)} mm`;
 }
 
-function formatVolume(row) {
-    if (typeof row.volume_ml !== "number") {
-        return "Calculating...";
-    }
-    return `${row.volume_ml.toFixed(2)} mL`;
-}
-
 function formatDate(value) {
     if (!value) {
         return "-";
@@ -1394,10 +1387,6 @@ function renderActiveRows() {
         dimensionsCell.textContent = formatDimensions(row.dimensions);
         tr.appendChild(dimensionsCell);
 
-        const volumeCell = document.createElement("td");
-        volumeCell.textContent = formatVolume(row);
-        tr.appendChild(volumeCell);
-
         const removeCell = document.createElement("td");
         removeCell.appendChild(createRemoveCell(row));
         tr.appendChild(removeCell);
@@ -1408,7 +1397,7 @@ function renderActiveRows() {
     if (pageRows.length === 0) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 11;
+        td.colSpan = 10;
         td.className = "table-empty";
         td.textContent = "No files currently need attention.";
         tr.appendChild(td);
@@ -1475,10 +1464,6 @@ function renderWorkQueueSections() {
         dimensionsCell.textContent = formatDimensions(row.dimensions);
         tr.appendChild(dimensionsCell);
 
-        const volumeCell = document.createElement("td");
-        volumeCell.textContent = formatVolume(row);
-        tr.appendChild(volumeCell);
-
         const removeCell = document.createElement("td");
         removeCell.appendChild(createRemoveCell(row));
         tr.appendChild(removeCell);
@@ -1489,7 +1474,7 @@ function renderWorkQueueSections() {
     if (rows.length === 0) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 10;
+        td.colSpan = 9;
         td.className = "table-empty";
         td.textContent = "No files are currently being processed.";
         tr.appendChild(td);
@@ -1547,10 +1532,6 @@ function renderHistoryRows() {
         }
         tr.appendChild(jobCell);
 
-        const volumeCell = document.createElement("td");
-        volumeCell.textContent = formatVolume(row);
-        tr.appendChild(volumeCell);
-
         const printerCell = document.createElement("td");
         printerCell.textContent = row.printer || "-";
         tr.appendChild(printerCell);
@@ -1565,7 +1546,7 @@ function renderHistoryRows() {
     if (pageRows.length === 0) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 9;
+        td.colSpan = 8;
         td.className = "table-empty";
         td.textContent = "No history rows yet.";
         tr.appendChild(td);
@@ -1857,11 +1838,10 @@ function markRowsInProgress(rows, stage = "Processing") {
         if (!rowIds.has(row.row_id)) {
             return row;
         }
-        const nextStage = row.volume_ml == null ? "Calculating Volume" : stage;
         return {
             ...row,
             queue_section: "in_progress",
-            handoff_stage: nextStage,
+            handoff_stage: stage,
         };
     });
 }
@@ -2552,7 +2532,7 @@ async function openPreview(row) {
     elements.previewTitle.textContent = row.file_name;
     elements.previewCaption.textContent = row.is_temp
         ? `${row.status} | local file preview`
-        : `${formatDimensions(row.dimensions)} | ${formatVolume(row)}`;
+        : formatDimensions(row.dimensions);
 
     if (row.is_temp && !row.file) {
         const placeholder = document.createElement("div");
