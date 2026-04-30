@@ -44,30 +44,30 @@ def _row(
     )
 
 
-def test_generate_job_name_includes_date_and_case_ids_in_order():
-    """Job name should include date prefix and case IDs in build order."""
+def test_generate_job_name_uses_daily_sequence_and_ignores_case_ids():
     date = datetime(2026, 4, 21)
     job_name = generate_job_name(date, ["10936293", "10935421", "8425357"])
-    assert job_name == "260421_10936293_10935421_8425357"
+    assert job_name == "260421_0001"
 
 
-def test_generate_job_name_sanitizes_case_ids_for_form_paths():
-    """Unsafe case ID characters should not appear in generated file names."""
+def test_generate_job_name_uses_existing_sequence_names_to_pick_next_slot():
     date = datetime(2026, 4, 21)
-    job_name = generate_job_name(date, ["CASE/001", "Case:002", "case 003"])
-    assert job_name == "260421_CASE-001_Case-002_case-003"
+    job_name = generate_job_name(
+        date,
+        ["CASE/001", "Case:002", "case 003"],
+        existing_names={"260421_0001", "260421_CASE-LEGACY"},
+    )
+    assert job_name == "260421_0002"
 
 
-def test_generate_job_name_truncates_long_names_with_stable_hash():
-    """Very long names should stay file-safe and retain a stable digest."""
+def test_generate_job_name_fills_sequence_gaps_before_incrementing():
     date = datetime(2026, 4, 21)
-    job_name = generate_job_name(date, [f"CASE{i:03d}" for i in range(40)])
-    repeated_job_name = generate_job_name(date, [f"CASE{i:03d}" for i in range(40)])
-
-    assert len(job_name) <= 120
-    assert job_name == repeated_job_name
-    assert job_name.startswith("260421_CASE000_CASE001")
-    assert "-" not in job_name[-10:]
+    job_name = generate_job_name(
+        date,
+        [f"CASE{i:03d}" for i in range(40)],
+        existing_names={"260421_0001", "260421_0003"},
+    )
+    assert job_name == "260421_0002"
 
 
 def test_plan_build_manifests_splits_incompatible_compatibility_groups(monkeypatch):

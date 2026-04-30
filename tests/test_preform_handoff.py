@@ -484,14 +484,14 @@ def test_virtual_dispatch_accepts_preform_json_string_device_payload(tmp_path):
     assert stub_client.print_jobs == [("scene-1", "Form 4BL", jobs[0].job_name)]
 
 
-def test_send_to_print_dedupes_descriptive_job_name_for_today(tmp_path):
+def test_send_to_print_uses_next_daily_sequence_for_today(tmp_path):
     settings = _build_virtual_settings(tmp_path)
     today_prefix = datetime.now().strftime("%y%m%d")
     init_db(settings)
     create_print_job(
         settings,
         PrintJob(
-            job_name=f"{today_prefix}_CASE-NEXT-JOB",
+            job_name=f"{today_prefix}_0001",
             preset="Ortho Solid - Flat, No Supports",
             status="Queued",
             case_ids=["CASE-NEXT-JOB"],
@@ -529,10 +529,11 @@ def test_send_to_print_dedupes_descriptive_job_name_for_today(tmp_path):
     assert response.status_code == 200
     jobs = list_print_jobs(settings)
     assert [job.job_name for job in jobs] == [
-        f"{today_prefix}_CASE-NEXT-JOB_02",
-        f"{today_prefix}_CASE-NEXT-JOB",
+        f"{today_prefix}_0002",
+        f"{today_prefix}_0001",
     ]
-    assert stub_client.print_jobs == [("scene-1", "Form 4BL", f"{today_prefix}_CASE-NEXT-JOB_02")]
+    assert jobs[0].case_ids == ["CASE-NEXT-JOB"]
+    assert stub_client.print_jobs == [("scene-1", "Form 4BL", f"{today_prefix}_0002")]
 
 
 def test_virtual_dispatch_can_skip_preform_validation_when_disabled(tmp_path):
@@ -677,7 +678,8 @@ def test_send_to_print_groups_compatible_mixed_presets_into_one_job(tmp_path):
 
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
-    assert jobs[0].job_name == f"{datetime.now().strftime('%y%m%d')}_CASE-A_CASE-B"
+    assert jobs[0].job_name == f"{datetime.now().strftime('%y%m%d')}_0001"
+    assert jobs[0].case_ids == ["CASE-A", "CASE-B"]
     assert jobs[0].preset_names == [
         "Ortho Solid - Flat, No Supports",
         "Tooth - With Supports",
@@ -758,7 +760,9 @@ def test_send_to_print_records_validation_warnings_without_rollback(tmp_path):
     ]
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
-    expected_form_path = settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form"
+    expected_name = f"{datetime.now().strftime('%y%m%d')}_0001"
+    assert jobs[0].job_name == expected_name
+    expected_form_path = settings.output_dir / expected_name / f"{expected_name}.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     assert jobs[0].validation_passed is False
     assert jobs[0].validation_errors == ["overlap"]
@@ -801,11 +805,12 @@ def test_send_to_print_submits_single_validation_warning_after_saving_form(tmp_p
     assert row["status"] == "Submitted"
     assert row["review_required"] is False
     assert row["review_reason"] is None
-    expected_job_name = f"{datetime.now().strftime('%y%m%d')}_CASE-INVALID"
-    expected_form_path = settings.output_dir / expected_job_name / f"{expected_job_name}.form"
+    expected_name = f"{datetime.now().strftime('%y%m%d')}_0001"
+    expected_form_path = settings.output_dir / expected_name / f"{expected_name}.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
+    assert jobs[0].job_name == expected_name
     assert jobs[0].validation_passed is False
     assert jobs[0].validation_errors == ["overlap"]
 
@@ -963,7 +968,7 @@ def test_release_held_job_dispatches_and_records_operator_release(tmp_path):
     assert hold_response.status_code == 200
     assert release_response.status_code == 200
     assert stub_client.created_scenes == [
-        ("CASE-RELEASE", datetime.now().strftime("%y%m%d") + "_CASE-RELEASE")
+        ("CASE-RELEASE", f"{datetime.now().strftime('%y%m%d')}_0001")
     ]
     assert stub_client.print_jobs == []
 
@@ -1126,10 +1131,11 @@ def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
 
     assert response.status_code == 200
     row = response.json()[0]
+    today_prefix = datetime.now().strftime("%y%m%d")
     assert row["status"] == "Submitted"
     assert row["queue_section"] == "history"
     assert row["handoff_stage"] == "Queued"
-    assert row["linked_job_name"] == f"{datetime.now().strftime('%y%m%d')}_CASE-HISTORY"
+    assert row["linked_job_name"] == f"{today_prefix}_0001"
 
 
 def test_send_to_print_does_not_require_volume_before_handoff(tmp_path, monkeypatch):
@@ -1172,7 +1178,7 @@ def test_send_to_print_does_not_require_volume_before_handoff(tmp_path, monkeypa
     assert row["queue_section"] == "history"
     assert row["handoff_stage"] == "Queued"
     assert stub_client.created_scenes == [
-        ("CASE-VOLUME", f"{datetime.now().strftime('%y%m%d')}_CASE-VOLUME")
+        ("CASE-VOLUME", f"{datetime.now().strftime('%y%m%d')}_0001")
     ]
     updated = get_upload_row_by_id(settings, row_ids[0])
     assert updated is not None

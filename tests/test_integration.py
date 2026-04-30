@@ -150,7 +150,7 @@ class TestFullPrintHandoffFlow:
             MockClient.return_value = mock_instance
 
             result = process_print_manifest(settings, manifest, rows, 1)
-            expected_form_path = case_file.parent / f"{result['job_name']}.form"
+            expected_form_path = settings.output_dir / result["job_name"] / f"{result['job_name']}.form"
 
             assert mock_instance.create_scene.called
             assert mock_instance.import_model.called
@@ -211,7 +211,7 @@ class TestFullPrintHandoffFlow:
             MockClient.return_value = mock_instance
 
             result = process_print_manifest(settings, manifest, rows, 1)
-            expected_form_path = first_file.parent / f"{result['job_name']}.form"
+            expected_form_path = settings.output_dir / result["job_name"] / f"{result['job_name']}.form"
 
             assert mock_instance.create_scene.call_count == 1
             assert mock_instance.import_model.call_count == 2
