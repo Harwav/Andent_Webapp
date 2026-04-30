@@ -319,6 +319,508 @@ def test_virtual_dispatch_mode_sends_to_preform_virtual_printer_and_records_prin
     assert screenshot_response.content == b"preform-screenshot-png"
 
 
+def test_preview_batches_returns_manifest_assignment_ids(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "preview-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-PREVIEW",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-preview",
+            ),
+        ],
+    )
+
+    response = client.post("/api/uploads/rows/preview-batches", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["groups"]) == 1
+    group = payload["groups"][0]
+    assert group["row_ids"] == row_ids
+    assert group["case_ids"] == ["CASE-PREVIEW"]
+    assert group["printer_model"] == "Form 4BL"
+    assert group["planning_status"] == "planned"
+    assert group["manifest_id"].startswith("form-4bl|")
+    assert len(group["manifest_id"].rsplit("|", 1)[-1]) == 16
+
+
+def test_selected_device_send_to_print_rejects_unknown_device_before_scene_creation(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "unknown-device-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-UNKNOWN-DEVICE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-unknown-device",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-east", "name": "Form 4BL East", "model": "Form 4BL", "status": "ready"}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "stale-device"},
+        )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert "detail" not in payload
+    assert payload["blocked_groups"][0]["status"] == "failed"
+    assert "stale-device" in payload["blocked_groups"][0]["error"]
+    assert stub_client.created_scenes == []
+    assert stub_client.print_jobs == []
+    assert list_print_jobs(settings) == []
+    assert get_upload_row_by_id(settings, row_ids[0]).status == "Ready"
+
+
+def test_selected_device_send_to_print_rejects_unsupported_virtual_printer_before_scene_creation(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "unsupported-virtual-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-UNSUPPORTED-VIRTUAL",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-unsupported-virtual",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4", "name": "Form 4", "model": "Form 4", "status": "Virtual Printer", "is_virtual": True}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4"},
+        )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["blocked_groups"][0]["status"] == "failed"
+    assert "Form 4" in payload["blocked_groups"][0]["error"]
+    assert stub_client.created_scenes == []
+    assert stub_client.print_jobs == []
+    assert list_print_jobs(settings) == []
+    assert get_upload_row_by_id(settings, row_ids[0]).status == "Ready"
+
+
+def test_selected_device_send_to_print_dispatches_to_selected_real_device_and_records_device(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "selected-real-case.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-REAL",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-real",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-east", "name": "Form 4BL East", "model": "Form 4BL", "status": "ready"}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-east"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["groups"][0]["status"] == "submitted"
+    assert payload["groups"][0]["row_ids"] == row_ids
+    assert payload["quarantined_cases"] == []
+    assert payload["blocked_groups"] == []
+    assert isinstance(payload["prevalidation_ms"], int)
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert stub_client.print_jobs == [("scene-1", "form-4bl-east", jobs[0].job_name)]
+    assert jobs[0].print_job_id == "print-1"
+    assert jobs[0].printer_device_id == "form-4bl-east"
+    assert jobs[0].printer_device_name == "Form 4BL East"
+
+
+def test_selected_device_send_to_print_reserves_job_before_preform_side_effects(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "reserved-before-preform.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-RESERVE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-reserve-before-preform",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-east", "name": "Form 4BL East", "model": "Form 4BL", "status": "ready"}
+    ]
+    original_create_scene = stub_client.create_scene
+    reservation_seen = {"value": False}
+
+    def create_scene_after_reservation_check(patient_id, case_name, scene_settings=None):
+        jobs = list_print_jobs(settings)
+        row = get_upload_row_by_id(settings, row_ids[0])
+        reservation_seen["value"] = (
+            len(jobs) == 1
+            and jobs[0].job_name == case_name
+            and row.status == "Submitted"
+            and row.queue_section == "in_progress"
+            and row.handoff_stage == "Processing"
+            and row.linked_print_job_id == jobs[0].id
+        )
+        return original_create_scene(patient_id, case_name, scene_settings)
+
+    stub_client.create_scene = create_scene_after_reservation_check
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-east"},
+        )
+
+    assert response.status_code == 200
+    assert reservation_seen["value"] is True
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].scene_id == "scene-1"
+    assert jobs[0].print_job_id == "print-1"
+
+
+def test_selected_device_preform_connection_failure_cleans_reservation(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "selected-connection-failure.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-CONNECTION-FAIL",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-selected-connection-failure",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-east", "name": "Form 4BL East", "model": "Form 4BL", "status": "ready"}
+    ]
+    stub_client.create_scene = Mock(side_effect=Exception("Connection reset"))
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-east"},
+        )
+
+    assert response.status_code == 502
+    assert "Connection reset" in response.json()["detail"]
+    row = get_upload_row_by_id(settings, row_ids[0])
+    assert row.status == "Ready"
+    assert row.queue_section == "analysis"
+    assert row.handoff_stage is None
+    assert row.linked_print_job_id is None
+    assert list_print_jobs(settings) == []
+
+
+def test_save_form_send_to_print_reserves_job_before_preform_side_effects(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "save-form-reserved-before-preform.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-SAVE-RESERVE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-save-reserve-before-preform",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    original_create_scene = stub_client.create_scene
+    reservation_seen = {"value": False}
+
+    def create_scene_after_reservation_check(patient_id, case_name, scene_settings=None):
+        jobs = list_print_jobs(settings)
+        row = get_upload_row_by_id(settings, row_ids[0])
+        reservation_seen["value"] = (
+            len(jobs) == 1
+            and jobs[0].job_name == case_name
+            and row.status == "Submitted"
+            and row.queue_section == "in_progress"
+            and row.handoff_stage == "Processing"
+            and row.linked_print_job_id == jobs[0].id
+        )
+        return original_create_scene(patient_id, case_name, scene_settings)
+
+    stub_client.create_scene = create_scene_after_reservation_check
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids},
+        )
+
+    assert response.status_code == 200
+    assert reservation_seen["value"] is True
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].scene_id == "scene-1"
+    assert jobs[0].print_job_id is None
+
+
+def test_selected_device_send_to_print_quarantines_bad_case_and_dispatches_remaining_case(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    bad_upper = tmp_path / "bad-upper.stl"
+    bad_lower = tmp_path / "bad-lower.stl"
+    good_file = tmp_path / "good-case.stl"
+    for file_path in (bad_upper, bad_lower, good_file):
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                bad_upper,
+                case_id="CASE-BAD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-bad-upper",
+            ),
+            _row_payload(
+                bad_lower,
+                case_id="CASE-BAD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-bad-lower",
+            ),
+            _row_payload(
+                good_file,
+                case_id="CASE-GOOD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-good",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-east", "name": "Form 4BL East", "model": "Form 4BL", "status": "ready"}
+    ]
+    def validate_side_effect(path):
+        if Path(path).name == "bad-upper.stl":
+            return Mock(is_valid=False, message="Corrupted STL file: bad-upper.stl - parse error")
+        return Mock(is_valid=True, message="OK")
+
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", side_effect=validate_side_effect):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-east"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["groups"][0]["row_ids"] == [row_ids[2]]
+    assert payload["quarantined_cases"] == [
+        {
+            "case_id": "CASE-BAD",
+            "row_ids": row_ids[:2],
+            "reason": "bad-upper.stl - Corrupted STL file: bad-upper.stl - parse error",
+        }
+    ]
+    assert get_upload_row_by_id(settings, row_ids[0]).status == "Needs Review"
+    assert get_upload_row_by_id(settings, row_ids[1]).status == "Needs Review"
+    assert get_upload_row_by_id(settings, row_ids[2]).status == "Submitted"
+    assert stub_client.imported_models == [("scene-1", str(good_file), "ortho_solid_v1")]
+
+
+def test_selected_device_send_to_print_marks_import_failure_for_review_without_retry(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "import-fails.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-IMPORT-FAIL",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-import-fail",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-east", "name": "Form 4BL East", "model": "Form 4BL", "status": "ready"}
+    ]
+    stub_client.import_model = Mock(side_effect=Exception("mesh rejected"))
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-east"},
+        )
+
+    assert response.status_code == 502
+    payload = response.json()
+    assert payload["groups"] == []
+    assert payload["blocked_groups"][0]["status"] == "failed"
+    assert "PreFormServer rejected every STL" in payload["blocked_groups"][0]["error"]
+    assert stub_client.import_model.call_count == 1
+    row = get_upload_row_by_id(settings, row_ids[0])
+    assert row.status == "Needs Review"
+    assert "mesh rejected" in row.review_reason
+    assert list_print_jobs(settings) == []
+
+
+def test_selected_device_import_failure_review_write_retries_transient_sqlite_lock(tmp_path):
+    import sqlite3
+
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "import-lock-retry.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-LOCK-RETRY",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-import-lock-retry",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-east", "name": "Form 4BL East", "model": "Form 4BL", "status": "ready"}
+    ]
+    stub_client.import_model = Mock(side_effect=Exception("mesh rejected"))
+
+    original_mark_cases = __import__(
+        "app.services.print_queue_service",
+        fromlist=["_mark_cases_needs_review"],
+    )._mark_cases_needs_review
+    calls = {"count": 0}
+
+    def flaky_mark_cases(*args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return original_mark_cases(*args, **kwargs)
+
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")), patch(
+        "app.services.print_queue_service._mark_cases_needs_review",
+        side_effect=flaky_mark_cases,
+    ):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-east"},
+        )
+
+    assert response.status_code == 502
+    assert calls["count"] == 2
+    row = get_upload_row_by_id(settings, row_ids[0])
+    assert row.status == "Needs Review"
+    assert "mesh rejected" in row.review_reason
+
+
 def test_save_form_handoff_stores_preform_screenshot_beside_form_file(tmp_path):
     settings = _build_settings(tmp_path)
     app = create_app(settings)
@@ -760,9 +1262,7 @@ def test_send_to_print_records_validation_warnings_without_rollback(tmp_path):
     ]
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
-    expected_name = f"{datetime.now().strftime('%y%m%d')}_0001"
-    assert jobs[0].job_name == expected_name
-    expected_form_path = settings.output_dir / expected_name / f"{expected_name}.form"
+    expected_form_path = settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     assert jobs[0].validation_passed is False
     assert jobs[0].validation_errors == ["overlap"]
@@ -805,12 +1305,11 @@ def test_send_to_print_submits_single_validation_warning_after_saving_form(tmp_p
     assert row["status"] == "Submitted"
     assert row["review_required"] is False
     assert row["review_reason"] is None
-    expected_name = f"{datetime.now().strftime('%y%m%d')}_0001"
-    expected_form_path = settings.output_dir / expected_name / f"{expected_name}.form"
+    expected_job_name = f"{datetime.now().strftime('%y%m%d')}_0001"
+    expected_form_path = settings.output_dir / expected_job_name / f"{expected_job_name}.form"
     assert stub_client.saved_forms == [("scene-1", str(expected_form_path.resolve()))]
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
-    assert jobs[0].job_name == expected_name
     assert jobs[0].validation_passed is False
     assert jobs[0].validation_errors == ["overlap"]
 
@@ -968,7 +1467,7 @@ def test_release_held_job_dispatches_and_records_operator_release(tmp_path):
     assert hold_response.status_code == 200
     assert release_response.status_code == 200
     assert stub_client.created_scenes == [
-        ("CASE-RELEASE", f"{datetime.now().strftime('%y%m%d')}_0001")
+        ("CASE-RELEASE", datetime.now().strftime("%y%m%d") + "_0001")
     ]
     assert stub_client.print_jobs == []
 
@@ -1131,11 +1630,10 @@ def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
 
     assert response.status_code == 200
     row = response.json()[0]
-    today_prefix = datetime.now().strftime("%y%m%d")
     assert row["status"] == "Submitted"
     assert row["queue_section"] == "history"
     assert row["handoff_stage"] == "Queued"
-    assert row["linked_job_name"] == f"{today_prefix}_0001"
+    assert row["linked_job_name"] == f"{datetime.now().strftime('%y%m%d')}_0001"
 
 
 def test_send_to_print_does_not_require_volume_before_handoff(tmp_path, monkeypatch):

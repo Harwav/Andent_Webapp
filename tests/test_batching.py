@@ -44,30 +44,27 @@ def _row(
     )
 
 
-def test_generate_job_name_uses_daily_sequence_and_ignores_case_ids():
+def test_generate_job_name_uses_daily_sequence():
+    """Job name should use date prefix plus a daily four-digit sequence."""
     date = datetime(2026, 4, 21)
-    job_name = generate_job_name(date, ["10936293", "10935421", "8425357"])
-    assert job_name == "260421_0001"
+    job1 = generate_job_name(date, ["10936293", "10935421", "8425357"])
+    job2 = generate_job_name(date, ["CASE001"], existing_names={"260421_0001"})
+    job3 = generate_job_name(date, ["CASE/004"], existing_names={"260421_CASE-OLD"})
+
+    assert job1 == "260421_0001"
+    assert job2 == "260421_0002"
+    assert job3 == "260421_0001"
 
 
-def test_generate_job_name_uses_existing_sequence_names_to_pick_next_slot():
+def test_generate_job_name_sequence_skips_used_slots():
+    """Sequence chooser should skip non-contiguous used slots."""
     date = datetime(2026, 4, 21)
-    job_name = generate_job_name(
+    job = generate_job_name(
         date,
-        ["CASE/001", "Case:002", "case 003"],
-        existing_names={"260421_0001", "260421_CASE-LEGACY"},
+        [],
+        existing_names={"260421_0001", "260421_CASE-OLD", "260421_0003"},
     )
-    assert job_name == "260421_0002"
-
-
-def test_generate_job_name_fills_sequence_gaps_before_incrementing():
-    date = datetime(2026, 4, 21)
-    job_name = generate_job_name(
-        date,
-        [f"CASE{i:03d}" for i in range(40)],
-        existing_names={"260421_0001", "260421_0003"},
-    )
-    assert job_name == "260421_0002"
+    assert job == "260421_0002"
 
 
 def test_plan_build_manifests_splits_incompatible_compatibility_groups(monkeypatch):
