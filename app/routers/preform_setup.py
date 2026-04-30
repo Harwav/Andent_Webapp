@@ -11,13 +11,16 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from ..schemas import (
+    DeviceInfo,
     DispatchModeStatus,
+    PreFormDeviceListResponse,
     PreFormPrinterListResponse,
     PreFormPrinterStatus,
     PreFormSetupActionResponse,
     PreFormSetupStatus,
     UpdateDispatchModeRequest,
 )
+from ..services.preset_catalog import SUPPORTED_PRINTER_GROUPS
 from ..services.preform_client import PreFormClient
 from ..services.preform_setup_service import (
     PreFormSetupError,
@@ -212,6 +215,24 @@ def _normalize_printer(device: dict, settings=None) -> PreFormPrinterStatus:
     )
 
 
+def _normalize_assignment_device(device: dict) -> DeviceInfo | None:
+    device_id = _first_text(device, ("device_id", "id", "printer_id"))
+    if not device_id:
+        return None
+    model = _first_text(device, ("model", "product_name", "type"))
+    if model not in SUPPORTED_PRINTER_GROUPS:
+        return None
+    name = _first_text(device, ("name", "display_name")) or device_id
+    status = _first_text(device, ("status", "state", "availability"))
+    return DeviceInfo(
+        id=device_id,
+        name=name,
+        model=model,
+        status=status,
+        is_virtual=_is_virtual_device(device),
+    )
+
+
 def _list_setup_center_printers(settings) -> PreFormPrinterListResponse:
     probe = PreFormSetupService(settings)._probe_server()
     if not probe.get("healthy"):
@@ -245,6 +266,39 @@ def _list_setup_center_printers(settings) -> PreFormPrinterListResponse:
     )
 
 
+def _list_assignment_devices(settings) -> PreFormDeviceListResponse:
+    probe = PreFormSetupService(settings)._probe_server()
+    if not probe.get("healthy"):
+        return PreFormDeviceListResponse(
+            devices=[],
+            available=False,
+            message=probe.get("message") or "PreFormServer is not ready.",
+        )
+
+    client = PreFormClient(settings.preform_server_url)
+    try:
+        raw_devices = _normalize_device_list(client.list_devices())
+    except Exception as exc:
+        return PreFormDeviceListResponse(
+            devices=[],
+            available=False,
+            message=str(exc),
+        )
+    finally:
+        client.close()
+
+    devices = [
+        device_info
+        for device in raw_devices
+        if (device_info := _normalize_assignment_device(device)) is not None
+    ]
+    return PreFormDeviceListResponse(
+        devices=devices,
+        available=True,
+        message=None,
+    )
+
+
 @router.get("/status", response_model=PreFormSetupStatus)
 async def status(request: Request) -> PreFormSetupStatus:
     return await run_in_threadpool(get_preform_setup_status, request.app.state.settings)
@@ -270,6 +324,11 @@ async def update_dispatch_mode(
 @router.get("/printers", response_model=PreFormPrinterListResponse)
 async def get_printers(request: Request) -> PreFormPrinterListResponse:
     return await run_in_threadpool(_list_setup_center_printers, request.app.state.settings)
+
+
+@router.get("/devices", response_model=PreFormDeviceListResponse)
+async def get_devices(request: Request) -> PreFormDeviceListResponse:
+    return await run_in_threadpool(_list_assignment_devices, request.app.state.settings)
 
 
 @router.post("/install-from-zip", response_model=PreFormSetupActionResponse)

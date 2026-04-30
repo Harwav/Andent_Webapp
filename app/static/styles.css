@@ -775,7 +775,7 @@ h2 {
 .processed-table th:nth-child(5),
 .processed-table td:nth-child(5) { width: 13%; }
 .processed-table th:nth-child(6),
-.processed-table td:nth-child(6) { width: 10%; }
+.processed-table td:nth-child(6) { width: 10%; max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .processed-table th:nth-child(7),
 .processed-table td:nth-child(7) { width: 9%; }
 .processed-table th:nth-child(8),
@@ -953,6 +953,11 @@ select:focus {
 }
 
 .history-job-link {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     padding: 0;
     border: none;
     background: transparent;
@@ -1005,6 +1010,23 @@ select:focus {
     justify-content: space-between;
     gap: 16px;
     margin-bottom: 16px;
+}
+
+.printer-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--surface-soft);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.option-dimmed {
+    color: var(--muted);
 }
 
 .preview-viewer {
@@ -1227,6 +1249,17 @@ select:focus {
 /* Screenshot Modal */
 .screenshot-modal-card {
     max-width: 720px;
+}
+
+.screenshot-modal-card .modal-header > div {
+    min-width: 0;
+    overflow: hidden;
+}
+
+#screenshot-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .screenshot-viewer {

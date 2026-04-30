@@ -401,6 +401,80 @@ def test_printers_route_returns_local_preform_devices(tmp_path, monkeypatch):
     }
 
 
+def test_devices_route_returns_assignment_device_contract(tmp_path, monkeypatch):
+    from app.services.preform_client import PreFormClient
+    from app.services.preform_setup_service import PreFormSetupService
+
+    monkeypatch.setattr(
+        PreFormSetupService,
+        "_probe_server",
+        lambda self: {
+            "healthy": True,
+            "version": "3.58.0.626",
+            "code": None,
+            "message": None,
+        },
+    )
+    monkeypatch.setattr(
+        PreFormClient,
+        "list_devices",
+        lambda self: {
+            "devices": [
+                {
+                    "device_id": "form-4bl-east",
+                    "name": "Form 4BL East",
+                    "product_name": "Form 4BL",
+                    "status": "ready",
+                },
+                {
+                    "id": "virtual-1",
+                    "name": "Virtual Form 4B",
+                    "model": "Form 4B",
+                    "is_virtual": True,
+                },
+                {
+                    "id": "virtual-form-4",
+                    "name": "Virtual Form 4",
+                    "model": "Form 4",
+                    "is_virtual": True,
+                },
+                {
+                    "id": "form-3b",
+                    "name": "Form 3B",
+                    "model": "Form 3B",
+                    "status": "ready",
+                },
+            ],
+        },
+    )
+
+    client, _settings = _build_client(tmp_path)
+
+    response = client.get("/api/preform-setup/devices")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "available": True,
+        "message": None,
+        "devices": [
+            {
+                "id": "form-4bl-east",
+                "name": "Form 4BL East",
+                "model": "Form 4BL",
+                "status": "ready",
+                "is_virtual": False,
+            },
+            {
+                "id": "virtual-1",
+                "name": "Virtual Form 4B",
+                "model": "Form 4B",
+                "status": None,
+                "is_virtual": True,
+            },
+        ],
+    }
+
+
 def test_printers_route_unwraps_preform_devices_payload(tmp_path, monkeypatch):
     from app.services.preform_client import PreFormClient
     from app.services.preform_setup_service import PreFormSetupService

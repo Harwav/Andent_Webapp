@@ -81,6 +81,8 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         screenshot_url TEXT,
         form_file_path TEXT,
         printer_type TEXT,
+        printer_device_id TEXT,
+        printer_device_name TEXT,
         resin TEXT,
         layer_height_microns INTEGER,
         estimated_completion TIMESTAMP,
@@ -197,6 +199,8 @@ def init_db(settings: Settings) -> None:
         _ensure_column(connection, "print_jobs", "validation_passed", "INTEGER")
         _ensure_column(connection, "print_jobs", "validation_errors_json", "TEXT")
         _ensure_column(connection, "print_jobs", "form_file_path", "TEXT")
+        _ensure_column(connection, "print_jobs", "printer_device_id", "TEXT")
+        _ensure_column(connection, "print_jobs", "printer_device_name", "TEXT")
         connection.execute(
             """
             UPDATE upload_rows
@@ -273,6 +277,8 @@ def _row_to_print_job(row: sqlite3.Row) -> PrintJob:
         screenshot_url=row["screenshot_url"],
         form_file_path=row["form_file_path"],
         printer_type=row["printer_type"],
+        printer_device_id=row["printer_device_id"],
+        printer_device_name=row["printer_device_name"],
         resin=row["resin"],
         layer_height_microns=row["layer_height_microns"],
         estimated_completion=row["estimated_completion"],
@@ -329,6 +335,8 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 screenshot_url,
                 form_file_path,
                 printer_type,
+                printer_device_id,
+                printer_device_name,
                 resin,
                 layer_height_microns,
                 estimated_completion,
@@ -342,7 +350,7 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 validation_passed,
                 validation_errors_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 print_job.job_name,
@@ -359,6 +367,8 @@ def create_print_job(settings: Settings, print_job: PrintJob) -> PrintJob:
                 print_job.screenshot_url,
                 print_job.form_file_path,
                 print_job.printer_type,
+                print_job.printer_device_id,
+                print_job.printer_device_name,
                 print_job.resin,
                 print_job.layer_height_microns,
                 print_job.estimated_completion,
@@ -424,6 +434,8 @@ def update_print_job(settings: Settings, job_id: int, **changes: object) -> Prin
         "screenshot_url",
         "form_file_path",
         "printer_type",
+        "printer_device_id",
+        "printer_device_name",
         "resin",
         "layer_height_microns",
         "estimated_completion",

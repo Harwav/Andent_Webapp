@@ -5,7 +5,7 @@
       "Bash(git -C \"d:\\\\Marcus\\\\Desktop\\\\Andent_Webapp\\\\.worktrees\\\\playwright-release-gate\" status)",
       "Bash(python -m pytest tests/test_frontend_static.py -v)",
       "Bash(gh issue *)",
-"Bash(git -C \"d:\\\\Marcus\\\\Desktop\\\\Andent_Webapp\\\\.worktrees\\\\playwright-release-gate\" add *")",
+      "Bash(git -C \"d:\\\\Marcus\\\\Desktop\\\\Andent_Webapp\\\\.worktrees\\\\playwright-release-gate\" add *)",
       "Bash(git -C \"d:\\\\Marcus\\\\Desktop\\\\Andent_Webapp\\\\.worktrees\\\\playwright-release-gate\" status)",
       "Bash(python -m pytest tests/test_frontend_static.py -v)",
       "Bash(gh issue *)",
@@ -20,7 +20,8 @@
       "Bash(python -m pytest tests/test_frontend_static.py -q)",
       "Bash(PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_print_queue.py -q)",
       "Bash(rm -f andent.db andent_web.db server-8090.err.log server-8090.out.log)",
-      "Bash(rm -rf uploads/*")
+      "Bash(rm -rf uploads/*)",
+      "PowerShell($pidVal = Get-Content data\\\\uvicorn.pid -ErrorAction SilentlyContinue; if \\($pidVal\\) { Stop-Process -Id $pidVal -Force -ErrorAction SilentlyContinue; Write-Host \"Killed PID $pidVal\" } else { Write-Host \"No PID file found\" })"
     ]
   }
 }

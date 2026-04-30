@@ -5,8 +5,8 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import Settings, get_settings
@@ -58,6 +58,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(metrics_router)
     app.include_router(preform_setup_router)
     app.include_router(print_queue_router)
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Catch-all handler to ensure API errors are always JSON, never HTML."""
+        logging.exception("Unhandled exception on %s %s", request.method, request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error. Check server logs for details."},
+        )
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:

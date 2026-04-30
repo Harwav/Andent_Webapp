@@ -152,26 +152,115 @@ def test_active_work_queue_exposes_printer_group_selector():
     app_js = APP_JS.read_text(encoding="utf-8")
 
     assert '<th class="col-printer">Printer</th>' in index_html
-    assert 'const PRINTER_OPTIONS = ["Form 4BL", "Form 4B"];' in app_js
-    assert "function createPrinterSelect(row)" in app_js
-    assert 'select.dataset.testid = "printer-select";' in app_js
-    assert "printer: row.printer || null" in app_js
+    assert 'const SUPPORTED_PRINTER_MODELS = ["Form 4BL", "Form 4B"];' in app_js
+    assert "function createPrinterPill(row)" in app_js
+    assert 'pill.dataset.testid = "printer-pill";' in app_js
+    assert "function createPrinterSelect(row)" not in app_js
+    assert 'select.dataset.testid = "printer-select";' not in app_js
 
 
 def test_bulk_work_queue_exposes_printer_group_selector():
     app_js = APP_JS.read_text(encoding="utf-8")
 
     assert "bulkPrinterValue" in app_js
-    assert 'printerSelect.setAttribute("aria-label", "Change Printer");' in app_js
+    assert 'printerSelect.setAttribute("aria-label", "Printer");' in app_js
     assert 'printerSelect.dataset.testid = "bulk-printer-select";' in app_js
-    assert "PRINTER_OPTIONS.forEach" in app_js
-    assert "printer: printer || null" in app_js
+    assert '"/api/preform-setup/devices"' in app_js
+    assert "dispatchDeviceOptions().forEach" in app_js
+    assert "describeDispatchDevice" in app_js
+    assert "printer: printer || null" not in app_js
+
+
+def test_send_to_print_uses_selected_device_payload_without_manifest_assignment_modal():
+    index_html = INDEX_HTML.read_text(encoding="utf-8")
+    app_js = APP_JS.read_text(encoding="utf-8")
+    styles_css = STYLES_CSS.read_text(encoding="utf-8")
+
+    assert 'id="send-to-print-modal"' not in index_html
+    assert '"/api/preform-setup/devices"' in app_js
+    assert "device_id: deviceId" in app_js
+    assert "printer_assignments" not in app_js
+    assert '"/api/uploads/rows/preview-batches"' not in app_js
+    assert "openSendToPrintModal" not in app_js
+    assert "renderSendToPrintGroups" not in app_js
+    assert ".stp-group-card" not in styles_css
+
+
+def test_send_to_print_receipt_reports_quarantined_rows_and_reason():
+    app_js = APP_JS.read_text(encoding="utf-8")
+    describe_print_receipt = _extract_function_source(app_js, "describePrintReceipt")
+    describe_send_receipt = _extract_function_source(app_js, "describeSendReceipt")
+    payload = {
+        "groups": [
+            {
+                "status": "submitted",
+                "row_ids": [3],
+                "job_name": "260430_CASE-GOOD",
+            },
+        ],
+        "quarantined_cases": [
+            {
+                "case_id": "CASE-BAD",
+                "row_ids": [1, 2],
+                "reason": "bad-upper.stl - corrupted mesh",
+            },
+        ],
+        "blocked_groups": [],
+    }
+    job = {
+        "job_name": "260430_CASE-GOOD",
+        "case_ids": ["CASE-GOOD"],
+    }
+    script = textwrap.dedent(
+        f"""
+        {describe_print_receipt}
+        {describe_send_receipt}
+        const result = describeSendReceipt({json.dumps(payload)}, {json.dumps(job)}, 3);
+        console.log(JSON.stringify(result));
+        """
+    )
+
+    message = json.loads(_run_node(script))
+
+    assert "Moved 1 file(s) into In Progress." in message
+    assert "2 file(s) returned to File Analysis for review" in message
+    assert "bad-upper.stl - corrupted mesh" in message
+
+
+def test_send_to_print_error_reports_quarantine_reason():
+    app_js = APP_JS.read_text(encoding="utf-8")
+    describe_send_error = _extract_function_source(app_js, "describeSendError")
+    payload = {
+        "groups": [],
+        "quarantined_cases": [
+            {
+                "case_id": "CASE-BAD",
+                "row_ids": [1, 2],
+                "reason": "bad-upper.stl - corrupted mesh",
+            },
+        ],
+        "blocked_groups": [],
+    }
+    script = textwrap.dedent(
+        f"""
+        {describe_send_error}
+        const result = describeSendError({json.dumps(payload)});
+        console.log(JSON.stringify(result));
+        """
+    )
+
+    message = json.loads(_run_node(script))
+
+    assert "2 file(s) returned to File Analysis for review" in message
+    assert "bad-upper.stl - corrupted mesh" in message
 
 
 def test_print_queue_displays_holding_density_cutoff_and_release():
     app_js = APP_JS.read_text(encoding="utf-8")
 
     assert "function formatDensity(value)" in app_js
+    assert "job.estimated_density" in app_js
+    assert "printDetails.push(`Estimated Density: ${formatDensity(job.estimated_density)}`);" in app_js
     assert "hold_cutoff_at" in app_js
     assert "density_target" in app_js
     assert 'createJobDetailItem("Target:", formatDensity(job.density_target))' in app_js

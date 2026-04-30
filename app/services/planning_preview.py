@@ -2,7 +2,16 @@
 and case grouping without executing any prep or dispatch."""
 from __future__ import annotations
 
-from ..schemas import BatchPlanPreviewResponse, ClassificationRow, PlanPreviewRow
+import hashlib
+
+from ..schemas import (
+    BatchPlanPreviewResponse,
+    BuildManifest,
+    ClassificationRow,
+    PlanPreviewRow,
+    PreviewBatchGroup,
+    PreviewBatchesResponse,
+)
 from .build_planning import plan_build_manifests
 
 _MODEL_TYPE_TO_ARTIFACT: dict[str, str] = {
@@ -99,3 +108,51 @@ def build_batch_preview(rows: list[ClassificationRow]) -> BatchPlanPreviewRespon
         group_count=planned_group_count,
         cannot_fit_count=cannot_fit_count,
     )
+
+
+def manifest_row_ids(manifest: BuildManifest, rows: list[ClassificationRow]) -> list[int]:
+    row_ids: list[int] = []
+    for group in manifest.import_groups:
+        for file_spec in group.files:
+            row_ids.append(file_spec.row_id)
+    if row_ids:
+        return sorted(set(row_ids))
+
+    case_ids = set(manifest.case_ids)
+    return sorted(
+        row.row_id
+        for row in rows
+        if row.row_id is not None and row.case_id in case_ids
+    )
+
+
+def build_manifest_assignment_id(manifest: BuildManifest, row_ids: list[int]) -> str:
+    digest = hashlib.sha256(
+        ",".join(str(row_id) for row_id in sorted(row_ids)).encode("utf-8")
+    ).hexdigest()[:16]
+    compatibility_key = manifest.compatibility_key or "non-plannable"
+    return f"{compatibility_key}|{digest}"
+
+
+def build_preview_batches(rows: list[ClassificationRow]) -> PreviewBatchesResponse:
+    groups: list[PreviewBatchGroup] = []
+    for manifest in plan_build_manifests(rows):
+        row_ids = manifest_row_ids(manifest, rows)
+        groups.append(
+            PreviewBatchGroup(
+                manifest_id=build_manifest_assignment_id(manifest, row_ids),
+                row_ids=row_ids,
+                case_ids=manifest.case_ids,
+                compatibility_key=manifest.compatibility_key,
+                printer_model=manifest.printer_group,
+                material_label=manifest.material_label,
+                layer_height_microns=(
+                    int(manifest.layer_thickness_mm * 1000)
+                    if manifest.layer_thickness_mm is not None
+                    else None
+                ),
+                planning_status=manifest.planning_status,
+                non_plannable_reason=manifest.non_plannable_reason,
+            )
+        )
+    return PreviewBatchesResponse(groups=groups)

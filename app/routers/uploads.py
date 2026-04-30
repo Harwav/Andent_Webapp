@@ -9,7 +9,8 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import FileResponse, JSONResponse
 
 from ..database import (
     allow_duplicate_rows,
@@ -24,7 +25,7 @@ from ..database import (
     persist_upload_session,
     update_upload_row,
 )
-from ..services.print_queue_service import send_ready_rows_to_print
+from ..services.print_queue_service import DeviceDispatchValidationError, send_ready_rows_to_print
 from ..schemas import (
     BatchPlanPreviewResponse,
     BulkDeleteRowsResponse,
@@ -33,10 +34,12 @@ from ..schemas import (
     PlanPreviewRow,
     QueueSnapshotResponse,
     RowIdsRequest,
+    SendToPrintRequest,
     UpdateClassificationRowRequest,
     UploadClassificationResponse,
+    PreviewBatchesResponse,
 )
-from ..services.planning_preview import build_batch_preview, build_row_preview
+from ..services.planning_preview import build_batch_preview, build_preview_batches, build_row_preview
 from ..services.classification import (
     classify_uploaded_files_parallel,
     dedupe_filename,
@@ -193,13 +196,16 @@ async def bulk_allow_duplicate(request: Request, payload: RowIdsRequest) -> list
     return allow_duplicate_rows(settings, payload.row_ids)
 
 
-@router.post("/rows/send-to-print", response_model=list[ClassificationRow])
-async def bulk_send_to_print(request: Request, payload: RowIdsRequest) -> list[ClassificationRow]:
+@router.post("/rows/send-to-print")
+async def bulk_send_to_print(request: Request, payload: SendToPrintRequest):
     settings = request.app.state.settings
     try:
-        result = await run_in_threadpool(send_ready_rows_to_print, settings, payload.row_ids)
+        result = await run_in_threadpool(send_ready_rows_to_print, settings, payload.row_ids, payload.device_id)
         _record_dispatch_event(success=True)
         return result
+    except DeviceDispatchValidationError as exc:
+        _record_dispatch_event(success=False)
+        return JSONResponse(status_code=exc.status_code, content=jsonable_encoder(exc.payload))
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
@@ -255,6 +261,14 @@ async def get_row_plan_preview(request: Request, row_id: int) -> PlanPreviewRow:
     if row is None:
         raise HTTPException(status_code=404, detail="Upload row not found.")
     return build_row_preview(row)
+
+
+@router.post("/rows/preview-batches", response_model=PreviewBatchesResponse)
+async def preview_batches(request: Request, payload: RowIdsRequest) -> PreviewBatchesResponse:
+    settings = request.app.state.settings
+    rows = [get_upload_row_by_id(settings, rid) for rid in payload.row_ids]
+    rows = [row for row in rows if row is not None]
+    return build_preview_batches(rows)
 
 
 @router.post("/rows/batch-plan-preview", response_model=BatchPlanPreviewResponse)

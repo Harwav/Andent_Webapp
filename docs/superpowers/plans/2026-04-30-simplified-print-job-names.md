@@ -10,6 +10,28 @@
 
 ---
 
+## Execution Progress
+
+- [x] Isolated worktree created at `.worktrees/simplified-print-job-names` on branch `feature/simplified-print-job-names`.
+- [x] Task 1 complete and reviewed.
+  - Commit: `df18990` (`Specify daily sequence print job names`)
+  - Spec compliance review: approved.
+  - Code quality review: approved.
+  - Note: The actual test class is `TestBatchingIntegration`, not `TestFullPrintHandoffFlow`.
+- [x] Task 2 complete and reviewed.
+  - Commit: `dcad705` (`Generate print job names from daily sequences`)
+  - Commit: `b5c9e8e` (`Reserve direct manifest job names from persisted print jobs`)
+  - Focused naming tests: passing with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`.
+  - Syntax check: `python -m py_compile app/services/print_queue_service.py` passing.
+  - Spec compliance review after fallback fix: approved.
+  - Code quality review found a direct `process_print_manifest()` fallback collision risk; fixed in `b5c9e8e`.
+  - Code quality re-review: approved with low residual notes about `init_db(settings)` coupling and direct-call non-persisted collision windows.
+- [ ] Task 3 not started.
+- [ ] Task 4 not started.
+- [ ] Task 5 not started.
+
+Environment note: repo pytest commands must currently be run as `$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest ...` because a globally installed pytest MCP plugin crashes during collection under the current user-site package mix.
+
 ## File Structure
 
 - Modify: `app/services/print_queue_service.py`
@@ -20,6 +42,10 @@
 - Modify: `tests/test_preform_handoff.py`
   - Update send-to-print expectations so output paths and PreForm job names use `YYMMDD_XXXX`.
   - Keep assertions proving `case_ids` still persist on jobs and manifests.
+- Modify: `tests/test_batching.py`
+  - Update remaining generator unit tests that still assert case IDs, sanitization, and hash truncation in `job_name`.
+- Modify: `tests/test_integration.py`
+  - Update direct `process_print_manifest()` form path expectations to the current `output/<job_name>/<job_name>.form` contract.
 - No change expected: `app/static/app.js`
   - Existing print queue rendering already displays `job.case_ids` in the Cases column and expandable list.
 - No change expected: `app/schemas.py`
@@ -31,7 +57,7 @@
 - Modify: `tests/test_integration.py`
 - Test: `tests/test_integration.py`
 
-- [ ] **Step 1: Replace the old case-ID naming test with sequence tests**
+- [x] **Step 1: Replace the old case-ID naming test with sequence tests**
 
 Replace `TestFullPrintHandoffFlow.test_job_names_include_case_ids` with:
 
@@ -79,7 +105,7 @@ Replace `TestFullPrintHandoffFlow.test_job_names_include_case_ids` with:
             raise AssertionError("Expected daily sequence exhaustion to raise RuntimeError")
 ```
 
-- [ ] **Step 2: Run the focused failing tests**
+- [x] **Step 2: Run the focused failing tests**
 
 Run:
 
@@ -89,7 +115,15 @@ pytest tests/test_integration.py::TestFullPrintHandoffFlow::test_job_names_use_d
 
 Expected: `test_job_names_use_daily_sequence` fails because `generate_job_name()` still returns case-ID-based names.
 
-- [ ] **Step 3: Commit the failing tests**
+Progress note: executed against the actual class with plugin autoload disabled:
+
+```powershell
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_integration.py::TestBatchingIntegration::test_job_names_use_daily_sequence tests/test_integration.py::TestBatchingIntegration::test_job_name_sequence_fails_after_daily_limit -v
+```
+
+Observed: both tests failed for the intended red-phase reasons.
+
+- [x] **Step 3: Commit the failing tests**
 
 Run:
 
@@ -104,13 +138,15 @@ Scope-risk: narrow
 Tested: Focused naming tests fail against current implementation"
 ```
 
+Progress note: committed as `df18990`.
+
 ## Task 2: Implement Sequence-Based Job Name Generation
 
 **Files:**
 - Modify: `app/services/print_queue_service.py`
 - Test: `tests/test_integration.py`
 
-- [ ] **Step 1: Update constants and remove unused hash/token helpers**
+- [x] **Step 1: Update constants and remove unused hash/token helpers**
 
 In `app/services/print_queue_service.py`, remove `import hashlib`, `PRINT_JOB_NAME_HASH_LENGTH`, `_UNSAFE_JOB_NAME_CHARS`, `_safe_job_name_token()`, and `_fit_job_name_to_limit()`.
 
@@ -121,7 +157,7 @@ DAILY_PRINT_JOB_SEQUENCE_LIMIT = 9999
 _SEQUENCE_JOB_NAME_RE = re.compile(r"^(?P<date>\d{6})_(?P<sequence>\d{4})$")
 ```
 
-- [ ] **Step 2: Add a sequence chooser helper**
+- [x] **Step 2: Add a sequence chooser helper**
 
 Add this helper above `generate_job_name()`:
 
@@ -144,7 +180,7 @@ def _next_daily_sequence_job_name(date_part: str, existing_names: set[str] | Non
     raise RuntimeError("Could not generate a unique daily print job name.")
 ```
 
-- [ ] **Step 3: Replace `generate_job_name()` implementation**
+- [x] **Step 3: Replace `generate_job_name()` implementation**
 
 Replace the function body and docstring with:
 
@@ -165,7 +201,7 @@ def generate_job_name(
     return _next_daily_sequence_job_name(date_part, existing_names)
 ```
 
-- [ ] **Step 4: Run focused naming tests**
+- [x] **Step 4: Run focused naming tests**
 
 Run:
 
@@ -175,7 +211,15 @@ pytest tests/test_integration.py::TestFullPrintHandoffFlow::test_job_names_use_d
 
 Expected: both tests pass.
 
-- [ ] **Step 5: Run a syntax/import check for the service**
+Progress note: executed against the actual class with plugin autoload disabled:
+
+```powershell
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_integration.py::TestBatchingIntegration::test_job_names_use_daily_sequence tests/test_integration.py::TestBatchingIntegration::test_job_name_sequence_fails_after_daily_limit -v
+```
+
+Observed: `2 passed`.
+
+- [x] **Step 5: Run a syntax/import check for the service**
 
 Run:
 
@@ -185,7 +229,9 @@ python -m py_compile app/services/print_queue_service.py
 
 Expected: command exits with code `0`.
 
-- [ ] **Step 6: Commit implementation**
+Progress note: command exited with code `0`.
+
+- [x] **Step 6: Commit implementation**
 
 Run:
 
@@ -200,11 +246,19 @@ Scope-risk: narrow
 Tested: Focused naming tests; py_compile for print_queue_service.py"
 ```
 
+Progress note: committed as `dcad705`, then code-quality review found that direct `process_print_manifest()` calls without a supplied `job_name` could reuse `YYMMDD_0001`. The fallback was fixed in `b5c9e8e` by reserving from persisted same-day `print_jobs`; spec re-review approved the fix. Code-quality re-review for `b5c9e8e` is still pending.
+
 ## Task 3: Update Handoff Expectations While Preserving Cases Display Data
 
 **Files:**
 - Modify: `tests/test_preform_handoff.py`
+- Modify: `tests/test_batching.py`
+- Modify: `tests/test_integration.py`
 - Test: `tests/test_preform_handoff.py`
+- Test: `tests/test_batching.py`
+- Test: `tests/test_integration.py`
+
+Progress note before execution: reviews found additional stale expectations outside the original Task 3 write set. Include `tests/test_batching.py` for generator expectations and `tests/test_integration.py` for direct `process_print_manifest()` output path expectations so Task 4 does not fail on known legacy assertions.
 
 - [ ] **Step 1: Update same-day dedupe test**
 

@@ -17,7 +17,7 @@ const DEFAULT_PRESET_BY_MODEL = {
 };
 
 const PRESET_OPTIONS = [...new Set(Object.values(DEFAULT_PRESET_BY_MODEL))];
-const PRINTER_OPTIONS = ["Form 4BL", "Form 4B"];
+const SUPPORTED_PRINTER_MODELS = ["Form 4BL", "Form 4B"];
 
 const ACTIVE_STATUSES = [
     "Queued",
@@ -79,6 +79,7 @@ const state = {
         status: null,
         dispatchMode: null,
         printers: null,
+        devices: null,
         printerRefreshRequestId: 0,
         printerRefreshInFlightCount: 0,
         printersLoading: false,
@@ -181,7 +182,7 @@ function dispatchModeLabel(mode) {
 
 async function fetchDispatchMode() {
     const response = await fetch("/api/preform-setup/dispatch-mode");
-    const payload = await response.json();
+    const payload = await readResponseJson(response);
     if (!response.ok) {
         throw new Error(payload.detail || "Could not load print handoff mode.");
     }
@@ -197,7 +198,7 @@ async function setDispatchMode(mode) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ mode }),
         });
-        const payload = await response.json();
+        const payload = await readResponseJson(response);
         if (!response.ok) {
             throw new Error(payload.detail || "Could not update print handoff mode.");
         }
@@ -289,7 +290,7 @@ function dismissPreformWizard() {
 
 async function fetchPreformSetupStatus() {
     const response = await fetch("/api/preform-setup/status");
-    const payload = await response.json();
+    const payload = await readResponseJson(response);
     if (!response.ok) {
         throw new Error(payload.detail || "Could not load PreFormServer setup status.");
     }
@@ -298,9 +299,18 @@ async function fetchPreformSetupStatus() {
 
 async function fetchPreformPrinters() {
     const response = await fetch("/api/preform-setup/printers");
-    const payload = await response.json();
+    const payload = await readResponseJson(response);
     if (!response.ok) {
         throw new Error(payload.detail || "Could not load local printers.");
+    }
+    return payload;
+}
+
+async function fetchPreformDevices() {
+    const response = await fetch("/api/preform-setup/devices");
+    const payload = await readResponseJson(response);
+    if (!response.ok) {
+        throw new Error(payload.detail || "Could not load local printer devices.");
     }
     return payload;
 }
@@ -318,6 +328,14 @@ function commitPreformPrinterPayload(requestId, payload) {
     return true;
 }
 
+function commitPreformDevicePayload(requestId, payload) {
+    if (requestId !== state.preformSetup.printerRefreshRequestId) {
+        return false;
+    }
+    state.preformSetup.devices = payload;
+    return true;
+}
+
 function handlePreformPrinterFetchError(error, requestId) {
     return commitPreformPrinterPayload(requestId, {
         printers: [],
@@ -330,10 +348,26 @@ async function refreshPreformPrintersQuietly() {
     const requestId = startPreformPrinterRefresh();
     state.preformSetup.printerRefreshInFlightCount += 1;
     try {
-        const payload = await fetchPreformPrinters();
-        commitPreformPrinterPayload(requestId, payload);
+        const devicePayloadPromise = typeof fetchPreformDevices === "function"
+            ? fetchPreformDevices()
+            : Promise.resolve(state.preformSetup.devices || { devices: [], available: false, message: null });
+        const [printerPayload, devicePayload] = await Promise.all([
+            fetchPreformPrinters(),
+            devicePayloadPromise,
+        ]);
+        commitPreformPrinterPayload(requestId, printerPayload);
+        if (typeof commitPreformDevicePayload === "function") {
+            commitPreformDevicePayload(requestId, devicePayload);
+        }
     } catch (error) {
         handlePreformPrinterFetchError(error, requestId);
+        if (typeof commitPreformDevicePayload === "function") {
+            commitPreformDevicePayload(requestId, {
+                devices: [],
+                available: false,
+                message: error.message || "Could not load local printer devices.",
+            });
+        }
         console.warn("Local printer refresh failed:", error.message);
     } finally {
         state.preformSetup.printerRefreshInFlightCount = Math.max(
@@ -357,7 +391,7 @@ async function runPreformAction(url, options, successMessage) {
     renderPreformSetup();
     try {
         const response = await fetch(url, options);
-        const payload = await response.json();
+        const payload = await readResponseJson(response);
         if (!response.ok) {
             throw new Error(payload.detail || payload.message || "PreFormServer action failed.");
         }
@@ -533,12 +567,28 @@ async function refreshPreformPrinters() {
     state.preformSetup.printersLoading = true;
     renderPreformSetup();
     try {
-        const payload = await fetchPreformPrinters();
-        if (commitPreformPrinterPayload(requestId, payload)) {
+        const devicePayloadPromise = typeof fetchPreformDevices === "function"
+            ? fetchPreformDevices()
+            : Promise.resolve(state.preformSetup.devices || { devices: [], available: false, message: null });
+        const [printerPayload, devicePayload] = await Promise.all([
+            fetchPreformPrinters(),
+            devicePayloadPromise,
+        ]);
+        if (commitPreformPrinterPayload(requestId, printerPayload)) {
+            if (typeof commitPreformDevicePayload === "function") {
+                commitPreformDevicePayload(requestId, devicePayload);
+            }
             setStatus("Local printer status refreshed.");
         }
     } catch (error) {
         if (handlePreformPrinterFetchError(error, requestId)) {
+            if (typeof commitPreformDevicePayload === "function") {
+                commitPreformDevicePayload(requestId, {
+                    devices: [],
+                    available: false,
+                    message: error.message || "Could not load local printer devices.",
+                });
+            }
             setStatus(error.message, true);
         }
     } finally {
@@ -773,7 +823,7 @@ function clampPages() {
 
 async function fetchQueue() {
     const response = await fetch("/api/uploads/queue");
-    const payload = await response.json();
+    const payload = await readResponseJson(response);
     if (!response.ok) {
         throw new Error(payload.detail || "Could not load queue.");
     }
@@ -788,7 +838,7 @@ async function fetchQueue() {
 async function fetchPrintQueue() {
     try {
         const response = await fetch("/api/print-queue/jobs");
-        const payload = await response.json();
+        const payload = await readResponseJson(response);
         if (!response.ok) {
             throw new Error(payload.detail || "Could not load print queue.");
         }
@@ -954,7 +1004,7 @@ async function persistRow(row) {
                 printer: row.printer || null,
             }),
         });
-        const payload = await response.json();
+        const payload = await readResponseJson(response);
         if (!response.ok) {
             throw new Error(payload.detail || "Could not save row.");
         }
@@ -1060,40 +1110,24 @@ function createPresetSelect(row) {
     return select;
 }
 
-function createPrinterSelect(row) {
-    const select = document.createElement("select");
-    select.dataset.testid = "printer-select";
-    const defaultOption = document.createElement("option");
-    defaultOption.value = "";
-    defaultOption.textContent = "Default";
-    defaultOption.selected = !row.printer;
-    select.appendChild(defaultOption);
+function findPrintJobForRow(row) {
+    if (!row.linked_job_name) {
+        return null;
+    }
+    return state.printQueue.jobs.find((job) => job.job_name === row.linked_job_name) || null;
+}
 
-    PRINTER_OPTIONS.forEach((optionValue) => {
-        const option = document.createElement("option");
-        option.value = optionValue;
-        option.textContent = optionValue;
-        option.selected = row.printer === optionValue;
-        select.appendChild(option);
-    });
+function printerLabelForRow(row) {
+    const linkedJob = findPrintJobForRow(row);
+    return linkedJob?.printer_type || row.printer || "-";
+}
 
-    select.disabled = row.is_temp || isRowPendingDelete(row) || row.status === "Submitted";
-    select.addEventListener("focus", () => {
-        if (!row.is_temp) {
-            setRowLock(row.row_id, true, false);
-        }
-    });
-    select.addEventListener("blur", () => {
-        if (!row.is_temp) {
-            setRowLock(row.row_id, false);
-        }
-    });
-    select.addEventListener("change", (event) => {
-        row.printer = event.target.value || null;
-        render();
-        persistRow(row);
-    });
-    return select;
+function createPrinterPill(row) {
+    const pill = document.createElement("span");
+    pill.className = "printer-pill";
+    pill.dataset.testid = "printer-pill";
+    pill.textContent = printerLabelForRow(row);
+    return pill;
 }
 
 function createThumbnail(row) {
@@ -1257,7 +1291,7 @@ function startDeleteCountdown(row) {
                 method: "DELETE",
             });
             if (!response.ok) {
-                const payload = await response.json();
+                const payload = await readResponseJson(response);
                 throw new Error(payload.detail || "Could not delete row.");
             }
             await fetchQueue();
@@ -1374,7 +1408,7 @@ function renderActiveRows() {
         tr.appendChild(presetCell);
 
         const printerCell = document.createElement("td");
-        printerCell.appendChild(createPrinterSelect(row));
+        printerCell.appendChild(createPrinterPill(row));
         tr.appendChild(printerCell);
 
         const statusCell = document.createElement("td");
@@ -1525,6 +1559,7 @@ function renderHistoryRows() {
             linkButton.type = "button";
             linkButton.className = "history-job-link";
             linkButton.textContent = row.linked_job_name;
+            linkButton.title = row.linked_job_name;
             linkButton.addEventListener("click", () => openHistoryJobLink(row));
             jobCell.appendChild(linkButton);
         } else {
@@ -1533,7 +1568,7 @@ function renderHistoryRows() {
         tr.appendChild(jobCell);
 
         const printerCell = document.createElement("td");
-        printerCell.textContent = row.printer || "-";
+        printerCell.textContent = printerLabelForRow(row);
         tr.appendChild(printerCell);
 
         const dateCell = document.createElement("td");
@@ -1665,11 +1700,15 @@ function createPrintQueueRow(job) {
     tr.appendChild(statusCell);
 
     const detailsCell = document.createElement("td");
-    detailsCell.textContent = [
+    const printDetails = [
         job.printer_type || "-",
         job.resin || "-",
         job.layer_height_microns ? `${job.layer_height_microns} um` : "-",
-    ].join(" | ");
+    ];
+    if (job.estimated_density != null) {
+        printDetails.push(`Estimated Density: ${formatDensity(job.estimated_density)}`);
+    }
+    detailsCell.textContent = printDetails.join(" | ");
     tr.appendChild(detailsCell);
 
     return tr;
@@ -1871,6 +1910,36 @@ function describePrintReceipt(job, submittedCount) {
     return `Moved ${submittedCount} file(s) into In Progress. Job ${job.job_name}${caseSummary} is available in Print Queue.`;
 }
 
+function describeSendReceipt(payload, job, selectedCount) {
+    const countRows = (items) => (items || []).reduce((total, item) => total + (item.row_ids || []).length, 0);
+    const submittedCount = countRows(payload.groups);
+    const quarantinedCount = countRows(payload.quarantined_cases);
+    const blockedCount = countRows(payload.blocked_groups);
+    const messages = [];
+
+    if (submittedCount > 0) {
+        messages.push(describePrintReceipt(job, submittedCount));
+    } else {
+        messages.push(describePrintReceipt(job, selectedCount));
+    }
+
+    if (quarantinedCount > 0) {
+        const reason = payload.quarantined_cases?.[0]?.reason;
+        messages.push(
+            `${quarantinedCount} file(s) returned to File Analysis for review${reason ? `: ${reason}` : "."}`
+        );
+    }
+
+    if (blockedCount > 0) {
+        const error = payload.blocked_groups?.[0]?.error;
+        messages.push(
+            `${blockedCount} file(s) blocked from print dispatch${error ? `: ${error}` : "."}`
+        );
+    }
+
+    return messages.join(" ");
+}
+
 function openScreenshotModal(job) {
     elements.screenshotModal.classList.remove("hidden");
     elements.screenshotModal.setAttribute("aria-hidden", "false");
@@ -1914,6 +1983,16 @@ function renderLegend() {
         });
         elements.statusLegend.appendChild(button);
     });
+}
+
+function dispatchDeviceOptions() {
+    return state.preformSetup.devices?.devices || [];
+}
+
+function describeDispatchDevice(device) {
+    const model = device.model || (device.is_virtual ? "Virtual" : "Unknown model");
+    const status = device.status || "unknown";
+    return `${device.name || device.id} (${model}, ${status})`;
 }
 
 function renderBulkActions() {
@@ -2040,35 +2119,28 @@ function renderBulkActions() {
 
     const printerSelect = document.createElement("select");
     printerSelect.className = "bulk-select";
-    printerSelect.setAttribute("aria-label", "Change Printer");
+    printerSelect.setAttribute("aria-label", "Printer");
     printerSelect.dataset.testid = "bulk-printer-select";
     const printerPlaceholder = document.createElement("option");
     printerPlaceholder.value = "";
-    printerPlaceholder.textContent = "Change Printer";
+    printerPlaceholder.textContent = "Printer";
     printerPlaceholder.disabled = true;
     printerPlaceholder.selected = !state.bulkPrinterValue;
     printerSelect.appendChild(printerPlaceholder);
-    PRINTER_OPTIONS.forEach((optionValue) => {
+    dispatchDeviceOptions().forEach((device) => {
         const option = document.createElement("option");
-        option.value = optionValue;
-        option.textContent = optionValue;
-        option.selected = state.bulkPrinterValue === optionValue;
+        option.value = device.id;
+        option.textContent = describeDispatchDevice(device);
+        if (!device.is_virtual && !SUPPORTED_PRINTER_MODELS.includes(device.model)) {
+            option.className = "option-dimmed";
+        }
+        option.selected = state.bulkPrinterValue === device.id;
         printerSelect.appendChild(option);
     });
-    printerSelect.addEventListener("change", async (event) => {
-        const printer = event.target.value;
-        const rows = getSelectedRows();
-        if (!printer || rows.length === 0) {
-            return;
-        }
-        state.bulkPrinterValue = printer;
-        printerSelect.disabled = true;
-        await applyBulkUpdate({
-            row_ids: getRowIds(rows),
-            printer: printer || null,
-        }, `Updated printer for ${rows.length} row(s).`, () => {
-            state.bulkPrinterValue = "";
-        });
+    printerSelect.disabled = !canPrint() || dispatchDeviceOptions().length === 0;
+    printerSelect.addEventListener("change", (event) => {
+        state.bulkPrinterValue = event.target.value;
+        renderBulkActions();
     });
     elements.bulkActions.appendChild(printerSelect);
 
@@ -2098,14 +2170,24 @@ function renderBulkActions() {
         const submitButton = document.createElement("button");
         submitButton.type = "button";
         submitButton.dataset.testid = "send-to-print-button";
-        submitButton.className = canPrint() ? "primary-button" : "secondary-button";
-        submitButton.textContent = canPrint()
+        const readyToSend = canPrint() && Boolean(state.bulkPrinterValue);
+        submitButton.disabled = !readyToSend;
+        submitButton.className = readyToSend ? "primary-button" : "secondary-button";
+        submitButton.textContent = readyToSend
             ? `Send to Print (${readyRows.length})`
             : `PreFormServer Required — Send to Print (${readyRows.length})`;
+        if (!readyToSend && canPrint()) {
+            submitButton.textContent = `Select Printer to Send (${readyRows.length})`;
+        }
         submitButton.addEventListener("click", async (event) => {
             if (!canPrint()) {
                 openPreformWizard();
                 setStatus("Complete PreFormServer setup before sending rows to print.", true);
+                return;
+            }
+            if (!state.bulkPrinterValue) {
+                setStatus("Select a printer before sending rows to print.", true);
+                render();
                 return;
             }
             const rows = getSelectedRows().filter(isReadyForPrint);
@@ -2114,7 +2196,7 @@ function renderBulkActions() {
                 return;
             }
             event.currentTarget.disabled = true;
-            await sendRowsToPrint(rows);
+            await sendRowsToPrint(rows, state.bulkPrinterValue);
         });
         elements.bulkActions.appendChild(submitButton);
     }
@@ -2269,7 +2351,7 @@ function startBulkDelete(rows) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ row_ids: [...rowIds] }),
             });
-            const payload = await response.json();
+            const payload = await readResponseJson(response);
             if (!response.ok) {
                 throw new Error(payload.detail || "Could not delete rows.");
             }
@@ -2359,7 +2441,25 @@ async function postRowsAction(endpoint, rows, successMessage, fallbackMessage) {
     }
 }
 
-async function sendRowsToPrint(rows) {
+function describeSendError(payload) {
+    const blocked = payload.blocked_groups || payload.groups || [];
+    if (blocked.length > 0 && blocked[0].error) {
+        return blocked[0].error;
+    }
+    const quarantined = payload.quarantined_cases || [];
+    if (quarantined.length > 0) {
+        const quarantinedCount = quarantined.reduce((total, item) => total + (item.row_ids || []).length, 0);
+        const reason = quarantined[0].reason;
+        return `${quarantinedCount} file(s) returned to File Analysis for review${reason ? `: ${reason}` : "."}`;
+    }
+    return payload.detail || "Could not submit rows.";
+}
+
+async function sendRowsToPrint(rows, deviceId) {
+    if (!deviceId) {
+        setStatus("Select a printer before sending rows to print.", true);
+        return false;
+    }
     const previousJobIds = new Set(state.printQueue.jobs.map((job) => job.id));
     state.activeTab = "work-queue";
     markRowsInProgress(rows, "Processing");
@@ -2370,11 +2470,16 @@ async function sendRowsToPrint(rows) {
         const response = await fetch("/api/uploads/rows/send-to-print", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ row_ids: getRowIds(rows) }),
+            body: JSON.stringify({
+                row_ids: getRowIds(rows),
+                device_id: deviceId,
+            }),
         });
         const payload = await readResponseJson(response);
         if (!response.ok) {
-            throw new Error(payload.detail || "Could not submit rows.");
+            const error = new Error(describeSendError(payload));
+            error.payload = payload;
+            throw error;
         }
 
         await fetchQueue();
@@ -2383,12 +2488,17 @@ async function sendRowsToPrint(rows) {
         const newJob = findNewestPrintJob(previousJobIds);
         state.printQueue.highlightedJobId = newJob?.id || null;
         state.printQueue.page = 1;
-        brieflyQueueRows(payload.filter((row) => row.status === "Submitted"));
-        setStatus(describePrintReceipt(newJob, rows.length));
+        const returnedRows = payload.rows || payload;
+        brieflyQueueRows(returnedRows.filter((row) => row.status === "Submitted"));
+        setStatus(
+            describeSendReceipt(payload, newJob, rows.length),
+            (payload.quarantined_cases || []).length > 0 || (payload.blocked_groups || []).length > 0
+        );
         render();
         return true;
     } catch (error) {
         setStatus(error.message, true);
+        await fetchQueue();
         render();
         return false;
     } finally {
@@ -2435,7 +2545,7 @@ async function uploadPendingRow(row) {
 
     try {
         const response = await uploadWithTimeout(row);
-        const payload = await response.json();
+        const payload = await readResponseJson(response);
         if (!response.ok) {
             throw new Error(payload.detail || "Upload failed.");
         }

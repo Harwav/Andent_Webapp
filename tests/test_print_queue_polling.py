@@ -198,7 +198,7 @@ def test_screenshots_fetched_and_cached(app_client, settings, monkeypatch):
         ).fetchone()
 
     assert row is not None
-    assert row["screenshot_url"] == str(screenshot_dir / f"job_{created.id}.png")
+    assert row["screenshot_url"] == f"/api/print-queue/jobs/{created.id}/screenshot"
 
 
 def test_frontend_polls_backend_every_five_seconds():

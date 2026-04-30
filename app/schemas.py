@@ -110,6 +110,20 @@ class PreFormPrinterListResponse(BaseModel):
     message: str | None = None
 
 
+class DeviceInfo(BaseModel):
+    id: str
+    name: str
+    model: str | None = None
+    status: str | None = None
+    is_virtual: bool = False
+
+
+class PreFormDeviceListResponse(BaseModel):
+    devices: list[DeviceInfo] = Field(default_factory=list)
+    available: bool = True
+    message: str | None = None
+
+
 class DispatchModeStatus(BaseModel):
     mode: str
     default_mode: str
@@ -128,6 +142,33 @@ class UpdateClassificationRowRequest(BaseModel):
 
 class RowIdsRequest(BaseModel):
     row_ids: list[int] = Field(default_factory=list, min_length=1)
+
+
+class SendToPrintRequest(RowIdsRequest):
+    device_id: str | None = None
+
+
+class SendToPrintGroupResult(BaseModel):
+    manifest_id: str | None = None
+    status: str
+    row_ids: list[int] = Field(default_factory=list)
+    job_name: str | None = None
+    print_job_id: str | None = None
+    error: str | None = None
+
+
+class QuarantinedCaseResult(BaseModel):
+    case_id: str | None = None
+    row_ids: list[int] = Field(default_factory=list)
+    reason: str
+
+
+class SendToPrintResponse(BaseModel):
+    groups: list[SendToPrintGroupResult] = Field(default_factory=list)
+    quarantined_cases: list[QuarantinedCaseResult] = Field(default_factory=list)
+    blocked_groups: list[SendToPrintGroupResult] = Field(default_factory=list)
+    rows: list[ClassificationRow] = Field(default_factory=list)
+    prevalidation_ms: int | None = None
 
 
 class BulkUpdateClassificationRowsRequest(RowIdsRequest):
@@ -157,6 +198,22 @@ class BatchPlanPreviewResponse(BaseModel):
     rows: list[PlanPreviewRow]
     group_count: int
     cannot_fit_count: int
+
+
+class PreviewBatchGroup(BaseModel):
+    manifest_id: str
+    row_ids: list[int] = Field(default_factory=list)
+    case_ids: list[str] = Field(default_factory=list)
+    compatibility_key: str | None = None
+    printer_model: str | None = None
+    material_label: str | None = None
+    layer_height_microns: int | None = None
+    planning_status: BuildPlanningStatus
+    non_plannable_reason: str | None = None
+
+
+class PreviewBatchesResponse(BaseModel):
+    groups: list[PreviewBatchGroup] = Field(default_factory=list)
 
 
 class FilePrepSpec(BaseModel):
@@ -235,6 +292,8 @@ class PrintJob(BaseModel):
     screenshot_url: str | None = None
     form_file_path: str | None = None
     printer_type: str | None = None
+    printer_device_id: str | None = None
+    printer_device_name: str | None = None
     resin: str | None = None
     layer_height_microns: int | None = None
     estimated_completion: str | None = None
