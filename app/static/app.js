@@ -2385,6 +2385,7 @@ async function sendRowsToPrint(rows) {
     markRowsInProgress(rows, "Processing");
     render();
 
+    window.pollingPaused = true;
     try {
         const response = await fetch("/api/uploads/rows/send-to-print", {
             method: "POST",
@@ -2410,6 +2411,8 @@ async function sendRowsToPrint(rows) {
         setStatus(error.message, true);
         render();
         return false;
+    } finally {
+        window.pollingPaused = false;
     }
 }
 
@@ -2481,6 +2484,7 @@ async function uploadPendingRow(row) {
             const finalCount = state.uploadBatchCompleted;
             state.uploadBatchTotal = 0;
             state.uploadBatchCompleted = 0;
+            await fetchQueue();
             setStatus(`Classified ${finalCount} file(s). Queue ready.`);
         }
         render();
