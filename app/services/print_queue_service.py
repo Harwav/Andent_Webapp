@@ -367,6 +367,22 @@ def _generate_unique_job_name_for_manifest(connection, date: datetime, manifest:
     )
 
 
+def _generate_unique_job_name_for_settings(
+    settings: "Settings",
+    date: datetime,
+    case_ids: Iterable[str],
+) -> str:
+    from ..database import connect, init_db
+
+    init_db(settings)
+    with closing(connect(settings)) as connection:
+        return generate_job_name(
+            date,
+            case_ids,
+            existing_names=_existing_job_names_for_date(connection, date),
+        )
+
+
 def _resolve_device_id(rows: list["ClassificationRow"], manifest: "BuildManifest" | None = None) -> str:
     explicit_printers = {
         row.printer
@@ -720,7 +736,12 @@ def process_print_manifest(
     active_case_ids = _manifest_case_ids_by_file_order(manifest)
     if not active_case_ids:
         raise ValueError("Build manifest does not contain any cases.")
-    job_name = job_name or generate_job_name(datetime.now(), active_case_ids)
+    if job_name is None:
+        job_name = _generate_unique_job_name_for_settings(
+            settings,
+            datetime.now(),
+            active_case_ids,
+        )
     active_rows = _manifest_rows(manifest, row_lookup)
     if not active_rows:
         raise ValueError("No valid STL files found for manifest")
