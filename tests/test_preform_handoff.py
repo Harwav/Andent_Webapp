@@ -1433,6 +1433,57 @@ def test_send_to_print_holds_final_below_target_build_without_preform_dispatch(t
     assert jobs[0].manifest_json["estimated_density"] == 1200.0 / 69188.0
 
 
+def test_selected_device_send_to_print_holds_final_below_target_build(tmp_path):
+    """Device dispatch path must respect density-based holding, same as non-device path."""
+    settings = _build_holding_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "device-hold-1.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-DEVICE-HOLD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-hold",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-lab", "name": "Lab Printer", "model": "Form 4BL", "status": "ready"}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["groups"][0]["status"] == "held"
+    assert stub_client.created_scenes == []
+    assert stub_client.print_jobs == []
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].status == "Holding for More Cases"
+    assert jobs[0].hold_reason == "below_density_target"
+    assert jobs[0].printer_device_id == "form-4bl-lab"
+    assert jobs[0].estimated_density == 1200.0 / 69188.0
+    assert jobs[0].density_target == 0.40
+
+
 def test_release_held_job_dispatches_and_records_operator_release(tmp_path):
     settings = _build_holding_settings(tmp_path)
     app = create_app(settings)

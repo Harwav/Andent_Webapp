@@ -16,16 +16,19 @@ import logging
 import os
 import re
 import shutil
+import sqlite3
 import struct
 import zlib
 from contextlib import closing
 from datetime import datetime, timedelta
 from pathlib import Path
+from time import sleep
+from time import perf_counter
 from typing import TYPE_CHECKING, Any, Iterable
 
 from .formlabs_web_client import FormlabsWebClient
-from .preset_catalog import get_preset_profile
-from core.stl_validator import validate_stl_file, ValidationStatus
+from .preset_catalog import SUPPORTED_PRINTER_GROUPS, get_preset_profile
+from core.stl_validator import validate_stl_file
 
 if TYPE_CHECKING:
     from ..config import Settings
@@ -397,7 +400,23 @@ def _resolve_device_id(rows: list["ClassificationRow"], manifest: "BuildManifest
 
 
 def _device_identifier(device: dict[str, Any]) -> str | None:
-    for key in ("id", "device_id", "printer_id", "name"):
+    for key in ("id", "device_id", "printer_id"):
+        value = device.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def _device_name(device: dict[str, Any]) -> str | None:
+    for key in ("name", "display_name", "id", "device_id", "printer_id"):
+        value = device.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def _device_model(device: dict[str, Any]) -> str | None:
+    for key in ("model", "product_name", "type"):
         value = device.get(key)
         if value:
             return str(value)
@@ -476,6 +495,19 @@ def _resolve_virtual_device_id(client, preferred_device_id: str | None = None) -
     )
 
 
+class DeviceDispatchValidationError(ValueError):
+    def __init__(self, payload: dict[str, object], status_code: int = 422):
+        super().__init__("Selected rows cannot be dispatched to the selected printer.")
+        self.payload = payload
+        self.status_code = status_code
+
+
+class PreFormImportFailureError(RuntimeError):
+    def __init__(self, failed_case_errors: dict[str, str]):
+        super().__init__("No valid cases could be imported by PreFormServer.")
+        self.failed_case_errors = failed_case_errors
+
+
 def _print_id_from_response(response: dict[str, Any]) -> str:
     print_id = response.get("print_id") or response.get("job_id") or response.get("id")
     if not print_id:
@@ -491,18 +523,28 @@ def _dispatch_scene_if_enabled(
     manifest: "BuildManifest",
     rows: list["ClassificationRow"],
     job_name: str,
+    device_id: str | None = None,
+    force_dispatch: bool = False,
 ) -> str | None:
     mode = getattr(settings, "print_dispatch_mode", "save_form")
-    if mode == "save_form":
+    if force_dispatch:
+        if not device_id:
+            raise RuntimeError("Explicit printer dispatch requires a device id.")
+        resolved_device_id = (
+            _resolve_virtual_device_id(client)
+            if device_id == "__virtual__"
+            else device_id
+        )
+    elif mode == "save_form":
         return None
-    if mode == "virtual":
-        device_id = _resolve_virtual_device_id(client, _resolve_device_id(rows, manifest))
+    elif mode == "virtual":
+        resolved_device_id = _resolve_virtual_device_id(client, _resolve_device_id(rows, manifest))
     elif mode == "real":
-        device_id = _resolve_device_id(rows, manifest)
+        resolved_device_id = _resolve_device_id(rows, manifest)
     else:
         raise RuntimeError(f"Unsupported print dispatch mode: {mode}")
 
-    response = client.send_to_printer(scene_id, device_id, job_name)
+    response = client.send_to_printer(scene_id, resolved_device_id, job_name)
     if not isinstance(response, dict):
         raise RuntimeError("PreFormServer returned an invalid print response.")
     return _print_id_from_response(response)
@@ -721,6 +763,8 @@ def process_print_manifest(
     rows: list["ClassificationRow"],
     batch_number: int,
     job_name: str | None = None,
+    device_id: str | None = None,
+    printer_device_name: str | None = None,
 ) -> dict:
     """Process one planned build manifest for printing."""
     from .preform_client import PreFormClient
@@ -763,6 +807,7 @@ def process_print_manifest(
         imported_any = False
         support_model_ids: list[str] = []
         failed_cases: set[str] = set()
+        failed_case_errors: dict[str, str] = {}
 
         # Group files by case_id for case-aware import
         case_files: dict[str, list] = {}
@@ -792,6 +837,8 @@ def process_print_manifest(
                             break
                         support_model_ids.append(str(model_id))
                 except Exception as exc:
+                    error_text = f"{stl_path.name} - {exc}"
+                    failed_case_errors[case_id] = error_text
                     logging.error("Failed to import %s (case: %s): %s", stl_path, case_id, exc)
                     case_failed = True
                     break
@@ -803,7 +850,15 @@ def process_print_manifest(
                 imported_any = True
 
         if not imported_any:
-            raise ValueError(f"No valid cases could be imported. Failed cases: {sorted(failed_cases)}")
+            raise PreFormImportFailureError(failed_case_errors)
+        if failed_cases:
+            active_case_ids = [
+                case_id
+                for case_id in active_case_ids
+                if case_id not in failed_cases
+            ]
+            manifest = _subset_manifest(manifest, active_case_ids)
+            active_rows = _manifest_rows(manifest, row_lookup)
 
         client.auto_layout(scene_id)
         if support_model_ids:
@@ -833,6 +888,8 @@ def process_print_manifest(
             manifest=manifest,
             rows=active_rows,
             job_name=job_name,
+            device_id=device_id,
+            force_dispatch=device_id is not None,
         )
         return {
             "job_name": job_name,
@@ -844,6 +901,7 @@ def process_print_manifest(
             "preset_names": manifest.preset_names,
             "compatibility_key": manifest.compatibility_key,
             "case_ids": active_case_ids,
+            "failed_case_errors": failed_case_errors,
             "manifest": manifest,
             "manifest_json": manifest.model_dump(),
             "status": "Queued",
@@ -852,6 +910,8 @@ def process_print_manifest(
             "validation_passed": bool(validation_result.get("valid", False)),
             "validation_errors": validation_errors,
             "printer_type": manifest.printer_group,
+            "printer_device_id": device_id,
+            "printer_device_name": printer_device_name,
             "resin": manifest.material_label,
             "layer_height_microns": (
                 int(manifest.layer_thickness_mm * 1000)
@@ -917,6 +977,8 @@ def _insert_print_job(
             screenshot_url,
             form_file_path,
             printer_type,
+            printer_device_id,
+            printer_device_name,
             resin,
             layer_height_microns,
             estimated_completion,
@@ -930,7 +992,7 @@ def _insert_print_job(
             validation_passed,
             validation_errors_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             print_job.job_name,
@@ -947,6 +1009,8 @@ def _insert_print_job(
             print_job.screenshot_url,
             print_job.form_file_path,
             print_job.printer_type,
+            print_job.printer_device_id,
+            print_job.printer_device_name,
             print_job.resin,
             print_job.layer_height_microns,
             print_job.estimated_completion,
@@ -983,6 +1047,9 @@ def _held_print_job_from_manifest(
     manifest: "BuildManifest",
     job_name: str,
     cutoff_at: datetime,
+    *,
+    device_id: str | None = None,
+    printer_device_name: str | None = None,
 ) -> "PrintJob":
     from ..schemas import PrintJob
 
@@ -997,6 +1064,8 @@ def _held_print_job_from_manifest(
         case_ids=_manifest_case_ids_by_file_order(manifest),
         manifest_json=manifest.model_dump(),
         printer_type=manifest.printer_group,
+        printer_device_id=device_id,
+        printer_device_name=printer_device_name,
         resin=manifest.material_label,
         layer_height_microns=(
             int(manifest.layer_thickness_mm * 1000)
@@ -1009,6 +1078,158 @@ def _held_print_job_from_manifest(
         hold_reason="below_density_target",
         validation_passed=None,
         validation_errors=[],
+    )
+
+
+def _reserved_print_job_from_manifest(
+    settings: "Settings",
+    manifest: "BuildManifest",
+    job_name: str,
+    *,
+    device_id: str | None = None,
+    printer_device_name: str | None = None,
+) -> "PrintJob":
+    from ..schemas import PrintJob
+
+    return PrintJob(
+        job_name=job_name,
+        scene_id=None,
+        print_job_id=None,
+        status="Queued",
+        preset=_manifest_preset_summary(manifest),
+        preset_names=manifest.preset_names,
+        compatibility_key=manifest.compatibility_key,
+        case_ids=_manifest_case_ids_by_file_order(manifest),
+        manifest_json=manifest.model_dump(),
+        printer_type=manifest.printer_group,
+        printer_device_id=device_id,
+        printer_device_name=printer_device_name,
+        resin=manifest.material_label,
+        layer_height_microns=(
+            int(manifest.layer_thickness_mm * 1000)
+            if manifest.layer_thickness_mm is not None
+            else None
+        ),
+        estimated_density=manifest.estimated_density,
+        density_target=settings.print_hold_density_target,
+        validation_passed=None,
+        validation_errors=[],
+    )
+
+
+def _reserve_print_job_for_rows(
+    connection,
+    *,
+    settings: "Settings",
+    manifest: "BuildManifest",
+    rows: list["ClassificationRow"],
+    job_name: str,
+    now: str,
+    device_id: str | None = None,
+    printer_device_name: str | None = None,
+) -> int:
+    reserved_job = _reserved_print_job_from_manifest(
+        settings,
+        manifest,
+        job_name,
+        device_id=device_id,
+        printer_device_name=printer_device_name,
+    )
+    created_print_job_id = _insert_print_job(connection, reserved_job, now)
+    for row in rows:
+        if row.row_id is None:
+            continue
+        connection.execute(
+            """
+            UPDATE upload_rows
+            SET status = 'Submitted',
+                queue_section = 'in_progress',
+                handoff_stage = 'Processing',
+                linked_job_name = ?,
+                linked_print_job_id = ?,
+                current_event_at = ?
+            WHERE id = ?
+            """,
+            (job_name, created_print_job_id, now, row.row_id),
+        )
+        metadata = json.dumps({
+            "status": "Submitted",
+            "queue_section": "in_progress",
+            "handoff_stage": "Processing",
+            "job_name": job_name,
+            "linked_print_job_id": created_print_job_id,
+        })
+        connection.execute(
+            """
+            INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (row.row_id, "handoff_started", now, metadata),
+        )
+    return created_print_job_id
+
+
+def _update_reserved_print_job_from_result(
+    connection,
+    *,
+    job_id: int,
+    result: dict[str, object],
+    settings: "Settings",
+    now: str,
+) -> None:
+    screenshot_url = result.get("screenshot_url") or f"/api/print-queue/jobs/{job_id}/screenshot"
+    connection.execute(
+        """
+        UPDATE print_jobs
+        SET scene_id = ?,
+            print_job_id = ?,
+            status = ?,
+            preset = ?,
+            preset_names_json = ?,
+            compatibility_key = ?,
+            case_ids = ?,
+            manifest_json = ?,
+            updated_at = ?,
+            screenshot_url = ?,
+            form_file_path = ?,
+            printer_type = ?,
+            printer_device_id = ?,
+            printer_device_name = ?,
+            resin = ?,
+            layer_height_microns = ?,
+            estimated_density = ?,
+            density_target = ?,
+            validation_passed = ?,
+            validation_errors_json = ?
+        WHERE id = ?
+        """,
+        (
+            result.get("scene_id"),
+            result.get("print_job_id"),
+            result.get("status", "Queued"),
+            result["preset"],
+            json.dumps(result.get("preset_names", [])),
+            result.get("compatibility_key"),
+            json.dumps(result["case_ids"]),
+            json.dumps(result.get("manifest_json")) if result.get("manifest_json") is not None else None,
+            now,
+            screenshot_url,
+            result.get("form_file_path"),
+            result.get("printer_type"),
+            result.get("printer_device_id"),
+            result.get("printer_device_name"),
+            result.get("resin"),
+            result.get("layer_height_microns"),
+            result.get("estimated_density"),
+            settings.print_hold_density_target,
+            (
+                1 if result.get("validation_passed")
+                else 0 if result.get("validation_passed") is False
+                else None
+            ),
+            json.dumps(result.get("validation_errors", [])),
+            job_id,
+        ),
     )
 
 
@@ -1043,6 +1264,626 @@ def _load_held_replan_rows(settings: "Settings") -> tuple[list[int], list["Class
     ]
 
 
+def _group_result(
+    *,
+    row_ids: list[int],
+    status: str,
+    manifest_id: str | None = None,
+    job_name: str | None = None,
+    print_job_id: str | None = None,
+    error: str | None = None,
+) -> dict[str, object]:
+    return {
+        "manifest_id": manifest_id,
+        "status": status,
+        "row_ids": row_ids,
+        "job_name": job_name,
+        "print_job_id": print_job_id,
+        "error": error,
+    }
+
+
+def _send_to_print_payload(
+    *,
+    groups: list[dict[str, object]] | None = None,
+    quarantined_cases: list[dict[str, object]] | None = None,
+    blocked_groups: list[dict[str, object]] | None = None,
+    rows: list["ClassificationRow"] | None = None,
+    prevalidation_ms: int | None = None,
+) -> dict[str, object]:
+    return {
+        "groups": groups or [],
+        "quarantined_cases": quarantined_cases or [],
+        "blocked_groups": blocked_groups or [],
+        "rows": rows or [],
+        "prevalidation_ms": prevalidation_ms,
+    }
+
+
+def _list_devices_for_dispatch(settings: "Settings") -> list[dict[str, Any]]:
+    from .preform_client import PreFormClient
+
+    client = PreFormClient(settings.preform_server_url)
+    try:
+        return _normalize_device_list(client.list_devices())
+    finally:
+        client.close()
+
+
+def _selected_dispatch_device(devices: list[dict[str, Any]], device_id: str) -> dict[str, object] | None:
+    for device in devices:
+        if not isinstance(device, dict):
+            continue
+        if _device_identifier(device) != device_id:
+            continue
+        is_virtual = _is_virtual_device(device)
+        model = _device_model(device)
+        if model not in SUPPORTED_PRINTER_GROUPS:
+            raise DeviceDispatchValidationError(
+                _send_to_print_payload(
+                    blocked_groups=[
+                        _group_result(
+                            row_ids=[],
+                            status="failed",
+                            error=(
+                                f"Selected printer model {model or 'unknown'} is not supported. "
+                                "Choose a Form 4BL or Form 4B printer."
+                            ),
+                        )
+                    ]
+                )
+            )
+        return {
+            "device_id": device_id,
+            "device_name": _device_name(device),
+            "model": model,
+            "is_virtual": is_virtual,
+        }
+    return None
+
+
+def _case_key(row: "ClassificationRow") -> str:
+    if row.case_id:
+        return row.case_id
+    return f"row-{row.row_id or row.file_name}"
+
+
+def _prevalidate_dispatch_rows(
+    rows: list["ClassificationRow"],
+) -> tuple[list["ClassificationRow"], list[dict[str, object]], int]:
+    started_at = perf_counter()
+    rows_by_case: dict[str, list["ClassificationRow"]] = {}
+    failure_by_case: dict[str, str] = {}
+
+    for row in rows:
+        rows_by_case.setdefault(_case_key(row), []).append(row)
+        if _case_key(row) in failure_by_case:
+            continue
+        if not row.file_path:
+            failure_by_case[_case_key(row)] = f"{row.file_name} - missing STL file path"
+            continue
+        validation = validate_stl_file(row.file_path)
+        if not validation.is_valid:
+            failure_by_case[_case_key(row)] = f"{row.file_name} - {validation.message}"
+
+    quarantined_cases = [
+        {
+            "case_id": None if case_key.startswith("row-") else case_key,
+            "row_ids": [
+                row.row_id
+                for row in case_rows
+                if row.row_id is not None
+            ],
+            "reason": reason,
+        }
+        for case_key, reason in failure_by_case.items()
+        if (case_rows := rows_by_case.get(case_key))
+    ]
+    valid_rows = [
+        row
+        for row in rows
+        if _case_key(row) not in failure_by_case
+    ]
+    prevalidation_ms = int((perf_counter() - started_at) * 1000)
+    logging.info(
+        "Dispatch prevalidation finished in %sms for %s selected rows; quarantined_cases=%s",
+        prevalidation_ms,
+        len(rows),
+        len(quarantined_cases),
+    )
+    return valid_rows, quarantined_cases, prevalidation_ms
+
+
+def _mark_cases_needs_review(
+    connection,
+    cases: list[dict[str, object]],
+    *,
+    event_type: str,
+    now: str,
+) -> None:
+    for case in cases:
+        reason = str(case["reason"])
+        row_ids = [row_id for row_id in case.get("row_ids", []) if row_id is not None]
+        if not row_ids:
+            continue
+        placeholders = ",".join("?" for _ in row_ids)
+        connection.execute(
+            f"""
+            UPDATE upload_rows
+            SET status = 'Needs Review',
+                queue_section = 'analysis',
+                handoff_stage = NULL,
+                review_required = 1,
+                review_reason = ?,
+                current_event_at = ?
+            WHERE id IN ({placeholders})
+            """,
+            (reason, now, *row_ids),
+        )
+        for row_id in row_ids:
+            connection.execute(
+                """
+                INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    row_id,
+                    event_type,
+                    now,
+                    json.dumps({
+                        "status": "Needs Review",
+                        "reason": reason,
+                        "case_id": case.get("case_id"),
+                    }),
+                ),
+            )
+
+
+def _mark_cases_needs_review_with_retry(
+    connection,
+    cases: list[dict[str, object]],
+    *,
+    event_type: str,
+    now: str,
+    attempts: int = 3,
+) -> None:
+    if not cases:
+        return
+    for attempt in range(1, attempts + 1):
+        try:
+            _mark_cases_needs_review(
+                connection,
+                cases,
+                event_type=event_type,
+                now=now,
+            )
+            return
+        except sqlite3.OperationalError as exc:
+            if "database is locked" not in str(exc).lower() or attempt == attempts:
+                raise
+            try:
+                connection.rollback()
+            except sqlite3.Error:
+                pass
+            sleep(0.25 * attempt)
+
+
+def _selected_model_rows(
+    rows: list["ClassificationRow"],
+    device: dict[str, object],
+) -> list["ClassificationRow"]:
+    if device.get("is_virtual"):
+        return rows
+    selected_model = device.get("model")
+    return [
+        row.model_copy(update={"printer": selected_model})
+        for row in rows
+    ]
+
+
+def _send_ready_rows_to_device(
+    settings: "Settings",
+    row_ids: list[int],
+    device_id: str,
+) -> dict[str, object]:
+    from ..database import _load_rows_by_ids, _now_iso, connect, get_upload_row_by_id
+    from .build_planning import plan_build_manifests
+    from .planning_preview import build_manifest_assignment_id, manifest_row_ids
+
+    if not row_ids:
+        return _send_to_print_payload()
+
+    assert_preform_ready(settings)
+    rows = [
+        row
+        for row_id in row_ids
+        if (row := get_upload_row_by_id(settings, row_id)) is not None
+    ]
+    ready_rows = [row for row in rows if row.status == "Ready"]
+    if not ready_rows:
+        raise DeviceDispatchValidationError(
+            _send_to_print_payload(
+                blocked_groups=[
+                    _group_result(
+                        row_ids=row_ids,
+                        status="failed",
+                        error="No selected rows are Ready for print dispatch.",
+                    )
+                ],
+                rows=rows,
+            )
+        )
+
+    try:
+        devices = _list_devices_for_dispatch(settings)
+    except Exception as exc:
+        raise DeviceDispatchValidationError(
+            _send_to_print_payload(
+                blocked_groups=[
+                    _group_result(
+                        row_ids=[row.row_id for row in ready_rows if row.row_id is not None],
+                        status="failed",
+                        error=f"PreFormServer cannot provide printer discovery: {exc}",
+                    )
+                ],
+                rows=rows,
+            )
+        ) from exc
+
+    device = _selected_dispatch_device(devices, device_id)
+    if device is None:
+        raise DeviceDispatchValidationError(
+            _send_to_print_payload(
+                blocked_groups=[
+                    _group_result(
+                        row_ids=[row.row_id for row in ready_rows if row.row_id is not None],
+                        status="failed",
+                        error=f"Selected printer device {device_id} is no longer available.",
+                    )
+                ],
+                rows=rows,
+            )
+        )
+
+    prevalidated_rows, quarantined_cases, prevalidation_ms = _prevalidate_dispatch_rows(ready_rows)
+    groups: list[dict[str, object]] = []
+    blocked_groups: list[dict[str, object]] = []
+    now = _now_iso()
+    with closing(connect(settings)) as connection:
+        _mark_cases_needs_review_with_retry(
+            connection,
+            quarantined_cases,
+            event_type="case_quarantined_before_preform",
+            now=now,
+        )
+
+        planning_rows = _selected_model_rows(prevalidated_rows, device)
+        manifests = plan_build_manifests(planning_rows)
+        rows_by_id = {
+            row.row_id: row
+            for row in planning_rows
+            if row.row_id is not None
+        }
+
+        hold_now = _now()
+        cutoff_at = _parse_cutoff_today(settings.print_hold_cutoff_local_time, hold_now)
+        final_index_by_compatibility: dict[str | None, int] = {}
+        for index, manifest in enumerate(manifests):
+            if manifest.planning_status == "planned":
+                final_index_by_compatibility[manifest.compatibility_key] = index
+
+        for manifest_index, manifest in enumerate(manifests):
+            manifest_row_id_list = manifest_row_ids(manifest, planning_rows)
+            manifest_id = build_manifest_assignment_id(manifest, manifest_row_id_list)
+            if manifest.planning_status != "planned" or not manifest.import_groups:
+                reason = f"Build planning requires manual review: {manifest.non_plannable_reason}"
+                blocked_groups.append(
+                    _group_result(
+                        manifest_id=manifest_id,
+                        status="blocked",
+                        row_ids=manifest_row_id_list,
+                        error=reason,
+                    )
+                )
+                _mark_cases_needs_review_with_retry(
+                    connection,
+                    [
+                        {
+                            "case_id": case_id,
+                            "row_ids": [
+                                row.row_id
+                                for row in planning_rows
+                                if row.row_id is not None and row.case_id == case_id
+                            ],
+                            "reason": reason,
+                        }
+                        for case_id in manifest.case_ids
+                    ],
+                    event_type="manual_review_required",
+                    now=now,
+                )
+                continue
+
+            if _should_hold_manifest(
+                settings,
+                manifest,
+                manifest_index,
+                final_index_by_compatibility,
+                hold_now,
+            ):
+                manifest_rows = [
+                    row
+                    for case_id in manifest.case_ids
+                    for row in planning_rows
+                    if row.row_id is not None and row.case_id == case_id
+                ]
+                job_name = _generate_unique_job_name_for_manifest(
+                    connection,
+                    datetime.now(),
+                    manifest,
+                )
+                held_job = _held_print_job_from_manifest(
+                    settings,
+                    manifest,
+                    job_name,
+                    cutoff_at,
+                    device_id=str(device["device_id"]),
+                    printer_device_name=(
+                        str(device["device_name"])
+                        if device.get("device_name") is not None
+                        else None
+                    ),
+                )
+                created_print_job_id = _insert_print_job(connection, held_job, now)
+                _held_job_ids_created_this_process.add(created_print_job_id)
+                for row in manifest_rows:
+                    connection.execute(
+                        """
+                        UPDATE upload_rows
+                        SET status = 'Submitted',
+                            queue_section = 'in_progress',
+                            handoff_stage = ?,
+                            linked_job_name = ?,
+                            linked_print_job_id = ?,
+                            current_event_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            HOLDING_STATUS,
+                            job_name,
+                            created_print_job_id,
+                            now,
+                            row.row_id,
+                        ),
+                    )
+                    metadata = json.dumps({
+                        "status": "Submitted",
+                        "queue_section": "in_progress",
+                        "handoff_stage": HOLDING_STATUS,
+                        "job_name": job_name,
+                        "linked_print_job_id": created_print_job_id,
+                        "manifest": manifest.model_dump(),
+                        "estimated_density": manifest.estimated_density,
+                        "density_target": settings.print_hold_density_target,
+                    })
+                    connection.execute(
+                        """
+                        INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (row.row_id, "build_holding", now, metadata),
+                    )
+                groups.append(
+                    _group_result(
+                        manifest_id=build_manifest_assignment_id(manifest, [
+                            row.row_id for row in manifest_rows if row.row_id is not None
+                        ]),
+                        status="held",
+                        row_ids=[row.row_id for row in manifest_rows if row.row_id is not None],
+                        job_name=job_name,
+                    )
+                )
+                continue
+
+            active_rows = _manifest_rows(manifest, rows_by_id)
+            job_name = _generate_unique_job_name_for_manifest(
+                connection,
+                datetime.now(),
+                manifest,
+            )
+            try:
+                created_print_job_id = _reserve_print_job_for_rows(
+                    connection,
+                    settings=settings,
+                    manifest=manifest,
+                    rows=active_rows,
+                    job_name=job_name,
+                    now=now,
+                    device_id=str(device["device_id"]),
+                    printer_device_name=(
+                        str(device["device_name"])
+                        if device.get("device_name") is not None
+                        else None
+                    ),
+                )
+                connection.commit()
+            except sqlite3.IntegrityError as exc:
+                connection.rollback()
+                raise DeviceDispatchValidationError(
+                    _send_to_print_payload(
+                        blocked_groups=[
+                            _group_result(
+                                manifest_id=manifest_id,
+                                status="failed",
+                                row_ids=manifest_row_id_list,
+                                error="Selected rows are already being submitted. Refresh the queue and try again.",
+                            )
+                        ],
+                        rows=_load_rows_by_ids(connection, row_ids),
+                    )
+                ) from exc
+            try:
+                result = process_print_manifest(
+                    settings,
+                    manifest,
+                    active_rows,
+                    batch_number=1,
+                    job_name=job_name,
+                    device_id=str(device["device_id"]),
+                    printer_device_name=(
+                        str(device["device_name"])
+                        if device.get("device_name") is not None
+                        else None
+                    ),
+                )
+            except PreFormImportFailureError as exc:
+                failed_case_errors = exc.failed_case_errors
+                _mark_cases_needs_review_with_retry(
+                    connection,
+                    [
+                        {
+                            "case_id": case_id,
+                            "row_ids": [
+                                row.row_id
+                                for row in planning_rows
+                                if row.row_id is not None and row.case_id == case_id
+                            ],
+                            "reason": f"PreForm import failed: {error}",
+                        }
+                        for case_id, error in failed_case_errors.items()
+                    ],
+                    event_type="case_quarantined_during_preform_import",
+                    now=now,
+                )
+                connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
+                blocked_groups.append(
+                    _group_result(
+                        manifest_id=manifest_id,
+                        status="failed",
+                        row_ids=manifest_row_id_list,
+                        error="PreFormServer rejected every STL in this group during import.",
+                    )
+                )
+                continue
+            except Exception:
+                connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
+                for row in active_rows:
+                    if row.row_id is None:
+                        continue
+                    connection.execute(
+                        """
+                        UPDATE upload_rows
+                        SET status = 'Ready',
+                            queue_section = 'analysis',
+                            handoff_stage = NULL,
+                            linked_job_name = NULL,
+                            linked_print_job_id = NULL,
+                            current_event_at = ?
+                        WHERE id = ?
+                        """,
+                        (now, row.row_id),
+                    )
+                connection.commit()
+                raise
+            failed_case_errors = result.get("failed_case_errors") or {}
+            if isinstance(failed_case_errors, dict) and failed_case_errors:
+                _mark_cases_needs_review_with_retry(
+                    connection,
+                    [
+                        {
+                            "case_id": case_id,
+                            "row_ids": [
+                                row.row_id
+                                for row in planning_rows
+                                if row.row_id is not None and row.case_id == case_id
+                            ],
+                            "reason": f"PreForm import failed: {error}",
+                        }
+                        for case_id, error in failed_case_errors.items()
+                    ],
+                    event_type="case_quarantined_during_preform_import",
+                    now=now,
+                )
+
+            _update_reserved_print_job_from_result(
+                connection,
+                job_id=created_print_job_id,
+                result=result,
+                settings=settings,
+                now=now,
+            )
+            accepted_rows = _manifest_rows(result["manifest"], rows_by_id)
+            accepted_row_ids = [
+                row.row_id
+                for row in accepted_rows
+                if row.row_id is not None
+            ]
+
+            for row in accepted_rows:
+                if row.row_id is None:
+                    continue
+                connection.execute(
+                    """
+                    UPDATE upload_rows
+                    SET status = 'Submitted',
+                        queue_section = 'history',
+                        handoff_stage = 'Queued',
+                        linked_job_name = ?,
+                        linked_print_job_id = ?,
+                        current_event_at = ?
+                    WHERE id = ?
+                    """,
+                    (result["job_name"], created_print_job_id, now, row.row_id),
+                )
+                metadata = json.dumps({
+                    "status": "Submitted",
+                    "job_name": result["job_name"],
+                    "print_job_id": result.get("print_job_id"),
+                    "manifest_id": manifest_id,
+                    "printer_device_id": result.get("printer_device_id"),
+                    "printer_device_name": result.get("printer_device_name"),
+                })
+                connection.execute(
+                    """
+                    INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (row.row_id, "submitted_to_print", now, metadata),
+                )
+
+            groups.append(
+                _group_result(
+                    manifest_id=manifest_id,
+                    status="submitted",
+                    row_ids=accepted_row_ids,
+                    job_name=str(result["job_name"]),
+                    print_job_id=(
+                        str(result["print_job_id"])
+                        if result.get("print_job_id") is not None
+                        else None
+                    ),
+                )
+            )
+
+        connection.commit()
+        updated_rows = _load_rows_by_ids(connection, row_ids)
+
+    payload = _send_to_print_payload(
+        groups=groups,
+        quarantined_cases=quarantined_cases,
+        blocked_groups=blocked_groups,
+        rows=updated_rows,
+        prevalidation_ms=prevalidation_ms,
+    )
+    if not groups:
+        status_code = 502 if any(
+            "PreFormServer" in str(group.get("error", ""))
+            for group in blocked_groups
+        ) else 422
+        raise DeviceDispatchValidationError(payload, status_code=status_code)
+    return payload
+
+
 def release_due_held_jobs(settings: "Settings") -> None:
     """Release held builds that crossed cutoff during this process lifetime."""
     from datetime import datetime
@@ -1075,13 +1916,16 @@ def release_due_held_jobs(settings: "Settings") -> None:
 def send_ready_rows_to_print(
     settings: "Settings",
     row_ids: list[int],
-) -> list["ClassificationRow"]:
+    device_id: str | None = None,
+) -> list["ClassificationRow"] | dict[str, object]:
     """Send Ready rows to print with full PreFormServer handoff."""
     from contextlib import closing
 
     from ..database import _load_rows_by_ids, _now_iso, connect, get_upload_row_by_id
-    from ..schemas import PrintJob
     from .build_planning import plan_build_manifests
+
+    if device_id:
+        return _send_ready_rows_to_device(settings, row_ids, device_id)
 
     if not row_ids:
         return []
@@ -1264,6 +2108,7 @@ def send_ready_rows_to_print(
                     continue
 
                 active_manifest = manifest
+                created_print_job_id: int | None = None
                 while True:
                     active_rows = _manifest_rows(active_manifest, rows_by_id)
                     job_name = _generate_unique_job_name_for_manifest(
@@ -1271,13 +2116,41 @@ def send_ready_rows_to_print(
                         datetime.now(),
                         active_manifest,
                     )
-                    result = process_print_manifest(
-                        settings,
-                        active_manifest,
-                        active_rows,
-                        batch_number=1,
+                    created_print_job_id = _reserve_print_job_for_rows(
+                        connection,
+                        settings=settings,
+                        manifest=active_manifest,
+                        rows=active_rows,
                         job_name=job_name,
+                        now=now,
                     )
+                    connection.commit()
+                    try:
+                        result = process_print_manifest(
+                            settings,
+                            active_manifest,
+                            active_rows,
+                            batch_number=1,
+                            job_name=job_name,
+                        )
+                    except Exception:
+                        connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
+                        for row in active_rows:
+                            connection.execute(
+                                """
+                                UPDATE upload_rows
+                                SET status = 'Ready',
+                                    queue_section = 'analysis',
+                                    handoff_stage = NULL,
+                                    linked_job_name = NULL,
+                                    linked_print_job_id = NULL,
+                                    current_event_at = ?
+                                WHERE id = ?
+                                """,
+                                (now, row.row_id),
+                            )
+                        connection.commit()
+                        raise
                     active_case_ids = _manifest_case_ids_by_file_order(active_manifest)
                     if not result.get("review_required", False) or len(active_case_ids) == 1:
                         break
@@ -1286,6 +2159,7 @@ def send_ready_rows_to_print(
                     if rollback_case_id is None:
                         break
 
+                    connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
                     retry_case_ids = [
                         case_id
                         for case_id in active_case_ids
@@ -1362,28 +2236,15 @@ def send_ready_rows_to_print(
                         )
                     continue
 
-                print_job = PrintJob(
-                    job_name=result["job_name"],
-                    scene_id=result["scene_id"],
-                    print_job_id=result["print_job_id"],
-                    form_file_path=result.get("form_file_path"),
-                    screenshot_url=result.get("screenshot_url"),
-                    status=result.get("status", "Queued"),
-                    preset=result["preset"],
-                    preset_names=result.get("preset_names", []),
-                    compatibility_key=result.get("compatibility_key"),
-                    case_ids=result["case_ids"],
-                    manifest_json=result.get("manifest_json"),
-                    printer_type=result.get("printer_type"),
-                    resin=result.get("resin"),
-                    layer_height_microns=result.get("layer_height_microns"),
-                    estimated_density=result.get("estimated_density"),
-                    density_target=settings.print_hold_density_target,
-                    validation_passed=result.get("validation_passed"),
-                    validation_errors=result.get("validation_errors", []),
+                if created_print_job_id is None:
+                    raise RuntimeError("Print job reservation was not created.")
+                _update_reserved_print_job_from_result(
+                    connection,
+                    job_id=created_print_job_id,
+                    result=result,
+                    settings=settings,
+                    now=now,
                 )
-
-                created_print_job_id = _insert_print_job(connection, print_job, now)
 
                 for row in accepted_rows:
                     connection.execute(
