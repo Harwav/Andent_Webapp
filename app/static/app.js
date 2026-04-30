@@ -553,7 +553,7 @@ async function refreshPreformPrinters() {
 
 function renderPreformWizard() {
     const status = getPreformSetupStatus();
-    const shouldShow = status && status.readiness !== "ready" && !state.preformSetup.wizardDismissed;
+    const shouldShow = status && status.readiness === "not_installed" && !state.preformSetup.wizardDismissed;
     elements.preformWizard.classList.toggle("hidden", !shouldShow);
     elements.preformWizard.setAttribute("aria-hidden", String(!shouldShow));
     if (!shouldShow) {

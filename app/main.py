@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -9,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import Settings, get_settings
 from .database import init_db
+from .services.preform_setup_service import PreFormSetupError, PreFormSetupService
 from .services.print_queue_service import migrate_print_job_outputs_to_output_dir
 from .routers.uploads import router as uploads_router
 from .routers.metrics import router as metrics_router
@@ -24,6 +27,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         resolved_settings.output_dir.mkdir(parents=True, exist_ok=True)
         migrate_print_job_outputs_to_output_dir(resolved_settings)
+
+        async def _autostart_preform():
+            try:
+                status = await asyncio.to_thread(
+                    PreFormSetupService(resolved_settings).start
+                )
+                logging.info("PreFormServer auto-start: %s", status.readiness)
+            except PreFormSetupError as exc:
+                logging.info("PreFormServer auto-start skipped: %s", exc)
+            except Exception as exc:
+                logging.warning("PreFormServer auto-start failed: %s", exc)
+
+        asyncio.create_task(_autostart_preform())
         yield
 
     app = FastAPI(
