@@ -312,19 +312,47 @@ class TestBatchingIntegration:
         assert len(manifests) == 1
         assert [group.preset_name for group in manifests[0].import_groups] == sorted(presets)
 
-    def test_job_names_include_case_ids(self):
-        """Job names should include date prefix and case IDs."""
+    def test_job_names_use_daily_sequence(self):
+        """Job names should use date prefix plus a daily four-digit sequence."""
         from app.services.print_queue_service import generate_job_name
-        
+
         date = datetime(2026, 4, 21)
-        
+
         job1 = generate_job_name(date, ["CASE001"])
-        job2 = generate_job_name(date, ["CASE002", "CASE003"])
-        job3 = generate_job_name(date, ["CASE/004"])
-        
-        assert job1 == "260421_CASE001"
-        assert job2 == "260421_CASE002_CASE003"
-        assert job3 == "260421_CASE-004"
+        job2 = generate_job_name(
+            date,
+            ["CASE002", "CASE003"],
+            existing_names={"260421_0001"},
+        )
+        job3 = generate_job_name(
+            date,
+            ["CASE/004"],
+            existing_names={"260421_CASE-OLD"},
+        )
+        job4 = generate_job_name(
+            date,
+            [],
+            existing_names={"260421_0001", "260421_CASE-OLD", "260421_0003"},
+        )
+
+        assert job1 == "260421_0001"
+        assert job2 == "260421_0002"
+        assert job3 == "260421_0001"
+        assert job4 == "260421_0002"
+
+    def test_job_name_sequence_fails_after_daily_limit(self):
+        """Job name generation should fail clearly when all daily slots are used."""
+        from app.services.print_queue_service import generate_job_name
+
+        date = datetime(2026, 4, 21)
+        existing_names = {f"260421_{sequence:04d}" for sequence in range(1, 10000)}
+
+        try:
+            generate_job_name(date, ["CASE001"], existing_names=existing_names)
+        except RuntimeError as exc:
+            assert "Could not generate a unique daily print job name" in str(exc)
+        else:
+            raise AssertionError("Expected daily sequence exhaustion to raise RuntimeError")
 
 
 class TestFormlabsWebClientIntegration:
