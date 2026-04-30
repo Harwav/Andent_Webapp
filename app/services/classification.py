@@ -169,11 +169,13 @@ def _dimensions_to_summary(dimensions) -> DimensionSummary | None:
 
 
 def classify_saved_upload(stored_path: Path, original_filename: str) -> ClassificationRow:
+    # Parse and cache the mesh first so validate_stl_file's _try_parse_mesh hits
+    # the shared cache instead of re-parsing the same file from disk.
+    dimensions = get_stl_dimensions(str(stored_path))
+
     validation = validate_stl_file(str(stored_path))
     if not validation.is_valid:
         raise ValueError(validation.message)
-
-    dimensions = get_stl_dimensions(str(stored_path))
     artifact = classify_artifact(original_filename, dims=dimensions)
     structure = None
     needs_structure_sampling = (
