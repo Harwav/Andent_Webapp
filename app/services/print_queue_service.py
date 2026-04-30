@@ -11,7 +11,6 @@ This module provides functionality for:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -39,9 +38,8 @@ _screenshot_cache: dict[int, tuple[datetime, bytes]] = {}
 CACHE_TTL_SECONDS = 5
 HOLDING_STATUS = "Holding for More Cases"
 _held_job_ids_created_this_process: set[int] = set()
-MAX_PRINT_JOB_NAME_LENGTH = 120
-PRINT_JOB_NAME_HASH_LENGTH = 10
-_UNSAFE_JOB_NAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+DAILY_PRINT_JOB_SEQUENCE_LIMIT = 9999
+_SEQUENCE_JOB_NAME_RE = re.compile(r"^(?P<date>\d{6})_(?P<sequence>\d{4})$")
 
 
 def _now() -> datetime:
@@ -311,35 +309,25 @@ def _generate_print_job_preview_png(job: "PrintJob") -> bytes:
     return _encode_png(width, height, pixels)
 
 
-def _safe_job_name_token(case_id: str) -> str:
-    token = _UNSAFE_JOB_NAME_CHARS.sub("-", case_id.strip()).strip("._-")
-    return token or "case"
+def _next_daily_sequence_job_name(
+    date_part: str,
+    existing_names: set[str] | None,
+) -> str:
+    reserved_names = existing_names or set()
+    used_sequences: set[int] = set()
 
+    for name in reserved_names:
+        match = _SEQUENCE_JOB_NAME_RE.fullmatch(name)
+        if match is None or match.group("date") != date_part:
+            continue
+        used_sequences.add(int(match.group("sequence")))
 
-def _fit_job_name_to_limit(job_name: str) -> str:
-    if len(job_name) <= MAX_PRINT_JOB_NAME_LENGTH:
-        return job_name
-
-    digest = hashlib.sha1(job_name.encode("utf-8")).hexdigest()[:PRINT_JOB_NAME_HASH_LENGTH]
-    date_part, _, case_part = job_name.partition("_")
-    suffix = f"_{digest}"
-    case_limit = MAX_PRINT_JOB_NAME_LENGTH - len(date_part) - 1 - len(suffix)
-    trimmed_case_part = case_part[:case_limit].rstrip("._-") or "case"
-    return f"{date_part}_{trimmed_case_part}{suffix}"
-
-
-def _dedupe_job_name(job_name: str, existing_names: set[str] | None) -> str:
-    if not existing_names or job_name not in existing_names:
-        return job_name
-
-    for counter in range(2, 1000):
-        suffix = f"_{counter:02d}"
-        trimmed = job_name[: MAX_PRINT_JOB_NAME_LENGTH - len(suffix)].rstrip("._-")
-        candidate = f"{trimmed}{suffix}"
-        if candidate not in existing_names:
+    for sequence in range(1, DAILY_PRINT_JOB_SEQUENCE_LIMIT + 1):
+        candidate = f"{date_part}_{sequence:04d}"
+        if sequence not in used_sequences and candidate not in reserved_names:
             return candidate
 
-    raise RuntimeError("Could not generate a unique print job name.")
+    raise RuntimeError("Could not generate a unique daily print job name.")
 
 
 def generate_job_name(
@@ -348,17 +336,14 @@ def generate_job_name(
     *,
     existing_names: set[str] | None = None,
 ) -> str:
-    """Generate a file-safe YYMMDD_case-id name.
+    """Generate a file-safe YYMMDD_XXXX daily sequence job name.
 
-    Names longer than MAX_PRINT_JOB_NAME_LENGTH are trimmed and suffixed with a
-    stable hash of the full name so the filesystem component remains bounded.
+    case_ids is accepted for call-site compatibility. Case traceability is
+    stored separately on PrintJob.case_ids and manifest_json.
     """
     date_part = date.strftime("%y%m%d")
-    safe_case_ids = [_safe_job_name_token(str(case_id)) for case_id in case_ids]
-    if not safe_case_ids:
-        safe_case_ids = ["case"]
-    job_name = _fit_job_name_to_limit(f"{date_part}_{'_'.join(safe_case_ids)}")
-    return _dedupe_job_name(job_name, existing_names)
+    del case_ids
+    return _next_daily_sequence_job_name(date_part, existing_names)
 
 
 def _existing_job_names_for_date(connection, date: datetime) -> set[str]:
