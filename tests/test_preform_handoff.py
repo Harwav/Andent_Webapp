@@ -25,6 +25,7 @@ from app.database import (
 )
 from app.main import create_app
 from app.schemas import PreFormSetupStatus, PrintJob
+from tests.conftest import register_test_dims
 
 
 class StubPreFormClient:
@@ -1206,6 +1207,9 @@ def test_send_to_print_records_validation_warnings_without_rollback(tmp_path):
     ]
     for file_path in case_files:
         file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(case_files[0]), 150.0, 100.0, "Tooth")
+    register_test_dims(str(case_files[1]), 60.0, 50.0)
+    register_test_dims(str(case_files[2]), 140.0, 100.0)
 
     row_ids = _seed_rows(
         settings,
@@ -1391,6 +1395,7 @@ def test_send_to_print_holds_final_below_target_build_without_preform_dispatch(t
 
     case_file = tmp_path / "hold-1.stl"
     case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(case_file), 40.0, 30.0)
     row_ids = _seed_rows(
         settings,
         [
@@ -1441,6 +1446,7 @@ def test_selected_device_send_to_print_holds_final_below_target_build(tmp_path):
 
     case_file = tmp_path / "device-hold-1.stl"
     case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(case_file), 40.0, 30.0)
     row_ids = _seed_rows(
         settings,
         [
@@ -1589,6 +1595,8 @@ def test_new_compatible_rows_replan_with_existing_held_build(tmp_path):
     filler_file = tmp_path / "filler.stl"
     for file_path in (held_file, filler_file):
         file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(held_file), 40.0, 30.0)
+    register_test_dims(str(filler_file), 700.0, 40.0)
 
     first_ids = _seed_rows(
         settings,

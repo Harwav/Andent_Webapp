@@ -14,6 +14,7 @@ from app.schemas import ClassificationRow, DimensionSummary
 from app.services.build_planning import plan_build_manifests
 from app.services.preset_catalog import PRESET_CATALOG, PresetProfile
 from app.services.print_queue_service import generate_job_name
+from tests.conftest import register_test_dims
 
 _DEFAULT_FILE_PATH = object()
 
@@ -27,11 +28,14 @@ def _row(
     x: float = 40.0,
     y: float = 30.0,
     file_path: str | None | object = _DEFAULT_FILE_PATH,
+    model_type: str | None = None,
 ) -> ClassificationRow:
     if file_path is _DEFAULT_FILE_PATH:
         resolved_file_path = f"C:/cases/{case_id}/{row_id}.stl" if case_id is not None else None
     else:
         resolved_file_path = file_path
+    if resolved_file_path:
+        register_test_dims(resolved_file_path, x, y, model_type)
     return ClassificationRow(
         row_id=row_id,
         file_name=f"row-{row_id}.stl",
@@ -41,6 +45,7 @@ def _row(
         status=status,
         dimensions=DimensionSummary(x_mm=x, y_mm=y, z_mm=10.0),
         file_path=resolved_file_path,
+        model_type=model_type,
     )
 
 

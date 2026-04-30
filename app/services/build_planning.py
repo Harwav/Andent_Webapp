@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import numpy as np
+from pathlib import Path
+
 from ..schemas import (
     BuildManifest,
     BuildManifestImportGroup,
@@ -21,7 +24,27 @@ FULL_ARCH_MIN_SHORT_SIDE_MM = 55.0
 FULL_ARCH_MIN_XY_AREA = 3400.0
 FULL_ARCH_FACTOR = 0.58
 
+SUPPORT_FACTOR_TOOTH = 1.1
+
 ManifestOrderKey = tuple[float, float, str]
+
+
+def projected_xy_area(stl_path: Path) -> float:
+    """Compute the projected XY footprint area of an STL mesh.
+
+    Only counts upward-facing triangles (positive Z normal) to correctly
+    handle overlapping/internal geometry for watertight meshes.
+    """
+    try:
+        import stl
+        mesh = stl.mesh.Mesh.from_file(str(stl_path))
+        vectors = mesh.vectors  # shape: (N, 3, 3)
+        v01 = vectors[:, 1] - vectors[:, 0]
+        v02 = vectors[:, 2] - vectors[:, 0]
+        cross_z = v01[:, 0] * v02[:, 1] - v01[:, 1] * v02[:, 0]
+        return 0.5 * float(np.sum(np.maximum(cross_z, 0.0)))
+    except Exception:
+        return 0.0
 
 
 def _row_xy_area(row: ClassificationRow) -> float:
@@ -44,19 +67,20 @@ def _is_full_arch_dimensions(dimensions: DimensionSummary | None) -> bool:
 
 
 def _effective_row_xy_area(row: ClassificationRow) -> float:
-    raw_xy = _row_xy_area(row)
-    if raw_xy == 0.0:
+    """Compute the effective XY footprint area for a row's STL file.
+
+    Uses true projected area from the mesh geometry instead of bounding box.
+    Applies 1.1x factor for tooth models that require support structures.
+    """
+    if not row.file_path:
         return 0.0
-    profile = _row_preset_profile(row)
-    dimensions = row.dimensions
-    if (
-        profile is not None
-        and profile.printer in {"Form 4BL", "Form 4B"}
-        and dimensions is not None
-        and _is_full_arch_dimensions(dimensions)
-    ):
-        return raw_xy * FULL_ARCH_FACTOR
-    return raw_xy
+    stl_path = Path(row.file_path)
+    proj_area = projected_xy_area(stl_path)
+    if proj_area == 0.0:
+        return 0.0
+    if row.model_type and "tooth" in row.model_type.lower():
+        return proj_area * SUPPORT_FACTOR_TOOTH
+    return proj_area
 
 
 def _canonical_preset_name(preset_name: str | None) -> str | None:

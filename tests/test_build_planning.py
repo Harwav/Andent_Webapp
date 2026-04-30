@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import sys
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from app.services import build_planning
 from app.schemas import ClassificationRow, DimensionSummary
 from app.services.build_planning import plan_build_manifests
 from app.services.preset_catalog import PRESET_CATALOG, PresetProfile
+from tests.conftest import register_test_dims
 
 _DEFAULT_DIMENSIONS = object()
 _DEFAULT_FILE_PATH = object()
@@ -24,12 +26,18 @@ def _row(
     dimensions: DimensionSummary | None | object = _DEFAULT_DIMENSIONS,
     file_path: str | None | object = _DEFAULT_FILE_PATH,
     printer: str | None = None,
+    model_type: str | None = None,
 ) -> ClassificationRow:
     resolved_file_path = (
         f"C:/cases/{case_id}/{case_id}-{row_id if row_id is not None else 'missing'}.stl"
         if file_path is _DEFAULT_FILE_PATH
         else file_path
     )
+    # Register dimensions for the mock
+    if resolved_file_path and dimensions is not None:
+        dx = x if dimensions is _DEFAULT_DIMENSIONS else dimensions.x_mm  # type: ignore
+        dy = y if dimensions is _DEFAULT_DIMENSIONS else dimensions.y_mm  # type: ignore
+        register_test_dims(resolved_file_path, dx, dy, model_type)
     return ClassificationRow(
         row_id=row_id,
         file_name=f"{case_id}-{row_id}.stl",
@@ -44,6 +52,7 @@ def _row(
         ),
         printer=printer,
         file_path=resolved_file_path,
+        model_type=model_type,
     )
 
 
@@ -69,11 +78,11 @@ def test_is_full_arch_dimensions_rejects_quad_like_geometry():
     ) is False
 
 
-def test_effective_row_xy_area_keeps_tooth_on_raw_bounding_box_area():
+def test_effective_row_xy_area_applies_tooth_support_factor():
     effective_row_xy_area = _build_planning_attr("_effective_row_xy_area")
-    tooth_row = _row(1, "CASE-T", "Tooth - With Supports", 12.0, 10.0)
+    tooth_row = _row(1, "CASE-T", "Tooth - With Supports", 12.0, 10.0, model_type="Tooth")
 
-    assert effective_row_xy_area(tooth_row) == 120.0
+    assert effective_row_xy_area(tooth_row) == 120.0 * 1.1
 
 
 def test_effective_row_xy_area_reduces_any_form4bl_full_arch_geometry():
@@ -101,7 +110,7 @@ def test_plan_build_manifests_preserves_case_cohesion():
     """Planner keeps all rows from the same case together in one build."""
     rows = [
         _row(1, "CASE-1", "Ortho Solid - Flat, No Supports", 80.0, 70.0),
-        _row(2, "CASE-1", "Tooth - With Supports", 40.0, 30.0),
+        _row(2, "CASE-1", "Tooth - With Supports", 40.0, 30.0, model_type="Tooth"),
         _row(3, "CASE-2", "Die - Flat, No Supports", 70.0, 60.0),
     ]
 
@@ -115,7 +124,7 @@ def test_plan_build_manifests_allows_mixed_compatible_presets_to_share_one_build
     """Compatible presets may be planned into the same build manifest."""
     rows = [
         _row(1, "CASE-1", "Ortho Solid - Flat, No Supports", 60.0, 50.0),
-        _row(2, "CASE-2", "Tooth - With Supports", 35.0, 35.0),
+        _row(2, "CASE-2", "Tooth - With Supports", 35.0, 35.0, model_type="Tooth"),
     ]
 
     manifests = plan_build_manifests(rows)
@@ -562,7 +571,7 @@ def test_plan_build_manifests_needs_full_arch_reduction_and_raw_tooth_area_to_fi
         _row(6, "CASE-ARCH-06", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
         _row(7, "CASE-ARCH-07", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
         _row(8, "CASE-ARCH-08", "Ortho Solid - Flat, No Supports", 79.0, 75.0),
-        _row(9, "CASE-TOOTH", "Tooth - With Supports", 42.0, 31.0),
+        _row(9, "CASE-TOOTH", "Tooth - With Supports", 42.0, 31.0, model_type="Tooth"),
     ]
 
     manifests = plan_build_manifests(rows)

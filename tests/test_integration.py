@@ -62,12 +62,16 @@ class TestFullPrintHandoffFlow:
         from app.schemas import ClassificationRow, DimensionSummary
         from app.services import build_planning
         from app.services.build_planning import plan_build_manifests
+        from tests.conftest import register_test_dims
 
         monkeypatch.setattr(
             build_planning,
             "get_printer_xy_budget",
             lambda _printer: 29000.0,
         )
+        register_test_dims("C:/cases/a.stl", 278.0, 54.0)
+        register_test_dims("C:/cases/b.stl", 259.0, 54.0)
+        register_test_dims("C:/cases/c.stl", 40.0, 25.0, "Tooth")
         
         rows = [
             ClassificationRow(
@@ -168,12 +172,15 @@ class TestFullPrintHandoffFlow:
         from app.schemas import ClassificationRow, DimensionSummary
         from app.services.build_planning import plan_build_manifests
         from app.services.print_queue_service import process_print_manifest
+        from tests.conftest import register_test_dims
 
         settings = replace(build_settings(), preform_validation_enabled=True)
         first_file = tmp_path / "tooth.stl"
         second_file = tmp_path / "ortho.stl"
         for file_path in (first_file, second_file):
             file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+        register_test_dims(str(first_file), 150.0, 100.0, "Tooth")
+        register_test_dims(str(second_file), 60.0, 50.0)
 
         rows = [
             ClassificationRow(
