@@ -462,6 +462,7 @@ h2 {
     position: absolute;
     inset: 0;
     background: rgba(17, 17, 16, 0.68);
+    cursor: pointer;
 }
 
 .wizard-card {

@@ -9,9 +9,12 @@ test.use({
 test('headed operator walkthrough with real Andent test data', async ({ page, liveApp }) => {
   test.setTimeout(300_000);
 
-  const testDataDir = 'D:/Marcus/Desktop/BM/20260409_Andent_Matt/Test Data';
-  const upperFile = path.join(testDataDir, '20260407_8424827_TARUNA__XAVIER_UnsectionedModel_UpperJaw.stl');
-  const lowerFile = path.join(testDataDir, '20260407_8424827_TARUNA__XAVIER_UnsectionedModel_LowerJaw.stl');
+  const testDataDir = process.env.ANDENT_TEST_DATA_DIR;
+  if (!testDataDir) {
+    test.skip(true, 'Set ANDENT_TEST_DATA_DIR to the local test data folder to run this test.');
+  }
+  const upperFile = path.join(testDataDir!, '20260407_8424827_TARUNA__XAVIER_UnsectionedModel_UpperJaw.stl');
+  const lowerFile = path.join(testDataDir!, '20260407_8424827_TARUNA__XAVIER_UnsectionedModel_LowerJaw.stl');
 
   await page.goto(liveApp.baseURL);
   await expect(page.getByRole('heading', { name: 'Active Queue' })).toBeVisible();

@@ -42,6 +42,8 @@ const state = {
     processedRows: [],
     pendingRows: [],
     inflightUploads: 0,
+    uploadBatchTotal: 0,
+    uploadBatchCompleted: 0,
     selectedIds: new Set(),
     activeFilters: new Set(),
     activePage: 1,
@@ -1707,18 +1709,19 @@ function createJobCard(job) {
     const screenshotButton = document.createElement("button");
     screenshotButton.type = "button";
     screenshotButton.className = "job-screenshot-button";
-    screenshotButton.addEventListener("click", () => openScreenshotModal(job));
-    
+
     if (job.screenshot_url) {
+        screenshotButton.addEventListener("click", () => openScreenshotModal(job));
         const img = document.createElement("img");
         img.src = job.screenshot_url;
         img.alt = `${job.job_name} screenshot`;
         img.loading = "lazy";
         screenshotButton.appendChild(img);
     } else {
+        screenshotButton.disabled = true;
         const placeholder = document.createElement("div");
         placeholder.className = "job-screenshot-placeholder";
-        placeholder.textContent = "No Preview";
+        placeholder.textContent = "Generating preview";
         screenshotButton.appendChild(placeholder);
     }
     screenshotDiv.appendChild(screenshotButton);
@@ -2118,7 +2121,7 @@ function renderBulkActions() {
         submitButton.className = canPrint() ? "primary-button" : "secondary-button";
         submitButton.textContent = canPrint()
             ? `Send to Print (${readyRows.length})`
-            : `Setup Required (${readyRows.length})`;
+            : `PreFormServer Required — Send to Print (${readyRows.length})`;
         submitButton.addEventListener("click", async (event) => {
             if (!canPrint()) {
                 openPreformWizard();
@@ -2260,7 +2263,8 @@ function addPendingFiles(files) {
 
     stlFiles.forEach((file) => state.pendingRows.push(createPendingRow(file)));
     state.activeTab = "work-queue";
-    setStatus(`Queued ${stlFiles.length} STL file(s) for upload.`);
+    state.uploadBatchTotal += stlFiles.length;
+    setStatus(`Classifying 0 of ${state.uploadBatchTotal} file(s)…`);
     render();
     drainUploadQueue();
 }
@@ -2456,7 +2460,6 @@ async function uploadPendingRow(row) {
         if (payload.rows[0]) {
             state.activeRows.push(normalizeRow(payload.rows[0]));
             sortRows();
-            setStatus(`Uploaded ${row.file_name}.`);
         }
         removePendingRow(row.temp_id);
     } catch (error) {
@@ -2465,12 +2468,21 @@ async function uploadPendingRow(row) {
         } else {
             row.status = "Needs Review";
             row.error_message = error.message;
-            setStatus(error.message, true);
         }
     } finally {
         window.clearTimeout(analyzeTimer);
         state.inflightUploads = Math.max(0, state.inflightUploads - 1);
+        state.uploadBatchCompleted += 1;
         row.abortController = null;
+        const remaining = state.uploadBatchTotal - state.uploadBatchCompleted;
+        if (remaining > 0) {
+            setStatus(`Classifying ${state.uploadBatchCompleted} of ${state.uploadBatchTotal} file(s)…`);
+        } else {
+            const finalCount = state.uploadBatchCompleted;
+            state.uploadBatchTotal = 0;
+            state.uploadBatchCompleted = 0;
+            setStatus(`Classified ${finalCount} file(s). Queue ready.`);
+        }
         render();
         drainUploadQueue();
     }
@@ -2860,11 +2872,7 @@ async function bootstrap() {
         schedulePreformPrinterRefresh();
         await fetchDispatchMode();
         render();
-        if (canPrint()) {
-            setStatus("Queue loaded.");
-        } else {
-            setStatus("Queue loaded. Complete PreFormServer setup before printing.", true);
-        }
+        setStatus("Queue loaded.");
     } catch (error) {
         setStatus(error.message, true);
         render();

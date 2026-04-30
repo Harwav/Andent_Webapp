@@ -204,6 +204,17 @@ def init_db(settings: Settings) -> None:
             WHERE confidence NOT IN ('high', 'medium', 'low')
             """
         )
+        # Rows stuck in transient upload states from a previous process run will
+        # never resolve — reset them to Needs Review so operators can act on them.
+        connection.execute(
+            """
+            UPDATE upload_rows
+            SET status = 'Needs Review',
+                review_required = 1,
+                review_reason = 'Upload interrupted — file was not fully processed.'
+            WHERE status IN ('Uploading', 'Analyzing', 'Queued')
+            """
+        )
         for statement in INDEX_STATEMENTS:
             connection.execute(statement)
         connection.commit()
