@@ -76,6 +76,30 @@ def _first_text(device: dict, keys: tuple[str, ...]) -> str | None:
     return None
 
 
+_MATERIAL_LABEL_CACHE: dict[str, str] | None = None
+
+
+def _material_label_map(settings) -> dict[str, str]:
+    global _MATERIAL_LABEL_CACHE
+    if _MATERIAL_LABEL_CACHE is not None:
+        return _MATERIAL_LABEL_CACHE
+    catalog_path = Path(settings.project_root) / ".omx" / "preform-list-materials-latest.json"
+    mapping: dict[str, str] = {}
+    try:
+        data = json.loads(catalog_path.read_text(encoding="utf-8"))
+        for pt in data.get("printer_types", []):
+            for mat in pt.get("materials", []):
+                label = mat.get("label", "").strip()
+                for ms in mat.get("material_settings", []):
+                    code = ms.get("scene_settings", {}).get("material_code", "").strip().upper()
+                    if code and label:
+                        mapping[code] = label
+    except Exception:
+        pass
+    _MATERIAL_LABEL_CACHE = mapping
+    return mapping
+
+
 def _looks_like_material_code(value: str) -> bool:
     normalized = value.strip().upper()
     return bool(re.fullmatch(r"FL[A-Z0-9]{5,}", normalized))
@@ -165,13 +189,15 @@ def _normalize_device_list(payload) -> list[dict]:
     return [device for device in payload if isinstance(device, dict)]
 
 
-def _normalize_printer(device: dict) -> PreFormPrinterStatus:
+def _normalize_printer(device: dict, settings=None) -> PreFormPrinterStatus:
     device_id = _first_text(device, ("device_id", "id", "printer_id"))
     model = _first_text(device, ("model", "product_name", "type"))
     name = _first_text(device, ("name", "display_name"))
     status = _first_text(device, ("status", "state", "availability"))
     material_name = _first_readable_material_name(device)
     material_code = _first_material_code(device)
+    if not material_name and material_code and settings is not None:
+        material_name = _material_label_map(settings).get(material_code.upper())
     material = material_name or material_code
 
     return PreFormPrinterStatus(
@@ -208,7 +234,7 @@ def _list_setup_center_printers(settings) -> PreFormPrinterListResponse:
         client.close()
 
     printers = [
-        _normalize_printer(device)
+        _normalize_printer(device, settings=settings)
         for device in devices
         if _is_setup_center_printer(device)
     ]
