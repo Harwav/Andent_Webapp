@@ -31,7 +31,7 @@ export async function startAppInstance(opts: {
 }): Promise<AppInstance> {
   await fs.rm(opts.dataDir, { recursive: true, force: true });
   await fs.mkdir(opts.dataDir, { recursive: true });
-  const databasePath = path.join(opts.dataDir, 'andent_web.db');
+  const databasePath = path.join(opts.dataDir, 'formflow.db');
   const child = spawn(
     'python',
     ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(opts.port)],
@@ -39,10 +39,10 @@ export async function startAppInstance(opts: {
       cwd: process.cwd(),
       env: {
         ...process.env,
-        ANDENT_WEB_DATA_DIR: opts.dataDir,
-        ANDENT_WEB_DATABASE_PATH: databasePath,
-        ANDENT_WEB_APPDATA_DIR: path.join(opts.dataDir, 'appdata'),
-        ANDENT_WEB_PRINT_HOLD_DENSITY_TARGET: '0.0',
+        FORMFLOW_WEB_DATA_DIR: opts.dataDir,
+        FORMFLOW_WEB_DATABASE_PATH: databasePath,
+        FORMFLOW_WEB_APPDATA_DIR: path.join(opts.dataDir, 'appdata'),
+        FORMFLOW_WEB_PRINT_HOLD_DENSITY_TARGET: '0.0',
         PREFORM_SERVER_URL: opts.preformUrl,
       },
       stdio: 'pipe',

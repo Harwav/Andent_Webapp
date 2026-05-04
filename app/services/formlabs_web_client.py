@@ -46,7 +46,7 @@ class FormlabsWebClient:
             base_url: Base URL for the Formlabs Web API.
                      Defaults to https://api.formlabs.com/v1
         """
-        self.api_token = api_token or os.getenv("ANDENT_WEB_FORMLABS_API_TOKEN") or os.getenv("FORMLABS_API_TOKEN") or ""
+        self.api_token = api_token or os.getenv("FORMFLOW_WEB_FORMLABS_API_TOKEN") or os.getenv("FORMLABS_API_TOKEN") or ""
         self.base_url = base_url.rstrip('/')
         self.session = requests.Session()
         self.session.headers.update({

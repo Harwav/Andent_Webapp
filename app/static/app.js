@@ -34,7 +34,7 @@ const PAGE_SIZE = 50;
 const MAX_CONCURRENT_UPLOADS = 3;
 const DELETE_UNDO_MS = 5000;
 const PRINT_QUEUE_POLL_INTERVAL = 5000; // 5 seconds
-const THUMBNAIL_SNAPSHOT_STORAGE_PREFIX = "andent:thumbnail-snapshot:";
+const THUMBNAIL_SNAPSHOT_STORAGE_PREFIX = "formflow:thumbnail-snapshot:";
 
 const state = {
     activeTab: "work-queue",
@@ -150,17 +150,17 @@ const elements = {
 };
 
 async function ensurePreviewDependencies() {
-    if (window.__andentThreeDeps) {
-        return window.__andentThreeDeps;
+    if (window.__formflowThreeDeps) {
+        return window.__formflowThreeDeps;
     }
 
     const THREE = await import("https://esm.sh/three@0.161.0");
     const loaderModule = await import("https://esm.sh/three@0.161.0/examples/jsm/loaders/STLLoader.js");
-    window.__andentThreeDeps = {
+    window.__formflowThreeDeps = {
         THREE,
         STLLoader: loaderModule.STLLoader,
     };
-    return window.__andentThreeDeps;
+    return window.__formflowThreeDeps;
 }
 
 function setStatus(message, isError = false) {
@@ -264,7 +264,7 @@ function describePreformSetup(status) {
         case "ready":
             return `Managed PreFormServer is healthy and ready for print handoff on the configured local port.`;
         case "not_installed":
-            return "No managed PreFormServer install exists yet. Select a local ZIP package to install the canonical copy used by Andent Web.";
+            return "No managed PreFormServer install exists yet. Select a local ZIP package to install the canonical copy used by FormFlow.";
         case "installed_not_running":
             return status.last_error_message
                 ? `A managed install exists, but the local API is not reachable. ${status.last_error_message}`
@@ -299,7 +299,9 @@ async function fetchPreformSetupStatus() {
 
 async function fetchPreformPrinters() {
     const response = await fetch("/api/preform-setup/printers");
-    const payload = await readResponseJson(response);
+    const payload = typeof readResponseJson === "function"
+        ? await readResponseJson(response)
+        : await response.json();
     if (!response.ok) {
         throw new Error(payload.detail || "Could not load local printers.");
     }
@@ -308,7 +310,9 @@ async function fetchPreformPrinters() {
 
 async function fetchPreformDevices() {
     const response = await fetch("/api/preform-setup/devices");
-    const payload = await readResponseJson(response);
+    const payload = typeof readResponseJson === "function"
+        ? await readResponseJson(response)
+        : await response.json();
     if (!response.ok) {
         throw new Error(payload.detail || "Could not load local printer devices.");
     }

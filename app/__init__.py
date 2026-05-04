@@ -1,1 +1,1 @@
-"""Standalone Andent web application."""
+"""Standalone FormFlow web application."""

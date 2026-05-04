@@ -20,6 +20,7 @@ htmlcov/
 test-results/
 playwright-report/
 test-results/playwright/
+.playwright-mcp/
 
 # IDE
 .vscode/
@@ -37,6 +38,7 @@ Thumbs.db
 # Data
 data/
 andent_web/data/
+output/
 *.db
 *.sqlite
 *.form

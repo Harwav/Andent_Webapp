@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Package Andent Web as a single Windows EXE that a non-technical dental lab technician can download, double-click, and be fully running within minutes — including a browser-based first-run setup wizard for PreFormServer, a system tray icon, and an auto-updater.
+**Goal:** Package FormFlow as a single Windows EXE that a non-technical dental lab technician can download, double-click, and be fully running within minutes — including a browser-based first-run setup wizard for PreFormServer, a system tray icon, and an auto-updater.
 
-**Architecture:** PyInstaller bundles the FastAPI app + uvicorn + pystray into one EXE. `run_tray.py` is the entry point: it configures AppData paths, starts uvicorn in a background thread, shows a system tray icon, and opens the browser to `/setup` (first run) or `/` (subsequent runs). A second small updater EXE (`Andent_Updater.exe`) is bundled inside the main EXE and launched detached during self-update to swap the binary while the main process exits.
+**Architecture:** PyInstaller bundles the FastAPI app + uvicorn + pystray into one EXE. `run_tray.py` is the entry point: it configures AppData paths, starts uvicorn in a background thread, shows a system tray icon, and opens the browser to `/setup` (first run) or `/` (subsequent runs). A second small updater EXE (`FormFlow_Updater.exe`) is bundled inside the main EXE and launched detached during self-update to swap the binary while the main process exits.
 
 **Tech Stack:** PyInstaller 6.x, pystray 0.19.x, Pillow 10.x, psutil 6.x, uvicorn, FastAPI (existing), Python 3.13 (CI build)
 
@@ -23,8 +23,8 @@
 | `run_tray.py` | Create | EXE entry point: env vars, uvicorn thread, tray, updater |
 | `scripts/updater.py` | Create | Updater helper: wait for PID exit, replace EXE, relaunch |
 | `scripts/builders/build_deployment.py` | Create | Version bump → PyInstaller run for both specs |
-| `andent_web.spec` | Create | PyInstaller spec for main EXE |
-| `andent_updater.spec` | Create | PyInstaller spec for updater EXE |
+| `formflow.spec` | Create | PyInstaller spec for main EXE |
+| `formflow_updater.spec` | Create | PyInstaller spec for updater EXE |
 | `version_info.txt` | Create | Windows EXE metadata |
 | `.github/workflows/build-windows.yml` | Create | CI: tag push → build → GitHub Release |
 
@@ -58,7 +58,7 @@ git commit -m "feat: add version file"
 - [ ] **Step 1: Add dependencies to `requirements.txt`**
 
 ```
-# Andent Web Phase 0 Requirements
+# FormFlow Phase 0 Requirements
 
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
@@ -151,8 +151,8 @@ from app.config import get_settings
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("ANDENT_WEB_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("ANDENT_WEB_DATABASE_PATH", str(tmp_path / "test.db"))
+    monkeypatch.setenv("FORMFLOW_WEB_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("FORMFLOW_WEB_DATABASE_PATH", str(tmp_path / "test.db"))
     get_settings.cache_clear()
     app = create_app()
     app.state.lan_ip = "192.168.1.100"
@@ -288,7 +288,7 @@ This is a single HTML file with embedded CSS (importing `styles.css`) and vanill
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Andent Web — Setup</title>
+  <title>FormFlow — Setup</title>
   <link rel="stylesheet" href="/static/styles.css" />
   <style>
     .setup-shell {
@@ -397,13 +397,13 @@ This is a single HTML file with embedded CSS (importing `styles.css`) and vanill
 <body>
 <div class="setup-shell">
   <div class="setup-card">
-    <div class="setup-logo">Andent Web</div>
+    <div class="setup-logo">FormFlow</div>
 
     <!-- Step 1: Welcome -->
     <div class="setup-step active" id="step-1">
       <div class="setup-title">Welcome</div>
       <div class="setup-body">
-        Andent Web manages your dental 3D print workflow. Before you begin,
+        FormFlow manages your dental 3D print workflow. Before you begin,
         you'll need the <strong>PreFormServer ZIP</strong> from Formlabs.
         Download it from the Formlabs Dashboard, then click Get Started.
       </div>
@@ -428,10 +428,10 @@ This is a single HTML file with embedded CSS (importing `styles.css`) and vanill
     <div class="setup-step" id="step-3">
       <div class="setup-title">&#10003; Setup Complete</div>
       <div class="setup-body">
-        Andent Web is running. Share this address with other workstations in your lab:
+        FormFlow is running. Share this address with other workstations in your lab:
       </div>
       <div class="lan-box" id="lan-box">Loading&hellip;</div>
-      <a class="setup-btn" href="/">Open Andent Web &rarr;</a>
+      <a class="setup-btn" href="/">Open FormFlow &rarr;</a>
     </div>
   </div>
 </div>
@@ -594,7 +594,7 @@ from pathlib import Path
 
 def _appdata_dir() -> Path:
     base = os.environ.get("APPDATA") or Path.home()
-    return Path(base) / "Andent Web"
+    return Path(base) / "FormFlow"
 
 
 def _get_lan_ip() -> str:
@@ -614,11 +614,11 @@ def _configure_env() -> None:
     (data_dir / "screenshots").mkdir(exist_ok=True)
     (appdata / "logs").mkdir(exist_ok=True)
 
-    os.environ.setdefault("ANDENT_WEB_HOST", "0.0.0.0")
-    os.environ.setdefault("ANDENT_WEB_PORT", "8090")
-    os.environ.setdefault("ANDENT_WEB_DATA_DIR", str(data_dir))
-    os.environ.setdefault("ANDENT_WEB_DATABASE_PATH", str(data_dir / "andent_web.db"))
-    os.environ.setdefault("ANDENT_WEB_PRINT_DISPATCH_MODE", "real")
+    os.environ.setdefault("FORMFLOW_WEB_HOST", "0.0.0.0")
+    os.environ.setdefault("FORMFLOW_WEB_PORT", "8090")
+    os.environ.setdefault("FORMFLOW_WEB_DATA_DIR", str(data_dir))
+    os.environ.setdefault("FORMFLOW_WEB_DATABASE_PATH", str(data_dir / "formflow.db"))
+    os.environ.setdefault("FORMFLOW_WEB_PRINT_DISPATCH_MODE", "real")
 
 
 def _wait_for_server(port: int, timeout: float = 15.0) -> bool:
@@ -652,8 +652,8 @@ def _check_for_update(current_version: str) -> tuple[str, str] | None:
     import urllib.request
     import json
     try:
-        url = "https://api.github.com/repos/Harwav/Andent_Releases/releases/latest"
-        req = urllib.request.Request(url, headers={"User-Agent": "AndentWeb-Updater"})
+        url = "https://api.github.com/repos/Harwav/FormFlow_Releases/releases/latest"
+        req = urllib.request.Request(url, headers={"User-Agent": "FormFlow-Updater"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
         tag = data.get("tag_name", "").lstrip("v")
@@ -663,7 +663,7 @@ def _check_for_update(current_version: str) -> tuple[str, str] | None:
         if tuple(int(x) for x in tag.split(".")) > tuple(int(x) for x in __version__.split(".")):
             assets = data.get("assets", [])
             for asset in assets:
-                if asset["name"].endswith(".exe") and "Andent_Web" in asset["name"]:
+                if asset["name"].endswith(".exe") and "FormFlow" in asset["name"]:
                     return tag, asset["browser_download_url"]
     except Exception:
         pass
@@ -680,7 +680,7 @@ def _download_update(url: str, dest: Path) -> bool:
 
 
 def _launch_updater(current_pid: int, src: Path, dst: Path) -> None:
-    """Extract bundled Andent_Updater.exe from PyInstaller bundle and launch it."""
+    """Extract bundled FormFlow_Updater.exe from PyInstaller bundle and launch it."""
     import subprocess
     import shutil
 
@@ -696,8 +696,8 @@ def _launch_updater(current_pid: int, src: Path, dst: Path) -> None:
         )
         return
 
-    bundled = Path(meipass) / "Andent_Updater.exe"
-    updater_dest = src.parent / "Andent_Updater.exe"
+    bundled = Path(meipass) / "FormFlow_Updater.exe"
+    updater_dest = src.parent / "FormFlow_Updater.exe"
     shutil.copy2(str(bundled), str(updater_dest))
     subprocess.Popen(
         [str(updater_dest),
@@ -711,7 +711,7 @@ def main() -> None:
 
     from app.version import __version__
     lan_ip = _get_lan_ip()
-    port = int(os.environ.get("ANDENT_WEB_PORT", "8090"))
+    port = int(os.environ.get("FORMFLOW_WEB_PORT", "8090"))
 
     # Start uvicorn in background daemon thread
     server_thread = threading.Thread(target=_start_uvicorn, args=(port,), daemon=True)
@@ -761,21 +761,21 @@ def main() -> None:
             # use ctypes MessageBox as fallback)
             import ctypes
             ctypes.windll.user32.MessageBoxW(
-                0, "Andent Web is up to date.", "Check for Updates", 0x40
+                0, "FormFlow is up to date.", "Check for Updates", 0x40
             )
             return
         new_ver, dl_url = result
         import ctypes
         answer = ctypes.windll.user32.MessageBoxW(
             0,
-            f"Andent Web v{new_ver} is available.\n\nUpdate now and restart?",
+            f"FormFlow v{new_ver} is available.\n\nUpdate now and restart?",
             "Update Available",
             0x04 | 0x40,  # MB_YESNO | MB_ICONINFORMATION
         )
         if answer != 6:  # IDYES == 6
             return
         import tempfile
-        tmp = Path(tempfile.gettempdir()) / "andent_web_update.exe"
+        tmp = Path(tempfile.gettempdir()) / "formflow_update.exe"
         if not _download_update(dl_url, tmp):
             ctypes.windll.user32.MessageBoxW(0, "Download failed. Please try again.", "Update Error", 0x10)
             return
@@ -795,7 +795,7 @@ def main() -> None:
         f"Version: v{__version__}", lambda *_: None, enabled=False
     )
     menu = pystray.Menu(
-        pystray.MenuItem("Open Andent Web", open_app, default=True),
+        pystray.MenuItem("Open FormFlow", open_app, default=True),
         pystray.Menu.SEPARATOR,
         lan_label,
         pystray.Menu.SEPARATOR,
@@ -814,13 +814,13 @@ def main() -> None:
             new_ver = result[0]
             ctypes.windll.user32.MessageBoxW(
                 0,
-                f"Andent Web v{new_ver} is available.\nClick 'Check for Updates' in the tray to install.",
+                f"FormFlow v{new_ver} is available.\nClick 'Check for Updates' in the tray to install.",
                 "Update Available",
                 0x40,
             )
     threading.Thread(target=_bg_update_check, daemon=True).start()
 
-    tray = pystray.Icon("Andent Web", icon_image, "Andent Web", menu)
+    tray = pystray.Icon("FormFlow", icon_image, "FormFlow", menu)
     tray.run()
 
 
@@ -850,15 +850,15 @@ git commit -m "feat: add run_tray.py EXE entry point with tray, auto-browser, up
 **Files:**
 - Create: `scripts/updater.py`
 
-This script is compiled into a tiny `Andent_Updater.exe` by PyInstaller. It accepts `--pid`, `--src`, `--dst` arguments, waits for the main process to exit, copies the new EXE over the old one, and relaunches it.
+This script is compiled into a tiny `FormFlow_Updater.exe` by PyInstaller. It accepts `--pid`, `--src`, `--dst` arguments, waits for the main process to exit, copies the new EXE over the old one, and relaunches it.
 
 - [ ] **Step 1: Create `scripts/updater.py`**
 
 ```python
 """
-Andent Web self-updater.
+FormFlow self-updater.
 Called by run_tray.py during update:
-  Andent_Updater.exe --pid <pid> --src <new_exe> --dst <current_exe>
+  FormFlow_Updater.exe --pid <pid> --src <new_exe> --dst <current_exe>
 Waits for <pid> to exit, replaces <dst> with <src>, relaunches <dst>.
 """
 from __future__ import annotations
@@ -942,12 +942,12 @@ VSVersionInfo(
     StringFileInfo([
       StringTable(u'040904B0', [
         StringStruct(u'CompanyName', u'Harwav'),
-        StringStruct(u'FileDescription', u'Andent Web Server'),
+        StringStruct(u'FileDescription', u'FormFlow Server'),
         StringStruct(u'FileVersion', u'1.0.0.0'),
-        StringStruct(u'InternalName', u'andent_web'),
+        StringStruct(u'InternalName', u'formflow'),
         StringStruct(u'LegalCopyright', u'Harwav'),
-        StringStruct(u'OriginalFilename', u'Andent_Web_v1.0.0.exe'),
-        StringStruct(u'ProductName', u'Andent Web'),
+        StringStruct(u'OriginalFilename', u'FormFlow_v1.0.0.exe'),
+        StringStruct(u'ProductName', u'FormFlow'),
         StringStruct(u'ProductVersion', u'1.0.0.0'),
       ])
     ]),
@@ -968,13 +968,13 @@ git commit -m "feat: add Windows EXE version info"
 ## Task 9: PyInstaller Specs
 
 **Files:**
-- Create: `andent_web.spec`
-- Create: `andent_updater.spec`
+- Create: `formflow.spec`
+- Create: `formflow_updater.spec`
 
-- [ ] **Step 1: Create `andent_updater.spec`**
+- [ ] **Step 1: Create `formflow_updater.spec`**
 
 ```python
-# andent_updater.spec
+# formflow_updater.spec
 from PyInstaller.building.build_main import Analysis, PYZ, EXE
 
 a = Analysis(
@@ -996,7 +996,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='Andent_Updater',
+    name='FormFlow_Updater',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -1012,10 +1012,10 @@ exe = EXE(
 )
 ```
 
-- [ ] **Step 2: Create `andent_web.spec`**
+- [ ] **Step 2: Create `formflow.spec`**
 
 ```python
-# andent_web.spec
+# formflow.spec
 import re
 from pathlib import Path
 from PyInstaller.building.build_main import Analysis, PYZ, EXE
@@ -1027,7 +1027,7 @@ a = Analysis(
     ['run_tray.py'],
     pathex=['.'],
     binaries=[
-        ('Andent_Updater.exe', '.'),  # bundled updater, built first
+        ('FormFlow_Updater.exe', '.'),  # bundled updater, built first
     ],
     datas=[
         ('app/static', 'app/static'),
@@ -1060,7 +1060,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name=f'Andent_Web_v{version}',
+    name=f'FormFlow_v{version}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -1081,7 +1081,7 @@ exe = EXE(
 - [ ] **Step 3: Commit**
 
 ```bash
-git add andent_web.spec andent_updater.spec
+git add formflow.spec formflow_updater.spec
 git commit -m "feat: add PyInstaller specs for main EXE and updater"
 ```
 
@@ -1104,7 +1104,7 @@ git commit -m "feat: add PyInstaller specs for main EXE and updater"
 
 ```python
 """
-Build Andent Web Windows EXE.
+Build FormFlow Windows EXE.
 
 Usage:
     python scripts/builders/build_deployment.py [--version X.Y.Z]
@@ -1152,7 +1152,7 @@ def update_version_info(version: str) -> None:
     text = re.sub(r"'ProductVersion',\s*u'[^']*'", f"'ProductVersion', u'{dot_str}'", text)
     text = re.sub(
         r"'OriginalFilename',\s*u'[^']*'",
-        f"'OriginalFilename', u'Andent_Web_v{version}.exe'",
+        f"'OriginalFilename', u'FormFlow_v{version}.exe'",
         text,
     )
     VERSION_INFO_FILE.write_text(text)
@@ -1171,25 +1171,25 @@ def main() -> None:
     args = parser.parse_args()
 
     version = args.version or read_version()
-    print(f"[build] Building Andent Web v{version}")
+    print(f"[build] Building FormFlow v{version}")
 
     write_version(version)
     update_version_info(version)
 
     # 1. Build updater EXE first (needed as a binary input to main spec)
-    run([sys.executable, "-m", "PyInstaller", "--noconfirm", "andent_updater.spec"])
+    run([sys.executable, "-m", "PyInstaller", "--noconfirm", "formflow_updater.spec"])
 
     # Move updater EXE to repo root so main spec can find it
-    updater_src = REPO_ROOT / "dist" / "Andent_Updater.exe"
-    updater_dst = REPO_ROOT / "Andent_Updater.exe"
+    updater_src = REPO_ROOT / "dist" / "FormFlow_Updater.exe"
+    updater_dst = REPO_ROOT / "FormFlow_Updater.exe"
     if updater_src.exists():
         import shutil
         shutil.copy2(str(updater_src), str(updater_dst))
 
     # 2. Build main EXE
-    run([sys.executable, "-m", "PyInstaller", "--noconfirm", "andent_web.spec"])
+    run([sys.executable, "-m", "PyInstaller", "--noconfirm", "formflow.spec"])
 
-    exe_path = REPO_ROOT / "dist" / f"Andent_Web_v{version}.exe"
+    exe_path = REPO_ROOT / "dist" / f"FormFlow_v{version}.exe"
     if not exe_path.exists():
         print(f"[build] ERROR: expected EXE not found at {exe_path}", file=sys.stderr)
         sys.exit(1)
@@ -1210,7 +1210,7 @@ if __name__ == "__main__":
 python scripts/builders/build_deployment.py --version 1.0.0
 ```
 
-Expected: prints build steps, runs PyInstaller, produces `dist/Andent_Web_v1.0.0.exe` (40+ MB). This will take 1-3 minutes.
+Expected: prints build steps, runs PyInstaller, produces `dist/FormFlow_v1.0.0.exe` (40+ MB). This will take 1-3 minutes.
 
 - [ ] **Step 4: Commit**
 
@@ -1271,7 +1271,7 @@ jobs:
       - name: Verify EXE
         shell: bash
         run: |
-          EXE="dist/Andent_Web_v${{ steps.version.outputs.version }}.exe"
+          EXE="dist/FormFlow_v${{ steps.version.outputs.version }}.exe"
           if [ ! -f "$EXE" ]; then
             echo "ERROR: EXE not found at $EXE"
             exit 1
@@ -1286,17 +1286,17 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Andent_Web_v${{ steps.version.outputs.version }}
-          path: dist/Andent_Web_v${{ steps.version.outputs.version }}.exe
+          name: FormFlow_v${{ steps.version.outputs.version }}
+          path: dist/FormFlow_v${{ steps.version.outputs.version }}.exe
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          repository: Harwav/Andent_Releases
+          repository: Harwav/FormFlow_Releases
           tag_name: v${{ steps.version.outputs.version }}
-          name: Andent Web v${{ steps.version.outputs.version }}
-          files: dist/Andent_Web_v${{ steps.version.outputs.version }}.exe
+          name: FormFlow v${{ steps.version.outputs.version }}
+          files: dist/FormFlow_v${{ steps.version.outputs.version }}.exe
           token: ${{ secrets.RELEASES_REPO_TOKEN }}
 ```
 
@@ -1331,7 +1331,7 @@ Expected:
 - Wizard step 1 renders with correct styles
 - After dropping a valid PreFormServer ZIP and clicking Install, wizard advances to step 3
 - Step 3 shows LAN IP from `/api/setup/lan-ip`
-- "Open Andent Web →" navigates to `/`
+- "Open FormFlow →" navigates to `/`
 - Tray menu shows correct LAN address and version
 - Quit exits cleanly
 
@@ -1342,12 +1342,12 @@ python scripts/builders/build_deployment.py --version 1.0.0
 ```
 
 Expected:
-- `dist/Andent_Web_v1.0.0.exe` exists and is > 40 MB
+- `dist/FormFlow_v1.0.0.exe` exists and is > 40 MB
 - Double-click the EXE: tray icon appears, browser opens, wizard works
 
 - [ ] **Step 4: LAN access test**
 
-From a second machine on the same network, browse to `http://<server-LAN-IP>:8090`. Expected: Andent Web app loads.
+From a second machine on the same network, browse to `http://<server-LAN-IP>:8090`. Expected: FormFlow app loads.
 
 - [ ] **Step 5: Update flow test**
 

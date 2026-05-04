@@ -1,1 +1,1 @@
-"""Service layer for the standalone Andent web application."""
+"""Service layer for the standalone FormFlow web application."""

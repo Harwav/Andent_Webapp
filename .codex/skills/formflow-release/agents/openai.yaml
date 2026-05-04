@@ -1,0 +1,4 @@
+interface:
+  display_name: "FormFlow Release"
+  short_description: "Build and release the FormFlow Windows EXE."
+  default_prompt: "Build, smoke-test, and prepare a FormFlow Windows EXE release using the repository build script and GitHub Actions workflow."

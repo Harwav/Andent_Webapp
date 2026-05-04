@@ -6,7 +6,7 @@
 
 ## Context
 
-Andent Web is a FastAPI + SQLite local server that runs on a dental lab workstation and is accessed by other lab computers over LAN. Currently it requires Python, manual dependency installation, and running uvicorn from a terminal — a non-starter for non-technical dental lab technicians.
+FormFlow is a FastAPI + SQLite local server that runs on a dental lab workstation and is accessed by other lab computers over LAN. Currently it requires Python, manual dependency installation, and running uvicorn from a terminal — a non-starter for non-technical dental lab technicians.
 
 The goal is to ship a single-file Windows EXE that a technician can download from a GitHub Releases page, double-click, and be up and running within minutes. The reference model is YF_ERP (at `c:/Users/Marcus/Documents/YF_ERP`), which uses the same pattern: PyInstaller + pystray tray icon + auto-browser-launch + GitHub Releases distribution.
 
@@ -14,7 +14,7 @@ The goal is to ship a single-file Windows EXE that a technician can download fro
 
 ## Chosen Approach: Browser-Based Setup Wizard
 
-Rather than Tkinter dialogs for first-run setup (as YF_ERP uses), Andent Web serves its setup wizard through the FastAPI app itself at a `/setup` route. This keeps the wizard visually consistent with the main app (same `styles.css`) and avoids a Tkinter dependency.
+Rather than Tkinter dialogs for first-run setup (as YF_ERP uses), FormFlow serves its setup wizard through the FastAPI app itself at a `/setup` route. This keeps the wizard visually consistent with the main app (same `styles.css`) and avoids a Tkinter dependency.
 
 ---
 
@@ -28,29 +28,29 @@ Rather than Tkinter dialogs for first-run setup (as YF_ERP uses), Andent Web ser
 | Setup wizard route | `app/routers/setup.py` | Serves `/setup` HTML; 302-redirects to `/` when already ready |
 | Setup wizard page | `app/static/setup.html` | Browser-based 3-step setup UI |
 | Version file | `app/version.py` | Single source of truth: `__version__ = "1.0.0"` |
-| PyInstaller spec | `andent_web.spec` | Bundles everything into single EXE |
+| PyInstaller spec | `formflow.spec` | Bundles everything into single EXE |
 | Build script | `scripts/builders/build_deployment.py` | Updates version in spec + version_info.txt, runs PyInstaller |
 | Windows version info | `version_info.txt` | Windows EXE metadata (antivirus friendliness) |
-| Update helper | `scripts/updater.py` + `andent_updater.spec` | Compiled as a second small EXE (`Andent_Updater.exe`), bundled inside main EXE via PyInstaller `datas`; waits for current process exit, replaces EXE, relaunches |
+| Update helper | `scripts/updater.py` + `formflow_updater.spec` | Compiled as a second small EXE (`FormFlow_Updater.exe`), bundled inside main EXE via PyInstaller `datas`; waits for current process exit, replaces EXE, relaunches |
 | GitHub Actions workflow | `.github/workflows/build-windows.yml` | tag push → PyInstaller → GitHub Release |
 
 ### Runtime Directory (EXE mode)
 
 ```
-%APPDATA%\Andent Web\
+%APPDATA%\FormFlow\
   ├─ PreFormServer\           ← managed PreFormServer install (already wired in config)
   │  ├─ PreFormServer.exe
   │  ├─ version.txt
   │  └─ hoops\
   ├─ data\
-  │  ├─ andent_web.db         ← SQLite DB (moved from ./data/ in EXE mode)
+  │  ├─ formflow.db         ← SQLite DB (moved from ./data/ in EXE mode)
   │  ├─ uploads\
   │  └─ screenshots\
   └─ logs\
-     └─ andent_web.log
+     └─ formflow.log
 ```
 
-In EXE mode, `ANDENT_WEB_DATA_DIR` is set to `%APPDATA%\Andent Web\data` so data survives EXE replacement during updates. In dev mode, the existing `./data/` default remains unchanged.
+In EXE mode, `FORMFLOW_WEB_DATA_DIR` is set to `%APPDATA%\FormFlow\data` so data survives EXE replacement during updates. In dev mode, the existing `./data/` default remains unchanged.
 
 ### Double-Click Launch Sequence
 
@@ -77,7 +77,7 @@ EXE launches
 ### Three Steps
 
 **Step 1 — Welcome**
-- Andent logo, one-sentence description
+- FormFlow logo, one-sentence description
 - Explains that the PreFormServer ZIP (from Formlabs) is required
 - Single "Get Started →" button
 
@@ -92,9 +92,9 @@ EXE launches
 - On success: green checkmark, "PreFormServer v{version} installed"
 
 **Step 3 — Done**
-- "Setup complete. Andent Web is running."
+- "Setup complete. FormFlow is running."
 - Displays LAN address (`http://{local_ip}:8090`) for sharing with other workstations
-- "Open Andent Web →" button → navigates to `/`
+- "Open FormFlow →" button → navigates to `/`
 
 ### LAN IP Detection
 
@@ -110,7 +110,7 @@ EXE launches
 **Menu:**
 
 ```
-Open Andent Web
+Open FormFlow
 ─────────────────────────────
 LAN: http://192.168.x.x:8090   [disabled label]
 ─────────────────────────────
@@ -120,7 +120,7 @@ Version: v1.0.0                [disabled label]
 Quit
 ```
 
-- Left-click on tray icon → Open Andent Web
+- Left-click on tray icon → Open FormFlow
 - Quit → graceful uvicorn shutdown then `sys.exit(0)`
 
 ---
@@ -131,30 +131,30 @@ Quit
 
 On startup and every 24 hours, a background thread calls:
 ```
-GET https://api.github.com/repos/Harwav/Andent_Releases/releases/latest
+GET https://api.github.com/repos/Harwav/FormFlow_Releases/releases/latest
 ```
 Compares `tag_name` (e.g., `v1.2.0`) against current `__version__`. If newer, stores the download URL.
 
 ### Notify
 
 Windows balloon notification via `pystray` notification or `ctypes` MessageBox:  
-> "Andent Web v1.2.0 is available. Click 'Check for Updates' in the tray to install."
+> "FormFlow v1.2.0 is available. Click 'Check for Updates' in the tray to install."
 
 ### Download & Replace
 
 1. User clicks "Check for Updates" in tray menu
-2. Confirmation dialog: "Update to v1.2.0 and restart Andent Web?"
-3. Downloads new EXE to `%TEMP%\andent_web_update.exe`
-4. Extracts `Andent_Updater.exe` from PyInstaller bundle to `%TEMP%\` and launches it as a detached process with args: `--pid {current_pid} --src %TEMP%\andent_web_update.exe --dst {current_exe_path}`:
+2. Confirmation dialog: "Update to v1.2.0 and restart FormFlow?"
+3. Downloads new EXE to `%TEMP%\formflow_update.exe`
+4. Extracts `FormFlow_Updater.exe` from PyInstaller bundle to `%TEMP%\` and launches it as a detached process with args: `--pid {current_pid} --src %TEMP%\formflow_update.exe --dst {current_exe_path}`:
    - Waits for current PID to exit (polls with `psutil.pid_exists`)
-   - Copies `andent_web_update.exe` over the current EXE path
+   - Copies `formflow_update.exe` over the current EXE path
    - Relaunches the EXE
 5. Current process calls `tray.stop()` then exits
 
 ### Releases Repo
 
-Public repo: `Harwav/Andent_Releases` (mirrors YF_ERP pattern with `Harwav/YF_ERP_Releases`).  
-EXE asset name: `Andent_Web_v{version}.exe`
+Public repo: `Harwav/FormFlow_Releases` (mirrors YF_ERP pattern with `Harwav/YF_ERP_Releases`).
+EXE asset name: `FormFlow_v{version}.exe`
 
 ---
 
@@ -163,13 +163,13 @@ EXE asset name: `Andent_Web_v{version}.exe`
 ### Version Management
 
 - Single source: `app/version.py` — `__version__ = "1.0.0"` (semver, no build suffix)
-- `scripts/builders/build_deployment.py` updates `andent_web.spec` and `version_info.txt` before PyInstaller runs
+- `scripts/builders/build_deployment.py` updates `formflow.spec` and `version_info.txt` before PyInstaller runs
 
-### PyInstaller Spec (`andent_web.spec`)
+### PyInstaller Spec (`formflow.spec`)
 
 Key settings mirroring YF_ERP's proven `.spec`:
 ```python
-name='Andent_Web_v{version}'
+name='FormFlow_v{version}'
 console=False          # no terminal window
 runtime_tmpdir=None    # use %TEMP% (always writable)
 strip=False            # Windows DLL compat
@@ -203,7 +203,7 @@ Steps:
 4. `python scripts/builders/build_deployment.py` (runs PyInstaller)
 5. Verify EXE exists and size > 40 MB
 6. Extract version from `app/version.py`
-7. Create GitHub Release on `Harwav/Andent_Releases` with EXE as asset
+7. Create GitHub Release on `Harwav/FormFlow_Releases` with EXE as asset
 
 ---
 
@@ -212,11 +212,11 @@ Steps:
 `run_tray.py` sets these environment variables before importing the app, so no `config.env` file is needed for basic operation:
 
 ```python
-os.environ.setdefault("ANDENT_WEB_HOST", "0.0.0.0")          # LAN-accessible
-os.environ.setdefault("ANDENT_WEB_PORT", "8090")
-os.environ.setdefault("ANDENT_WEB_DATA_DIR", str(appdata_dir / "data"))
-os.environ.setdefault("ANDENT_WEB_DATABASE_PATH", str(appdata_dir / "data" / "andent_web.db"))
-os.environ.setdefault("ANDENT_WEB_PRINT_DISPATCH_MODE", "real")
+os.environ.setdefault("FORMFLOW_WEB_HOST", "0.0.0.0")          # LAN-accessible
+os.environ.setdefault("FORMFLOW_WEB_PORT", "8090")
+os.environ.setdefault("FORMFLOW_WEB_DATA_DIR", str(appdata_dir / "data"))
+os.environ.setdefault("FORMFLOW_WEB_DATABASE_PATH", str(appdata_dir / "data" / "formflow.db"))
+os.environ.setdefault("FORMFLOW_WEB_PRINT_DISPATCH_MODE", "real")
 ```
 
 Advanced users can place a `config.env` file next to the EXE to override any setting (same pattern as YF_ERP).
@@ -231,11 +231,11 @@ Advanced users can place a `config.env` file next to the EXE to override any set
 - `app/routers/setup.py` — includes `GET /setup` (wizard HTML, redirects to `/` if ready) and `GET /api/setup/lan-ip` (returns `{"lan_ip": "192.168.x.x", "port": 8090}`)
 - `app/static/setup.html`
 - `app/static/tray_icon.png`
-- `andent_web.spec`
-- `andent_updater.spec`
+- `formflow.spec`
+- `formflow_updater.spec`
 - `version_info.txt`
 - `scripts/builders/build_deployment.py`
-- `scripts/updater.py` (compiled to `Andent_Updater.exe` via `andent_updater.spec`, bundled inside main EXE)
+- `scripts/updater.py` (compiled to `FormFlow_Updater.exe` via `formflow_updater.spec`, bundled inside main EXE)
 - `.github/workflows/build-windows.yml`
 
 ### Modified files
@@ -254,6 +254,6 @@ Advanced users can place a `config.env` file next to the EXE to override any set
 1. **Dev smoke test:** `python run_tray.py` — tray icon appears, browser opens to `/setup`, wizard completes, redirects to `/`
 2. **LAN test:** from a second machine, browse to `http://{server-LAN-IP}:8090` — app loads
 3. **Update test:** set version in `app/version.py` to `0.0.1`, confirm update notification appears; confirm EXE replacement works
-4. **PyInstaller smoke test:** `pyinstaller andent_web.spec` — EXE launches, tray appears, app functions
+4. **PyInstaller smoke test:** `pyinstaller formflow.spec` — EXE launches, tray appears, app functions
 5. **Existing tests:** `pytest tests/ -q` — all pass (no existing tests affected)
 6. **E2E:** `npm run test:release-gate` — passes against EXE-launched server

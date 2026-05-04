@@ -12,7 +12,7 @@ def test_thumbnail_snapshot_storage_prefix_constant():
     """Verify the thumbnail snapshot localStorage prefix constant is defined."""
     app_js = APP_JS.read_text(encoding="utf-8")
 
-    assert 'THUMBNAIL_SNAPSHOT_STORAGE_PREFIX = "andent:thumbnail-snapshot:"' in app_js
+    assert 'THUMBNAIL_SNAPSHOT_STORAGE_PREFIX = "formflow:thumbnail-snapshot:"' in app_js
 
 
 def test_preview_state_structure():

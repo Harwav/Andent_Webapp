@@ -6,12 +6,12 @@ test.use({
   viewport: { width: 1440, height: 900 },
 });
 
-test('headed operator walkthrough with real Andent test data', async ({ page, liveApp }) => {
+test('headed operator walkthrough with real FormFlow test data', async ({ page, liveApp }) => {
   test.setTimeout(300_000);
 
-  const testDataDir = process.env.ANDENT_TEST_DATA_DIR;
+  const testDataDir = process.env.FORMFLOW_TEST_DATA_DIR;
   if (!testDataDir) {
-    test.skip(true, 'Set ANDENT_TEST_DATA_DIR to the local test data folder to run this test.');
+    test.skip(true, 'Set FORMFLOW_TEST_DATA_DIR to the local test data folder to run this test.');
   }
   const upperFile = path.join(testDataDir!, '20260407_8424827_TARUNA__XAVIER_UnsectionedModel_UpperJaw.stl');
   const lowerFile = path.join(testDataDir!, '20260407_8424827_TARUNA__XAVIER_UnsectionedModel_LowerJaw.stl');

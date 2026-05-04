@@ -9,7 +9,7 @@ Uploads every .stl file found under fixtures-dir, sends one ready case to print
 when PreFormServer is ready, then fetches /api/metrics/launch-check and prints
 a pass/fail report.
 
-PreFormServer is started automatically via the Andent Web managed-install API
+PreFormServer is started automatically via the FormFlow managed-install API
 if it is not already running. If no managed install exists, validation proceeds
 without dispatch proof and the dispatch_success criterion fails.
 """
@@ -149,7 +149,7 @@ def ensure_preform_running(base_url: str) -> bool:
 def print_report(check: dict, preform_running: bool) -> bool:
     """Print the launch report. Returns True if overall_pass."""
     print("\n" + "=" * 60)
-    print("  ANDENT WEB -- LAUNCH VALIDATION REPORT")
+    print("  FORMFLOW -- LAUNCH VALIDATION REPORT")
     print("=" * 60)
 
     criteria = [
@@ -185,7 +185,7 @@ def print_report(check: dict, preform_running: bool) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Andent Web launch validation")
+    parser = argparse.ArgumentParser(description="FormFlow launch validation")
     parser.add_argument("--base-url", default="http://127.0.0.1:8090")
     parser.add_argument("--fixtures-dir", default="Andent/04_customer-facing")
     parser.add_argument(

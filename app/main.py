@@ -17,6 +17,7 @@ from .routers.uploads import router as uploads_router
 from .routers.metrics import router as metrics_router
 from .routers.preform_setup import router as preform_setup_router
 from .routers.print_queue import router as print_queue_router
+from .version import __version__
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -43,9 +44,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
 
     app = FastAPI(
-        title="Andent Web",
-        description="Standalone web intake for Andent Phase 0",
-        version="0.1.0",
+        title="FormFlow",
+        description="Standalone web intake for FormFlow",
+        version=__version__,
         lifespan=lifespan,
     )
     app.state.settings = resolved_settings
