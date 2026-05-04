@@ -61,9 +61,10 @@ Behavior:
 - `Open FormFlow` opens `http://127.0.0.1:{port}/`.
 - `Server Status` shows a Windows dialog with the current FormFlow URL, PreForm readiness, detected PreForm version when available, and log location.
 - `Re-check PreFormServer` sets the icon yellow, calls `/api/preform-setup/recheck`, then refreshes status.
-- `Restart FormFlow` confirms with the operator, shuts down the current uvicorn server, starts it again, then refreshes status.
+- `Re-check PreFormServer` must use `POST /api/preform-setup/recheck`; a `GET` request is incorrect for the existing API.
+- `Restart FormFlow` confirms with the operator, shuts down the current uvicorn server, waits for the server thread to exit, verifies the port is released, starts it again, then refreshes status.
 - `View Logs` opens the runtime logs directory.
-- `Quit` confirms, stops the tray, requests server shutdown, and exits the process.
+- `Quit` confirms, stops the tray, requests server shutdown, waits for the server thread to exit, verifies the port is released, and exits the process.
 
 Left-click/default action should open FormFlow.
 
@@ -76,10 +77,11 @@ Left-click/default action should open FormFlow.
 | Unit | Responsibility |
 | --- | --- |
 | Runtime paths | Resolve EXE/dev runtime root, data dir, output dir, log dir |
+| Early logging | Create a diagnostic log before tray/server imports that can fail in `console=False` mode |
 | Environment setup | Set `FORMFLOW_WEB_*` defaults before importing `app.main` |
 | Status model | Convert health/readiness results into `starting`, `ready`, or `error` |
 | Icon renderer | Create 64x64 green/yellow/red tray icons with `Pillow` |
-| Server manager | Start and stop uvicorn in a background thread |
+| Server manager | Start `uvicorn.Server` in a background thread and stop it via `server.should_exit` with a join timeout |
 | Probe client | Poll `/health`, `/health/ready`, and `/api/preform-setup/status` |
 | Tray controller | Build pystray menu, update icon/title, handle menu callbacks |
 | Dialog helpers | Use Windows `ctypes.MessageBoxW` first, with safe fallback logging |
@@ -92,11 +94,13 @@ Do not put business logic in the tray runtime. The tray only reflects backend re
 
 Update PyInstaller packaging to include tray support:
 
-- add `pystray` and `Pillow` to `requirements.txt`
+- add `pystray`, `Pillow`, and any missing runtime imports such as `requests` to `requirements.txt`
 - include hidden imports for `pystray`, `pystray._win32`, `PIL`, `PIL.Image`, and `PIL.ImageDraw`
 - set `console=False` in `formflow.spec` for the customer-facing EXE
 - keep `runtime_tmpdir=None`
 - keep `strip=False` and `upx=False`
+
+Before release, run a clean dependency audit by installing from `requirements.txt` in a fresh environment or CI job and importing `app.main` plus the tray runtime. The current code imports `requests` through `app.services.preform_setup_service`, so packaging must not depend on globally installed packages that are absent from `requirements.txt`.
 
 The EXE should continue to write runtime data beside the EXE by default unless these environment variables override it:
 
@@ -118,6 +122,7 @@ Rules:
 - If the PreForm recheck endpoint returns an API error, show red and include the error message in the status dialog.
 - If the browser cannot open, log the error and keep the server running.
 - If tray creation fails, fall back to starting the FastAPI server with logging rather than exiting before the operator can use the app.
+- If shutdown or restart does not release the server port within the timeout, log the stuck process/thread state and show a red status dialog instead of silently starting a second server on the same port.
 
 ---
 
@@ -134,12 +139,24 @@ Required automated checks:
 
 2. Unit tests for runtime path/env setup:
    - packaged/dev runtime defaults set data, output, database, host, and port consistently
+   - early logging writes a diagnostic file before the app imports
 
-3. Packaging smoke test:
+3. Unit tests for lifecycle cleanup:
+   - stop requests set `server.should_exit`
+   - stopped servers join within the timeout
+   - a still-listening port is reported as a shutdown failure
+
+4. Clean dependency check:
+   - install `requirements.txt`
+   - import `app.main`
+   - import and instantiate the tray runtime without relying on globally installed packages
+
+5. Packaging smoke test:
    - build `dist/FormFlow_v{version}.exe`
    - launch it with `FORMFLOW_WEB_OPEN_BROWSER=0` and a test port
    - verify `/health` returns `healthy`
    - verify the process is cleaned up by executable path and port
+   - verify no `FormFlow_v*.exe` process remains and the test port is closed after cleanup
 
 Required manual/live checks:
 
