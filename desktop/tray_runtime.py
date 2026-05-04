@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import os
+import json
 import socket
+import subprocess
 import sys
 import threading
 import time
+import urllib.request
+import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -166,3 +170,144 @@ class FormFlowServerManager:
             self.thread.join(timeout=join_timeout_s)
             return not self.thread.is_alive()
         return True
+
+
+def tray_menu_labels() -> list[str]:
+    return [
+        "Open FormFlow",
+        "Server Status",
+        "Re-check PreFormServer",
+        "Restart FormFlow",
+        "View Logs",
+        "Quit",
+    ]
+
+
+def show_windows_dialog(title: str, message: str, *, question: bool = False) -> bool:
+    try:
+        import ctypes
+
+        flags = 0x00000004 | 0x00000020 | 0x00040000 if question else 0x00000040 | 0x00040000
+        result = ctypes.windll.user32.MessageBoxW(0, message, title, flags)
+        return result in {1, 6}
+    except Exception:
+        return False
+
+
+class FormFlowTrayRuntime:
+    def __init__(
+        self,
+        *,
+        paths: RuntimePaths,
+        host: str,
+        port: int,
+        logger: Callable[[str], None],
+        server_manager: FormFlowServerManager | None,
+    ):
+        self.paths = paths
+        self.host = host
+        self.port = port
+        self.logger = logger
+        self.server_manager = server_manager
+        self.status = TrayStatus.CHECKING
+        self.preform_payload: dict[str, Any] | None = None
+        self.icon: Any = None
+
+    @property
+    def url(self) -> str:
+        return f"http://127.0.0.1:{self.port}"
+
+    def fetch_health(self) -> bool:
+        try:
+            with urllib.request.urlopen(f"{self.url}/health", timeout=2) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+                return response.status == 200 and payload.get("status") == "healthy"
+        except Exception as exc:
+            self.logger(f"health probe failed: {exc}")
+            return False
+
+    def fetch_preform_status(self) -> dict[str, Any] | None:
+        try:
+            with urllib.request.urlopen(f"{self.url}/api/preform-setup/status", timeout=3) as response:
+                if response.status != 200:
+                    return None
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as exc:
+            self.logger(f"PreForm status probe failed: {exc}")
+            return None
+
+    def refresh_status(self, *, checking: bool) -> TrayStatus:
+        formflow_healthy = self.fetch_health() if not checking else False
+        self.preform_payload = self.fetch_preform_status() if formflow_healthy else None
+        self.status = decide_tray_status(
+            formflow_healthy=formflow_healthy,
+            preform_payload=self.preform_payload,
+            checking=checking,
+        )
+        if self.icon is not None:
+            self.icon.icon = create_tray_icon(self.status)
+            self.icon.title = f"FormFlow ({self.status.value})"
+        return self.status
+
+    def open_formflow(self, *_args: Any) -> None:
+        try:
+            webbrowser.open_new(self.url)
+        except Exception as exc:
+            self.logger(f"browser open failed: {exc}")
+
+    def show_status(self, *_args: Any) -> None:
+        message = build_status_message(
+            url=self.url,
+            status=self.status,
+            preform_payload=self.preform_payload,
+            logs_dir=self.paths.logs_dir,
+        )
+        show_windows_dialog("FormFlow Status", message)
+
+    def recheck_preform(self, *_args: Any) -> None:
+        self.refresh_status(checking=True)
+        request = urllib.request.Request(
+            f"{self.url}/api/preform-setup/recheck",
+            data=b"",
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=10):
+                pass
+        except Exception as exc:
+            self.logger(f"PreForm recheck failed: {exc}")
+        self.refresh_status(checking=False)
+
+    def restart_formflow(self, *_args: Any) -> None:
+        if not show_windows_dialog(
+            "Restart FormFlow",
+            "Restart the local FormFlow server?",
+            question=True,
+        ):
+            return
+        self.refresh_status(checking=True)
+        if self.server_manager is not None:
+            stopped = self.server_manager.stop()
+            if not stopped or is_port_open(self.host, self.port):
+                self.logger("restart failed: server did not stop cleanly")
+                self.status = TrayStatus.ERROR
+                return
+            self.server_manager.start()
+            self.server_manager.wait_until_listening()
+        self.refresh_status(checking=False)
+
+    def view_logs(self, *_args: Any) -> None:
+        self.paths.logs_dir.mkdir(parents=True, exist_ok=True)
+        subprocess.Popen(["explorer", str(self.paths.logs_dir)])
+
+    def quit(self, *_args: Any) -> None:
+        if not show_windows_dialog(
+            "Quit FormFlow",
+            "Quit FormFlow and stop the local server?",
+            question=True,
+        ):
+            return
+        if self.server_manager is not None:
+            self.server_manager.stop()
+        if self.icon is not None:
+            self.icon.stop()

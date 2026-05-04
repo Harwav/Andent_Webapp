@@ -5,6 +5,7 @@ import socket
 
 from desktop.tray_runtime import (
     FormFlowServerManager,
+    FormFlowTrayRuntime,
     RuntimePaths,
     TrayStatus,
     build_status_message,
@@ -13,6 +14,7 @@ from desktop.tray_runtime import (
     create_tray_icon,
     decide_tray_status,
     is_port_open,
+    tray_menu_labels,
 )
 
 
@@ -148,3 +150,35 @@ def test_server_manager_stop_sets_should_exit_and_joins(monkeypatch):
     assert manager.stop(join_timeout_s=1.5) is True
     assert manager.server.should_exit is True
     assert "join:1.5" in events
+
+
+def test_tray_menu_labels_match_operator_actions():
+    assert tray_menu_labels() == [
+        "Open FormFlow",
+        "Server Status",
+        "Re-check PreFormServer",
+        "Restart FormFlow",
+        "View Logs",
+        "Quit",
+    ]
+
+
+def test_refresh_status_turns_ready_payload_green(tmp_path):
+    paths = RuntimePaths.from_root(tmp_path)
+    runtime = FormFlowTrayRuntime(
+        paths=paths,
+        host="127.0.0.1",
+        port=8090,
+        logger=lambda message: None,
+        server_manager=None,
+    )
+    runtime.fetch_health = lambda: True
+    runtime.fetch_preform_status = lambda: {
+        "readiness": "ready",
+        "detected_version": "3.58.1.627",
+    }
+
+    runtime.refresh_status(checking=False)
+
+    assert runtime.status == TrayStatus.READY
+    assert runtime.preform_payload["readiness"] == "ready"
