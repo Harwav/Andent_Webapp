@@ -115,6 +115,18 @@ def test_plan_build_manifests_ignores_rows_missing_ready_case_or_preset():
     assert manifests[0].preset_names == ["Ortho Solid - Flat, No Supports"]
 
 
+def test_plan_build_manifests_caps_multi_case_layout_density_at_sixty_percent():
+    rows = [
+        _row(i, f"CASE-{i}", "Ortho Solid - Flat, No Supports", x=40.0, y=200.0)
+        for i in range(1, 7)
+    ]
+
+    manifests = plan_build_manifests(rows)
+
+    assert [len(manifest.case_ids) for manifest in manifests] == [5, 1]
+    assert all(manifest.estimated_density <= 0.60 for manifest in manifests)
+
+
 def test_plan_build_manifests_groups_imports_by_preset_with_preform_hints():
     rows = [
         _row(

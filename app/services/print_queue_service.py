@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import shutil
@@ -256,15 +257,29 @@ def _generate_print_job_preview_png(job: "PrintJob") -> bytes:
     width = 960
     height = 540
     pixels = _solid_png(width, height, b"\xf8\xfb\xff")
+    tray_left = 70
+    tray_top = 42
+    tray_width = 820
+    tray_height = 410
     _draw_rect(
         pixels,
         width,
         height,
-        left=80,
-        top=50,
-        rect_width=800,
-        rect_height=400,
-        color=(230, 237, 245),
+        left=tray_left,
+        top=tray_top,
+        rect_width=tray_width,
+        rect_height=tray_height,
+        color=(214, 225, 236),
+    )
+    _draw_rect(
+        pixels,
+        width,
+        height,
+        left=tray_left + 12,
+        top=tray_top + 12,
+        rect_width=tray_width - 24,
+        rect_height=tray_height - 24,
+        color=(242, 247, 252),
     )
 
     files = []
@@ -276,18 +291,66 @@ def _generate_print_job_preview_png(job: "PrintJob") -> bytes:
     if not files:
         files = [{"xy_footprint_estimate": 2500.0}]
 
+    density = job.estimated_density
+    if density is None and isinstance(manifest, dict):
+        density = manifest.get("estimated_density")
+    try:
+        density_value = max(0.0, float(density or 0.0))
+    except (TypeError, ValueError):
+        density_value = 0.0
+    try:
+        density_target = max(0.01, float(job.density_target or 0.40))
+    except (TypeError, ValueError):
+        density_target = 0.40
+    density_ratio = max(0.0, min(1.0, density_value / density_target))
+    gauge_width = tray_width - 120
+    gauge_left = tray_left + 60
+    gauge_top = tray_top + tray_height + 22
+    _draw_rect(
+        pixels,
+        width,
+        height,
+        left=gauge_left,
+        top=gauge_top,
+        rect_width=gauge_width,
+        rect_height=18,
+        color=(219, 226, 234),
+    )
+    _draw_rect(
+        pixels,
+        width,
+        height,
+        left=gauge_left,
+        top=gauge_top,
+        rect_width=max(4, int(gauge_width * density_ratio)),
+        rect_height=18,
+        color=(58, 132, 196) if density_value < density_target else (66, 153, 112),
+    )
+
     max_area = max(
         float(file.get("xy_footprint_estimate") or 1200.0)
         for file in files
     )
-    slot_width = 800 // max(1, len(files))
+    model_count = max(1, len(files))
+    column_count = max(1, math.ceil(math.sqrt(model_count * (tray_width / tray_height))))
+    row_count = max(1, math.ceil(model_count / column_count))
+    cell_width = max(1, (tray_width - 60) // column_count)
+    cell_height = max(1, (tray_height - 60) // row_count)
     for index, file in enumerate(files):
         area = float(file.get("xy_footprint_estimate") or 1200.0)
-        scale = max(0.35, min(1.0, area / max_area))
-        model_width = max(70, int(slot_width * 0.65 * scale))
-        model_height = max(90, int(230 * scale))
-        center_x = 80 + slot_width * index + slot_width // 2
-        center_y = 250
+        scale = max(0.25, min(1.0, math.sqrt(area / max_area)))
+        model_width = max(12, int(cell_width * 0.72 * scale))
+        model_height = max(12, int(cell_height * 0.72 * scale))
+        column = index % column_count
+        row = index // column_count
+        center_x = tray_left + 30 + column * cell_width + cell_width // 2
+        center_y = tray_top + 30 + row * cell_height + cell_height // 2
+        preset_name = str(file.get("preset_name") or "")
+        color = (58, 132, 196)
+        highlight = (116, 178, 224)
+        if "tooth" in preset_name.lower():
+            color = (112, 89, 168)
+            highlight = (157, 139, 205)
         _draw_rect(
             pixels,
             width,
@@ -296,7 +359,7 @@ def _generate_print_job_preview_png(job: "PrintJob") -> bytes:
             top=center_y - model_height // 2,
             rect_width=model_width,
             rect_height=model_height,
-            color=(58, 132, 196),
+            color=color,
         )
         _draw_rect(
             pixels,
@@ -306,7 +369,7 @@ def _generate_print_job_preview_png(job: "PrintJob") -> bytes:
             top=center_y - model_height // 2 + 8,
             rect_width=max(1, model_width - 16),
             rect_height=max(1, model_height - 16),
-            color=(116, 178, 224),
+            color=highlight,
         )
 
     return _encode_png(width, height, pixels)
@@ -508,6 +571,22 @@ class PreFormImportFailureError(RuntimeError):
         self.failed_case_errors = failed_case_errors
 
 
+class PreFormAutoLayoutFailureError(RuntimeError):
+    """Raised when PreForm cannot fit the imported models in the work area."""
+
+
+def _is_auto_layout_fit_failure(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return (
+        "auto-layout" in message
+        and (
+            "unable to fit" in message
+            or "work area" in message
+            or "operation_failed" in message
+        )
+    )
+
+
 def _print_id_from_response(response: dict[str, Any]) -> str:
     print_id = response.get("print_id") or response.get("job_id") or response.get("id")
     if not print_id:
@@ -651,6 +730,145 @@ def _subset_manifest(
             "import_groups": import_groups,
         }
     )
+
+
+def _move_rows_back_to_analysis(
+    connection,
+    rows: list["ClassificationRow"],
+    *,
+    now: str,
+    event_type: str,
+) -> None:
+    for row in rows:
+        if row.row_id is None:
+            continue
+        connection.execute(
+            """
+            UPDATE upload_rows
+            SET status = 'Ready',
+                queue_section = 'analysis',
+                handoff_stage = NULL,
+                linked_job_name = NULL,
+                linked_print_job_id = NULL,
+                current_event_at = ?
+            WHERE id = ?
+            """,
+            (now, row.row_id),
+        )
+        connection.execute(
+            """
+            INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                row.row_id,
+                event_type,
+                now,
+                json.dumps({
+                    "status": "Ready",
+                    "queue_section": "analysis",
+                    "handoff_stage": None,
+                }),
+            ),
+        )
+
+
+def _mark_rows_waiting_for_repack(
+    connection,
+    rows: list["ClassificationRow"],
+    *,
+    now: str,
+) -> None:
+    for row in rows:
+        if row.row_id is None:
+            continue
+        connection.execute(
+            """
+            UPDATE upload_rows
+            SET status = 'Submitted',
+                queue_section = 'in_progress',
+                handoff_stage = 'Repacking',
+                linked_job_name = NULL,
+                linked_print_job_id = NULL,
+                current_event_at = ?
+            WHERE id = ?
+            """,
+            (now, row.row_id),
+        )
+        connection.execute(
+            """
+            INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                row.row_id,
+                "handoff_repack_pending",
+                now,
+                json.dumps({
+                    "status": "Submitted",
+                    "queue_section": "in_progress",
+                    "handoff_stage": "Repacking",
+                }),
+            ),
+        )
+
+
+def _smallest_case_id(manifest: "BuildManifest") -> str | None:
+    areas_by_case: dict[str, float] = {}
+    first_order_by_case: dict[str, int] = {}
+    for group in manifest.import_groups:
+        for file_spec in group.files:
+            areas_by_case[file_spec.case_id] = (
+                areas_by_case.get(file_spec.case_id, 0.0)
+                + float(file_spec.xy_footprint_estimate or 0.0)
+            )
+            first_order_by_case[file_spec.case_id] = min(
+                first_order_by_case.get(file_spec.case_id, file_spec.order),
+                file_spec.order,
+            )
+    if not areas_by_case:
+        return None
+    return min(
+        areas_by_case,
+        key=lambda case_id: (
+            areas_by_case[case_id],
+            first_order_by_case.get(case_id, 0),
+            case_id,
+        ),
+    )
+
+
+def _shrink_manifest_after_layout_failure(
+    connection,
+    manifest: "BuildManifest",
+    row_lookup: dict[int, "ClassificationRow"],
+    *,
+    now: str,
+) -> tuple["BuildManifest", list["ClassificationRow"]] | None:
+    active_case_ids = _manifest_case_ids_by_file_order(manifest)
+    if len(active_case_ids) <= 1:
+        return None
+
+    overflow_case_id = _smallest_case_id(manifest)
+    if overflow_case_id is None:
+        return None
+
+    retry_case_ids = [
+        case_id
+        for case_id in active_case_ids
+        if case_id != overflow_case_id
+    ]
+    if not retry_case_ids:
+        return None
+
+    deferred_manifest = _subset_manifest(manifest, [overflow_case_id])
+    deferred_rows = _manifest_rows(deferred_manifest, row_lookup)
+    _mark_rows_waiting_for_repack(
+        connection,
+        deferred_rows,
+        now=now,
+    )
+    return _subset_manifest(manifest, retry_case_ids), deferred_rows
 
 
 def _validation_errors(validation_result: dict[str, Any]) -> list[str]:
@@ -860,10 +1078,20 @@ def process_print_manifest(
             manifest = _subset_manifest(manifest, active_case_ids)
             active_rows = _manifest_rows(manifest, row_lookup)
 
-        client.auto_layout(scene_id)
+        try:
+            client.auto_layout(scene_id)
+        except Exception as exc:
+            if _is_auto_layout_fit_failure(exc):
+                raise PreFormAutoLayoutFailureError(str(exc)) from exc
+            raise
         if support_model_ids:
             client.auto_support(scene_id, models=support_model_ids)
-            client.auto_layout(scene_id)
+            try:
+                client.auto_layout(scene_id)
+            except Exception as exc:
+                if _is_auto_layout_fit_failure(exc):
+                    raise PreFormAutoLayoutFailureError(str(exc)) from exc
+                raise
         validation_result = (
             client.validate_scene(scene_id)
             if settings.preform_validation_enabled
@@ -1558,7 +1786,10 @@ def _send_ready_rows_to_device(
         )
 
         planning_rows = _selected_model_rows(prevalidated_rows, device)
-        manifests = plan_build_manifests(planning_rows)
+        manifests = plan_build_manifests(
+            planning_rows,
+            max_layout_density=settings.print_max_layout_density,
+        )
         rows_by_id = {
             row.row_id: row
             for row in planning_rows
@@ -1572,7 +1803,23 @@ def _send_ready_rows_to_device(
             if manifest.planning_status == "planned":
                 final_index_by_compatibility[manifest.compatibility_key] = index
 
-        for manifest_index, manifest in enumerate(manifests):
+        pending_manifests: list[tuple["BuildManifest", bool]] = [
+            (manifest, False) for manifest in manifests
+        ]
+        retry_rows: list["ClassificationRow"] = []
+        manifest_index = -1
+        while pending_manifests or retry_rows:
+            if not pending_manifests and retry_rows:
+                retry_manifests = plan_build_manifests(
+                    retry_rows,
+                    max_layout_density=settings.print_max_layout_density,
+                )
+                pending_manifests.extend((retry_manifest, True) for retry_manifest in retry_manifests)
+                retry_rows = []
+                continue
+
+            manifest_index += 1
+            manifest, force_dispatch = pending_manifests.pop(0)
             manifest_row_id_list = manifest_row_ids(manifest, planning_rows)
             manifest_id = build_manifest_assignment_id(manifest, manifest_row_id_list)
             if manifest.planning_status != "planned" or not manifest.import_groups:
@@ -1610,7 +1857,7 @@ def _send_ready_rows_to_device(
                 manifest_index,
                 final_index_by_compatibility,
                 hold_now,
-            ):
+            ) and not force_dispatch:
                 manifest_rows = [
                     row
                     for case_id in manifest.case_ids
@@ -1685,106 +1932,125 @@ def _send_ready_rows_to_device(
                 )
                 continue
 
-            active_rows = _manifest_rows(manifest, rows_by_id)
-            job_name = _generate_unique_job_name_for_manifest(
-                connection,
-                datetime.now(),
-                manifest,
-            )
-            try:
-                created_print_job_id = _reserve_print_job_for_rows(
+            active_manifest = manifest
+            while True:
+                active_rows = _manifest_rows(active_manifest, rows_by_id)
+                job_name = _generate_unique_job_name_for_manifest(
                     connection,
-                    settings=settings,
-                    manifest=manifest,
-                    rows=active_rows,
-                    job_name=job_name,
-                    now=now,
-                    device_id=str(device["device_id"]),
-                    printer_device_name=(
-                        str(device["device_name"])
-                        if device.get("device_name") is not None
-                        else None
-                    ),
+                    datetime.now(),
+                    active_manifest,
                 )
-                connection.commit()
-            except sqlite3.IntegrityError as exc:
-                connection.rollback()
-                raise DeviceDispatchValidationError(
-                    _send_to_print_payload(
-                        blocked_groups=[
-                            _group_result(
-                                manifest_id=manifest_id,
-                                status="failed",
-                                row_ids=manifest_row_id_list,
-                                error="Selected rows are already being submitted. Refresh the queue and try again.",
-                            )
-                        ],
-                        rows=_load_rows_by_ids(connection, row_ids),
+                try:
+                    created_print_job_id = _reserve_print_job_for_rows(
+                        connection,
+                        settings=settings,
+                        manifest=active_manifest,
+                        rows=active_rows,
+                        job_name=job_name,
+                        now=now,
+                        device_id=str(device["device_id"]),
+                        printer_device_name=(
+                            str(device["device_name"])
+                            if device.get("device_name") is not None
+                            else None
+                        ),
                     )
-                ) from exc
-            try:
-                result = process_print_manifest(
-                    settings,
-                    manifest,
-                    active_rows,
-                    batch_number=1,
-                    job_name=job_name,
-                    device_id=str(device["device_id"]),
-                    printer_device_name=(
-                        str(device["device_name"])
-                        if device.get("device_name") is not None
-                        else None
-                    ),
-                )
-            except PreFormImportFailureError as exc:
-                failed_case_errors = exc.failed_case_errors
-                _mark_cases_needs_review_with_retry(
-                    connection,
-                    [
-                        {
-                            "case_id": case_id,
-                            "row_ids": [
-                                row.row_id
-                                for row in planning_rows
-                                if row.row_id is not None and row.case_id == case_id
+                    connection.commit()
+                except sqlite3.IntegrityError as exc:
+                    connection.rollback()
+                    raise DeviceDispatchValidationError(
+                        _send_to_print_payload(
+                            blocked_groups=[
+                                _group_result(
+                                    manifest_id=manifest_id,
+                                    status="failed",
+                                    row_ids=manifest_row_id_list,
+                                    error="Selected rows are already being submitted. Refresh the queue and try again.",
+                                )
                             ],
-                            "reason": f"PreForm import failed: {error}",
-                        }
-                        for case_id, error in failed_case_errors.items()
-                    ],
-                    event_type="case_quarantined_during_preform_import",
-                    now=now,
-                )
-                connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
-                blocked_groups.append(
-                    _group_result(
-                        manifest_id=manifest_id,
-                        status="failed",
-                        row_ids=manifest_row_id_list,
-                        error="PreFormServer rejected every STL in this group during import.",
+                            rows=_load_rows_by_ids(connection, row_ids),
+                        )
+                    ) from exc
+                try:
+                    result = process_print_manifest(
+                        settings,
+                        active_manifest,
+                        active_rows,
+                        batch_number=1,
+                        job_name=job_name,
+                        device_id=str(device["device_id"]),
+                        printer_device_name=(
+                            str(device["device_name"])
+                            if device.get("device_name") is not None
+                            else None
+                        ),
                     )
-                )
+                    break
+                except PreFormAutoLayoutFailureError:
+                    connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
+                    shrink_result = _shrink_manifest_after_layout_failure(
+                        connection,
+                        active_manifest,
+                        rows_by_id,
+                        now=now,
+                    )
+                    connection.commit()
+                    if shrink_result is None:
+                        _move_rows_back_to_analysis(
+                            connection,
+                            active_rows,
+                            now=now,
+                            event_type="handoff_failed",
+                        )
+                        connection.commit()
+                        raise
+                    shrunken_manifest, deferred_rows = shrink_result
+                    retry_rows.extend(deferred_rows)
+                    active_manifest = shrunken_manifest
+                    continue
+                except PreFormImportFailureError as exc:
+                    failed_case_errors = exc.failed_case_errors
+                    _mark_cases_needs_review_with_retry(
+                        connection,
+                        [
+                            {
+                                "case_id": case_id,
+                                "row_ids": [
+                                    row.row_id
+                                    for row in planning_rows
+                                    if row.row_id is not None and row.case_id == case_id
+                                ],
+                                "reason": f"PreForm import failed: {error}",
+                            }
+                            for case_id, error in failed_case_errors.items()
+                        ],
+                        event_type="case_quarantined_during_preform_import",
+                        now=now,
+                    )
+                    connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
+                    blocked_groups.append(
+                        _group_result(
+                            manifest_id=manifest_id,
+                            status="failed",
+                            row_ids=manifest_row_id_list,
+                            error="PreFormServer rejected every STL in this group during import.",
+                        )
+                    )
+                    result = None
+                    break
+                except Exception:
+                    connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
+                    _move_rows_back_to_analysis(
+                        connection,
+                        active_rows,
+                        now=now,
+                        event_type="handoff_failed",
+                    )
+                    connection.commit()
+                    raise
+            if result is None:
                 continue
-            except Exception:
-                connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
-                for row in active_rows:
-                    if row.row_id is None:
-                        continue
-                    connection.execute(
-                        """
-                        UPDATE upload_rows
-                        SET status = 'Ready',
-                            queue_section = 'analysis',
-                            handoff_stage = NULL,
-                            linked_job_name = NULL,
-                            linked_print_job_id = NULL,
-                            current_event_at = ?
-                        WHERE id = ?
-                        """,
-                        (now, row.row_id),
-                    )
-                connection.commit()
-                raise
+
             failed_case_errors = result.get("failed_case_errors") or {}
             if isinstance(failed_case_errors, dict) and failed_case_errors:
                 _mark_cases_needs_review_with_retry(
@@ -1949,7 +2215,10 @@ def send_ready_rows_to_print(
         }
     ]
 
-    manifests = plan_build_manifests(planning_rows)
+    manifests = plan_build_manifests(
+        planning_rows,
+        max_layout_density=settings.print_max_layout_density,
+    )
     if not manifests:
         return rows
 
@@ -1983,7 +2252,23 @@ def send_ready_rows_to_print(
                 for held_job_id in held_job_ids:
                     _held_job_ids_created_this_process.discard(held_job_id)
 
-            for manifest_index, manifest in enumerate(manifests):
+            pending_manifests: list[tuple["BuildManifest", bool]] = [
+                (manifest, False) for manifest in manifests
+            ]
+            retry_rows: list["ClassificationRow"] = []
+            manifest_index = -1
+            while pending_manifests or retry_rows:
+                if not pending_manifests and retry_rows:
+                    retry_manifests = plan_build_manifests(
+                        retry_rows,
+                        max_layout_density=settings.print_max_layout_density,
+                    )
+                    pending_manifests.extend((retry_manifest, True) for retry_manifest in retry_manifests)
+                    retry_rows = []
+                    continue
+
+                manifest_index += 1
+                manifest, force_dispatch = pending_manifests.pop(0)
                 manifest_rows = [
                     row
                     for case_id in manifest.case_ids
@@ -2054,7 +2339,7 @@ def send_ready_rows_to_print(
                     manifest_index,
                     final_index_by_compatibility,
                     hold_now,
-                ):
+                ) and not force_dispatch:
                     job_name = _generate_unique_job_name_for_manifest(
                         connection,
                         datetime.now(),
@@ -2133,6 +2418,28 @@ def send_ready_rows_to_print(
                             batch_number=1,
                             job_name=job_name,
                         )
+                    except PreFormAutoLayoutFailureError:
+                        connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
+                        shrink_result = _shrink_manifest_after_layout_failure(
+                            connection,
+                            active_manifest,
+                            rows_by_id,
+                            now=now,
+                        )
+                        connection.commit()
+                        if shrink_result is None:
+                            _move_rows_back_to_analysis(
+                                connection,
+                                active_rows,
+                                now=now,
+                                event_type="handoff_failed",
+                            )
+                            connection.commit()
+                            raise
+                        shrunken_manifest, deferred_retry_rows = shrink_result
+                        retry_rows.extend(deferred_retry_rows)
+                        active_manifest = shrunken_manifest
+                        continue
                     except Exception:
                         connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
                         for row in active_rows:

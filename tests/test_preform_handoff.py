@@ -34,6 +34,7 @@ class StubPreFormClient:
         self.created_scenes: list[tuple[str, str]] = []
         self.imported_models: list[tuple[str, str, str | None]] = []
         self.layout_calls: list[str] = []
+        self.layout_errors: list[Exception] = []
         self.support_calls: list[tuple[str, object]] = []
         self.validation_results: list[dict[str, object]] = []
         self.validation_calls: list[str] = []
@@ -55,6 +56,8 @@ class StubPreFormClient:
 
     def auto_layout(self, scene_id: str):
         self.layout_calls.append(scene_id)
+        if self.layout_errors:
+            raise self.layout_errors.pop(0)
         return {"status": "ok"}
 
     def auto_support(self, scene_id: str, models: object = "ALL"):
@@ -93,7 +96,7 @@ class StubPreFormClient:
 def _build_settings(tmp_path: Path):
     data_dir = tmp_path / "data"
     return replace(
-        build_settings(data_dir=data_dir, database_path=data_dir / "andent_web.db"),
+        build_settings(data_dir=data_dir, database_path=data_dir / "formflow.db"),
         output_dir=tmp_path / "output",
         print_hold_density_target=0.0,
         preform_validation_enabled=True,
@@ -103,7 +106,7 @@ def _build_settings(tmp_path: Path):
 def _build_holding_settings(tmp_path: Path):
     data_dir = tmp_path / "data"
     return replace(
-        build_settings(data_dir=data_dir, database_path=data_dir / "andent_web.db"),
+        build_settings(data_dir=data_dir, database_path=data_dir / "formflow.db"),
         output_dir=tmp_path / "output",
         print_hold_density_target=0.40,
         print_hold_cutoff_local_time="23:59",
@@ -1118,12 +1121,12 @@ def test_virtual_dispatch_mode_refuses_physical_only_devices(tmp_path):
 
 
 def test_invalid_dispatch_mode_fails_settings_load(tmp_path, monkeypatch):
-    monkeypatch.setenv("ANDENT_WEB_PRINT_DISPATCH_MODE", "unexpected")
+    monkeypatch.setenv("FORMFLOW_WEB_PRINT_DISPATCH_MODE", "unexpected")
 
     try:
-        build_settings(data_dir=tmp_path / "data", database_path=tmp_path / "data" / "andent_web.db")
+        build_settings(data_dir=tmp_path / "data", database_path=tmp_path / "data" / "formflow.db")
     except ValueError as exc:
-        assert "ANDENT_WEB_PRINT_DISPATCH_MODE" in str(exc)
+        assert "FORMFLOW_WEB_PRINT_DISPATCH_MODE" in str(exc)
     else:
         raise AssertionError("Invalid dispatch mode should fail settings load.")
 
@@ -1271,6 +1274,155 @@ def test_send_to_print_records_validation_warnings_without_rollback(tmp_path):
     assert jobs[0].validation_passed is False
     assert jobs[0].validation_errors == ["overlap"]
     assert jobs[0].case_ids == ["CASE-TOOTH", "CASE-LATE", "CASE-ORTHO"]
+
+
+def test_auto_layout_fit_failure_removes_smallest_case_and_keeps_sending(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_files = [
+        tmp_path / "case-a.stl",
+        tmp_path / "case-b.stl",
+        tmp_path / "case-c.stl",
+    ]
+    for file_path in case_files:
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(case_files[0]), 40.0, 30.0, "Ortho - Solid")
+    register_test_dims(str(case_files[1]), 10.0, 10.0, "Ortho - Solid")
+    register_test_dims(str(case_files[2]), 30.0, 30.0, "Ortho - Solid")
+
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_files[0],
+                case_id="CASE-A",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-a",
+            ),
+            _row_payload(
+                case_files[1],
+                case_id="CASE-B",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-b",
+            ),
+            _row_payload(
+                case_files[2],
+                case_id="CASE-C",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-c",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.layout_errors = [
+        Exception(
+            'Failed to auto-layout scene: 400 - {"error":{"code":"OPERATION_FAILED","message":"The layout tool was unable to fit all of the selected models into the work area."}}'
+        )
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    rows_by_case = {row["case_id"]: row for row in response.json()}
+    assert rows_by_case["CASE-A"]["queue_section"] == "history"
+    assert rows_by_case["CASE-B"]["queue_section"] == "history"
+    assert rows_by_case["CASE-C"]["queue_section"] == "history"
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 2
+    jobs_by_cases = {tuple(job.case_ids): job for job in jobs}
+    assert set(jobs_by_cases) == {("CASE-A", "CASE-C"), ("CASE-B",)}
+    assert stub_client.created_scenes == [
+        ("CASE-A", jobs_by_cases[("CASE-A", "CASE-C")].job_name),
+        ("CASE-A", jobs_by_cases[("CASE-A", "CASE-C")].job_name),
+        ("CASE-B", jobs_by_cases[("CASE-B",)].job_name),
+    ]
+
+
+def test_selected_device_auto_layout_fit_failure_retries_smaller_manifest(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_files = [
+        tmp_path / "device-case-a.stl",
+        tmp_path / "device-case-b.stl",
+        tmp_path / "device-case-c.stl",
+    ]
+    for file_path in case_files:
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(case_files[0]), 40.0, 30.0, "Ortho - Solid")
+    register_test_dims(str(case_files[1]), 10.0, 10.0, "Ortho - Solid")
+    register_test_dims(str(case_files[2]), 30.0, 30.0, "Ortho - Solid")
+
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_files[0],
+                case_id="CASE-A",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-a",
+            ),
+            _row_payload(
+                case_files[1],
+                case_id="CASE-B",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-b",
+            ),
+            _row_payload(
+                case_files[2],
+                case_id="CASE-C",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-c",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-lab", "name": "Lab Printer", "model": "Form 4BL", "status": "ready"}
+    ]
+    stub_client.layout_errors = [
+        Exception(
+            'Failed to auto-layout scene: 400 - {"error":{"code":"OPERATION_FAILED","message":"The layout tool was unable to fit all of the selected models into the work area."}}'
+        )
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["groups"][0]["status"] == "submitted"
+    assert payload["groups"][1]["status"] == "submitted"
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 2
+    assert {tuple(job.case_ids) for job in jobs} == {("CASE-A", "CASE-C"), ("CASE-B",)}
+    assert all(job.printer_device_id == "form-4bl-lab" for job in jobs)
+
+    smallest_row = get_upload_row_by_id(settings, row_ids[1])
+    assert smallest_row is not None
+    assert smallest_row.status == "Submitted"
+    assert smallest_row.queue_section == "history"
 
 
 def test_send_to_print_submits_single_validation_warning_after_saving_form(tmp_path):
@@ -1436,6 +1588,13 @@ def test_send_to_print_holds_final_below_target_build_without_preform_dispatch(t
     assert jobs[0].density_target == 0.40
     assert jobs[0].hold_reason == "below_density_target"
     assert jobs[0].manifest_json["estimated_density"] == 1200.0 / 69188.0
+    assert jobs[0].screenshot_url == f"/api/print-queue/jobs/{jobs[0].id}/screenshot"
+
+    screenshot_response = client.get(f"/api/print-queue/jobs/{jobs[0].id}/screenshot")
+
+    assert screenshot_response.status_code == 200
+    assert screenshot_response.headers["content-type"] == "image/png"
+    assert screenshot_response.content.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def test_selected_device_send_to_print_holds_final_below_target_build(tmp_path):

@@ -31,19 +31,29 @@ class Settings:
     formlabs_api_token: str | None
     formlabs_api_url: str
     print_hold_density_target: float
+    print_max_layout_density: float
     print_hold_cutoff_local_time: str
     print_dispatch_mode: str
     latency_p95_target_s: float
     dispatch_success_rate_target: float
 
 
+def _env_value(name: str, default: str | Path) -> str | Path:
+    value = os.getenv(name)
+    if value is not None:
+        return value
+    return default
+
+
 def _print_dispatch_mode_from_env() -> str:
-    dispatch_mode = os.getenv("ANDENT_WEB_PRINT_DISPATCH_MODE", "save_form").strip().lower()
+    dispatch_mode = str(
+        _env_value("FORMFLOW_WEB_PRINT_DISPATCH_MODE", "save_form")
+    ).strip().lower()
     allowed_modes = {"save_form", "virtual", "real"}
     if dispatch_mode not in allowed_modes:
         allowed = ", ".join(sorted(allowed_modes))
         raise ValueError(
-            "ANDENT_WEB_PRINT_DISPATCH_MODE must be one of "
+            "FORMFLOW_WEB_PRINT_DISPATCH_MODE must be one of "
             f"{allowed}; got {dispatch_mode!r}."
         )
     return dispatch_mode
@@ -65,12 +75,12 @@ def build_settings(
     app_dir = Path(__file__).resolve().parent  # app/
     repo_root = app_dir.parent  # repository root
     resolved_data_dir = data_dir or Path(
-        os.getenv("ANDENT_WEB_DATA_DIR", repo_root / "data")
+        _env_value("FORMFLOW_WEB_DATA_DIR", repo_root / "data")
     )
     resolved_database_path = database_path or Path(
-        os.getenv("ANDENT_WEB_DATABASE_PATH", resolved_data_dir / "andent_web.db")
+        _env_value("FORMFLOW_WEB_DATABASE_PATH", resolved_data_dir / "formflow.db")
     )
-    appdata_override = os.getenv("ANDENT_WEB_APPDATA_DIR")
+    appdata_override = os.getenv("FORMFLOW_WEB_APPDATA_DIR")
     if appdata_override:
         resolved_appdata_root = Path(appdata_override)
     elif data_dir is not None:
@@ -78,16 +88,18 @@ def build_settings(
     else:
         resolved_appdata_root = Path(os.getenv("APPDATA", resolved_data_dir / "appdata"))
 
-    managed_appdata_dir = resolved_appdata_root / "Andent Web"
-    preform_server_port = int(os.getenv("ANDENT_WEB_PREFORM_PORT", "44388"))
+    managed_appdata_dir = resolved_appdata_root / "FormFlow"
+    preform_server_port = int(
+        _env_value("FORMFLOW_WEB_PREFORM_PORT", "44388")
+    )
     preform_managed_dir = managed_appdata_dir / "PreFormServer"
 
     return Settings(
-        app_name="Andent Web",
-        server_host=os.getenv("ANDENT_WEB_HOST", "127.0.0.1"),
-        server_port=int(os.getenv("ANDENT_WEB_PORT", "8090")),
+        app_name="FormFlow",
+        server_host=str(_env_value("FORMFLOW_WEB_HOST", "127.0.0.1")),
+        server_port=int(_env_value("FORMFLOW_WEB_PORT", "8090")),
         project_root=repo_root,
-        output_dir=repo_root / "output",
+        output_dir=Path(_env_value("FORMFLOW_WEB_OUTPUT_DIR", repo_root / "output")),
         data_dir=resolved_data_dir,
         uploads_dir=resolved_data_dir / "uploads",
         static_dir=app_dir / "static",
@@ -101,35 +113,45 @@ def build_settings(
             f"http://127.0.0.1:{preform_server_port}",
         ),
         preform_server_startup_timeout_s=int(
-            os.getenv("ANDENT_WEB_PREFORM_STARTUP_TIMEOUT_S", "30")
+            _env_value("FORMFLOW_WEB_PREFORM_STARTUP_TIMEOUT_S", "30")
         ),
         preform_server_shutdown_timeout_s=int(
-            os.getenv("ANDENT_WEB_PREFORM_SHUTDOWN_TIMEOUT_S", "10")
+            _env_value("FORMFLOW_WEB_PREFORM_SHUTDOWN_TIMEOUT_S", "10")
         ),
         preform_min_zip_size_bytes=int(
-            os.getenv("ANDENT_WEB_PREFORM_MIN_ZIP_SIZE_BYTES", str(10 * 1024 * 1024))
+            _env_value(
+                "FORMFLOW_WEB_PREFORM_MIN_ZIP_SIZE_BYTES",
+                str(10 * 1024 * 1024),
+            )
         ),
-        preform_min_supported_version=os.getenv(
-            "ANDENT_WEB_PREFORM_MIN_VERSION",
+        preform_min_supported_version=str(_env_value(
+            "FORMFLOW_WEB_PREFORM_MIN_VERSION",
             "3.49.0",
+        )),
+        preform_max_supported_version=os.getenv("FORMFLOW_WEB_PREFORM_MAX_VERSION") or None,
+        preform_validation_enabled=_env_flag(
+            "FORMFLOW_WEB_PREFORM_VALIDATION_ENABLED",
+            False,
         ),
-        preform_max_supported_version=os.getenv("ANDENT_WEB_PREFORM_MAX_VERSION") or None,
-        preform_validation_enabled=_env_flag("ANDENT_WEB_PREFORM_VALIDATION_ENABLED", False),
-        formlabs_api_token=os.getenv("FORMLABS_API_TOKEN"),
+        formlabs_api_token=os.getenv("FORMFLOW_WEB_FORMLABS_API_TOKEN")
+        or os.getenv("FORMLABS_API_TOKEN"),
         formlabs_api_url=os.getenv("FORMLABS_API_URL", "https://api.formlabs.com/v1"),
         print_hold_density_target=float(
-            os.getenv("ANDENT_WEB_PRINT_HOLD_DENSITY_TARGET", "0.40")
+            _env_value("FORMFLOW_WEB_PRINT_HOLD_DENSITY_TARGET", "0.40")
         ),
-        print_hold_cutoff_local_time=os.getenv(
-            "ANDENT_WEB_PRINT_HOLD_CUTOFF_LOCAL_TIME",
+        print_max_layout_density=float(
+            _env_value("FORMFLOW_WEB_PRINT_MAX_LAYOUT_DENSITY", "0.60")
+        ),
+        print_hold_cutoff_local_time=str(_env_value(
+            "FORMFLOW_WEB_PRINT_HOLD_CUTOFF_LOCAL_TIME",
             "18:00",
-        ),
+        )),
         print_dispatch_mode=_print_dispatch_mode_from_env(),
         latency_p95_target_s=float(
-            os.getenv("ANDENT_WEB_LATENCY_P95_TARGET_S", "30.0")
+            _env_value("FORMFLOW_WEB_LATENCY_P95_TARGET_S", "30.0")
         ),
         dispatch_success_rate_target=float(
-            os.getenv("ANDENT_WEB_DISPATCH_SUCCESS_RATE_TARGET", "99.0")
+            _env_value("FORMFLOW_WEB_DISPATCH_SUCCESS_RATE_TARGET", "99.0")
         ),
     )
 

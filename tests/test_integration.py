@@ -48,7 +48,7 @@ class TestFullPrintHandoffFlow:
             ),
         ]
         
-        manifests = plan_build_manifests(rows)
+        manifests = plan_build_manifests(rows, max_layout_density=None)
         
         assert len(manifests) == 1
         assert manifests[0].case_ids == ["CASE001", "CASE002"]
@@ -106,7 +106,7 @@ class TestFullPrintHandoffFlow:
             ),
         ]
         
-        manifests = plan_build_manifests(rows)
+        manifests = plan_build_manifests(rows, max_layout_density=None)
         
         assert [manifest.case_ids for manifest in manifests] == [["A", "B"], ["C"]]
 

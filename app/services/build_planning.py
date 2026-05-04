@@ -25,6 +25,7 @@ FULL_ARCH_MIN_XY_AREA = 3400.0
 FULL_ARCH_FACTOR = 0.58
 
 SUPPORT_FACTOR_TOOTH = 1.1
+DEFAULT_MAX_LAYOUT_DENSITY = 0.60
 
 ManifestOrderKey = tuple[float, float, str]
 
@@ -396,7 +397,17 @@ def _fits_with_profile(
     return used_xy + candidate.total_xy_footprint <= xy_budget
 
 
-def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
+def _layout_xy_budget(printer_xy_budget: float, max_layout_density: float | None) -> float:
+    if max_layout_density is None or max_layout_density <= 0:
+        return printer_xy_budget
+    return printer_xy_budget * max_layout_density
+
+
+def plan_build_manifests(
+    rows: list[ClassificationRow],
+    *,
+    max_layout_density: float | None = DEFAULT_MAX_LAYOUT_DENSITY,
+) -> list[BuildManifest]:
     ready_rows = [
         row
         for row in rows
@@ -418,6 +429,7 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
         chosen = [seed]
         used = seed.total_xy_footprint
         xy_budget = _profile_xy_budget(seed)
+        layout_xy_budget = max(_layout_xy_budget(xy_budget, max_layout_density), used)
         startup_case_count = _startup_case_count(seed)
 
         startup_candidates: list[CasePackProfile] = []
@@ -425,14 +437,14 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
             startup_candidates = list(remaining[: startup_case_count - 1])
 
         for candidate in startup_candidates:
-            if candidate in remaining and _fits_with_profile(used, candidate, xy_budget):
+            if candidate in remaining and _fits_with_profile(used, candidate, layout_xy_budget):
                 chosen.append(candidate)
                 used += candidate.total_xy_footprint
                 remaining.remove(candidate)
 
         descending_failed = False
         for candidate in list(remaining):
-            if _fits_with_profile(used, candidate, xy_budget):
+            if _fits_with_profile(used, candidate, layout_xy_budget):
                 chosen.append(candidate)
                 used += candidate.total_xy_footprint
                 remaining.remove(candidate)
@@ -446,7 +458,7 @@ def plan_build_manifests(rows: list[ClassificationRow]) -> list[BuildManifest]:
                 key=lambda profile: (profile.total_xy_footprint, profile.case_id),
             )
             for filler in list(fillers):
-                if filler in remaining and _fits_with_profile(used, filler, xy_budget):
+                if filler in remaining and _fits_with_profile(used, filler, layout_xy_budget):
                     chosen.append(filler)
                     used += filler.total_xy_footprint
                     remaining.remove(filler)

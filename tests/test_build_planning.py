@@ -114,7 +114,7 @@ def test_plan_build_manifests_preserves_case_cohesion():
         _row(3, "CASE-2", "Die - Flat, No Supports", 70.0, 60.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert len(manifests) == 1
     assert manifests[0].case_ids == ["CASE-1", "CASE-2"]
@@ -127,7 +127,7 @@ def test_plan_build_manifests_allows_mixed_compatible_presets_to_share_one_build
         _row(2, "CASE-2", "Tooth - With Supports", 35.0, 35.0, model_type="Tooth"),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert len(manifests) == 1
     assert manifests[0].case_ids == ["CASE-1", "CASE-2"]
@@ -143,7 +143,7 @@ def test_plan_build_manifests_routes_same_case_splint_plus_precision_to_review()
         _row(2, "CASE-MIX", "Ortho Solid - Flat, No Supports", 60.0, 50.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert len(manifests) == 1
     assert manifests[0].planning_status == "non_plannable"
@@ -156,7 +156,7 @@ def test_plan_build_manifests_routes_same_case_mixed_printer_groups_to_review():
         _row(2, "CASE-MIX", "Die - Flat, No Supports", 60.0, 50.0, printer="Form 4BL"),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert len(manifests) == 1
     assert manifests[0].planning_status == "non_plannable"
@@ -168,7 +168,7 @@ def test_plan_build_manifests_derives_form4b_manifest_scene_settings():
         _row(1, "CASE-F4B", "Splint - Flat, No Supports", 60.0, 50.0, printer="Form 4B"),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert len(manifests) == 1
     manifest = manifests[0]
@@ -200,7 +200,7 @@ def test_plan_build_manifests_uses_smallest_case_fillers_after_large_cases_do_no
         _row(4, "CASE-S2", "Ortho Solid - Flat, No Supports", 45.0, 40.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert manifests[0].case_ids == ["CASE-L", "CASE-S1", "CASE-S2"]
 
@@ -212,7 +212,7 @@ def test_plan_build_manifests_keeps_row_id_validation_local_to_case_profiles():
         _row(3, "CASE-VALID", "Ortho Solid - Flat, No Supports", 40.0, 30.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert len(manifests) == 2
     assert manifests[0].case_ids == ["CASE-INCOMPLETE"]
@@ -235,7 +235,7 @@ def test_plan_build_manifests_prefers_next_largest_fit_before_small_fillers(monk
         _row(3, "CASE-1K", "Ortho Solid - Flat, No Supports", 40.0, 25.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert [manifest.case_ids for manifest in manifests] == [
         ["CASE-15K", "CASE-14K"],
@@ -269,7 +269,7 @@ def test_plan_build_manifests_form4b_attempts_three_largest_cases_before_fillers
         _row(4, "CASE-D", "Form 4B Experimental", 25.0, 20.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert manifests[0].case_ids == ["CASE-A", "CASE-B", "CASE-C", "CASE-D"]
 
@@ -306,7 +306,7 @@ def test_plan_build_manifests_form4bl_attempts_eight_largest_cases_before_filler
         _row(10, "CASE-10", "Form 4BL Experimental", 20.0, 50.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert manifests[0].case_ids == [
         "CASE-01",
@@ -341,7 +341,7 @@ def test_plan_build_manifests_form4bl_below_threshold_keeps_seed_with_largest_be
         _row(3, "CASE-C", "Form 4BL Experimental", 60.0, 35.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert manifests[0].case_ids == ["CASE-A", "CASE-B", "CASE-C"]
 
@@ -380,7 +380,7 @@ def test_plan_build_manifests_switches_to_fillers_after_first_descending_fit_fai
         _row(10, "CASE-SMALL", "Form 4BL Experimental", 20.0, 20.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert manifests[0].case_ids == [
         "CASE-A",
@@ -415,7 +415,7 @@ def test_plan_build_manifests_respects_form4b_xy_budget(monkeypatch):
         _row(2, "CASE-B", "Form 4B Experimental", 140.0, 90.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert [manifest.case_ids for manifest in manifests] == [["CASE-A", "CASE-B"]]
 
@@ -425,7 +425,7 @@ def test_plan_build_manifests_marks_oversized_single_case_as_non_plannable():
         _row(1, "CASE-HUGE", "Ortho Solid - Flat, No Supports", 500.0, 300.0),
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert len(manifests) == 1
     assert manifests[0].case_ids == ["CASE-HUGE"]
@@ -601,6 +601,6 @@ def test_plan_build_manifests_form4bl_budget_matches_human_pack_capacity():
         for index in range(1, 49)
     ]
 
-    manifests = plan_build_manifests(rows)
+    manifests = plan_build_manifests(rows, max_layout_density=None)
 
     assert [len(manifest.case_ids) for manifest in manifests] == [14, 14, 14, 6]
