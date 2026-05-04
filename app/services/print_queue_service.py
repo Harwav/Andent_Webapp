@@ -1227,15 +1227,19 @@ def process_print_manifest(
         except Exception:
             pass  # screenshot unavailable — API endpoint will generate a placeholder
         screenshot_url = None
-        print_job_id = _dispatch_scene_if_enabled(
-            client=client,
-            settings=settings,
-            scene_id=scene_id,
-            manifest=manifest,
-            rows=active_rows,
-            job_name=job_name,
-            device_id=device_id,
-            force_dispatch=(device_id is not None and dispatch_scene),
+        print_job_id = (
+            _dispatch_scene_if_enabled(
+                client=client,
+                settings=settings,
+                scene_id=scene_id,
+                manifest=manifest,
+                rows=active_rows,
+                job_name=job_name,
+                device_id=device_id,
+                force_dispatch=device_id is not None,
+            )
+            if dispatch_scene
+            else None
         )
         return {
             "job_name": job_name,
@@ -1595,15 +1599,101 @@ def _update_reserved_print_job_from_result(
     )
 
 
-def _load_held_replan_rows(settings: "Settings") -> tuple[list[int], list["ClassificationRow"]]:
+def _update_reserved_print_job_as_held(
+    connection,
+    *,
+    job_id: int,
+    result: dict[str, object],
+    settings: "Settings",
+    cutoff_at: datetime,
+    now: str,
+) -> None:
+    screenshot_url = result.get("screenshot_url") or f"/api/print-queue/jobs/{job_id}/screenshot"
+    connection.execute(
+        """
+        UPDATE print_jobs
+        SET scene_id = ?,
+            print_job_id = NULL,
+            status = ?,
+            preset = ?,
+            preset_names_json = ?,
+            compatibility_key = ?,
+            case_ids = ?,
+            manifest_json = ?,
+            updated_at = ?,
+            screenshot_url = ?,
+            form_file_path = ?,
+            printer_type = ?,
+            printer_device_id = ?,
+            printer_device_name = ?,
+            resin = ?,
+            layer_height_microns = ?,
+            estimated_density = ?,
+            density_target = ?,
+            hold_cutoff_at = ?,
+            hold_reason = ?,
+            release_reason = NULL,
+            released_by_operator = 0,
+            validation_passed = ?,
+            validation_errors_json = ?
+        WHERE id = ?
+        """,
+        (
+            result.get("scene_id"),
+            HOLDING_STATUS,
+            result["preset"],
+            json.dumps(result.get("preset_names", [])),
+            result.get("compatibility_key"),
+            json.dumps(result["case_ids"]),
+            json.dumps(result.get("manifest_json")) if result.get("manifest_json") is not None else None,
+            now,
+            screenshot_url,
+            result.get("form_file_path"),
+            result.get("printer_type"),
+            result.get("printer_device_id"),
+            result.get("printer_device_name"),
+            result.get("resin"),
+            result.get("layer_height_microns"),
+            result.get("estimated_density"),
+            settings.print_hold_density_target,
+            cutoff_at.isoformat(),
+            "below_density_target",
+            (
+                1 if result.get("validation_passed")
+                else 0 if result.get("validation_passed") is False
+                else None
+            ),
+            json.dumps(result.get("validation_errors", [])),
+            job_id,
+        ),
+    )
+
+
+def _load_held_replan_rows(
+    settings: "Settings",
+    *,
+    lane_keys: set[str] | None = None,
+    device_id: str | None = None,
+) -> tuple[list[int], list["ClassificationRow"]]:
     from contextlib import closing
 
     from ..database import _load_rows_by_ids, connect, list_print_jobs
+    from ..schemas import BuildManifest
 
     held_job_ids: list[int] = []
     held_row_ids: list[int] = []
     for job in list_print_jobs(settings):
         if job.status != HOLDING_STATUS or job.id is None or job.manifest_json is None:
+            continue
+        try:
+            manifest = BuildManifest.model_validate(job.manifest_json)
+        except Exception:
+            continue
+        job_lane_key = _build_lane_key_from_manifest(
+            manifest,
+            device_id=job.printer_device_id if job.printer_device_id else device_id,
+        )
+        if lane_keys is not None and job_lane_key not in lane_keys:
             continue
         held_job_ids.append(job.id)
         for group in job.manifest_json.get("import_groups", []):
@@ -1908,7 +1998,22 @@ def _send_ready_rows_to_device(
         )
 
     prevalidated_rows, quarantined_cases, prevalidation_ms = _prevalidate_dispatch_rows(ready_rows)
-    held_job_ids, held_replan_rows = _load_held_replan_rows(settings)
+    initial_planning_rows = _selected_model_rows(prevalidated_rows, device)
+    initial_manifests = plan_build_manifests(
+        initial_planning_rows,
+        max_layout_density=settings.print_max_layout_density,
+    )
+    lane_keys = set(
+        _build_lane_keys_from_manifests(
+            initial_manifests,
+            device_id=str(device["device_id"]),
+        )
+    )
+    held_job_ids, held_replan_rows = _load_held_replan_rows(
+        settings,
+        lane_keys=lane_keys,
+        device_id=str(device["device_id"]),
+    )
     held_row_ids = {
         row.row_id
         for row in held_replan_rows
@@ -2130,19 +2235,30 @@ def _send_ready_rows_to_device(
                         )
                     ) from exc
                 try:
-                    result = process_print_manifest(
+                    with _build_lane_locks(
                         settings,
-                        active_manifest,
-                        active_rows,
-                        batch_number=1,
-                        job_name=job_name,
-                        device_id=str(device["device_id"]),
-                        printer_device_name=(
-                            str(device["device_name"])
-                            if device.get("device_name") is not None
-                            else None
-                        ),
-                    )
+                        [
+                            _build_lane_key_from_manifest(
+                                active_manifest,
+                                device_id=str(device["device_id"]),
+                            )
+                        ],
+                        operation="send_to_print",
+                    ):
+                        result = process_print_manifest(
+                            settings,
+                            active_manifest,
+                            active_rows,
+                            batch_number=1,
+                            job_name=job_name,
+                            device_id=str(device["device_id"]),
+                            printer_device_name=(
+                                str(device["device_name"])
+                                if device.get("device_name") is not None
+                                else None
+                            ),
+                            dispatch_scene=False,
+                        )
                     break
                 except PreFormAutoLayoutFailureError:
                     connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
@@ -2229,6 +2345,85 @@ def _send_ready_rows_to_device(
                     now=now,
                 )
 
+            accepted_rows = _manifest_rows(result["manifest"], rows_by_id)
+            accepted_row_ids = [
+                row.row_id
+                for row in accepted_rows
+                if row.row_id is not None
+            ]
+
+            accepted_manifest = result["manifest"]
+            if _should_hold_accepted_manifest(settings, accepted_manifest, hold_now):
+                _update_reserved_print_job_as_held(
+                    connection,
+                    job_id=created_print_job_id,
+                    result=result,
+                    settings=settings,
+                    cutoff_at=cutoff_at,
+                    now=now,
+                )
+                _held_job_ids_created_this_process.add(created_print_job_id)
+                for row in accepted_rows:
+                    if row.row_id is None:
+                        continue
+                    connection.execute(
+                        """
+                        UPDATE upload_rows
+                        SET status = 'Submitted',
+                            queue_section = 'in_progress',
+                            handoff_stage = ?,
+                            linked_job_name = ?,
+                            linked_print_job_id = ?,
+                            current_event_at = ?
+                        WHERE id = ?
+                        """,
+                        (HOLDING_STATUS, result["job_name"], created_print_job_id, now, row.row_id),
+                    )
+                    metadata = json.dumps({
+                        "status": "Submitted",
+                        "handoff_stage": HOLDING_STATUS,
+                        "queue_section": "in_progress",
+                        "job_name": result["job_name"],
+                        "linked_print_job_id": created_print_job_id,
+                        "manifest_id": manifest_id,
+                        "manifest": result["manifest_json"],
+                        "estimated_density": accepted_manifest.estimated_density,
+                        "density_target": settings.print_hold_density_target,
+                    })
+                    connection.execute(
+                        """
+                        INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (row.row_id, "build_holding", now, metadata),
+                    )
+                groups.append(
+                    _group_result(
+                        manifest_id=manifest_id,
+                        status="held",
+                        row_ids=accepted_row_ids,
+                        job_name=str(result["job_name"]),
+                    )
+                )
+                continue
+
+            try:
+                result["print_job_id"] = _dispatch_prepared_scene_if_enabled(
+                    settings,
+                    result,
+                    accepted_rows,
+                    device_id=str(device["device_id"]),
+                )
+            except Exception:
+                connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
+                _move_rows_back_to_analysis(
+                    connection,
+                    accepted_rows,
+                    now=now,
+                    event_type="handoff_failed",
+                )
+                connection.commit()
+                raise
             _update_reserved_print_job_from_result(
                 connection,
                 job_id=created_print_job_id,
@@ -2236,12 +2431,6 @@ def _send_ready_rows_to_device(
                 settings=settings,
                 now=now,
             )
-            accepted_rows = _manifest_rows(result["manifest"], rows_by_id)
-            accepted_row_ids = [
-                row.row_id
-                for row in accepted_rows
-                if row.row_id is not None
-            ]
 
             for row in accepted_rows:
                 if row.row_id is None:
@@ -2366,11 +2555,19 @@ def send_ready_rows_to_print(
     if not ready_rows:
         return rows
 
-    held_job_ids, held_replan_rows = _load_held_replan_rows(settings)
+    initial_manifests = plan_build_manifests(
+        ready_rows,
+        max_layout_density=settings.print_max_layout_density,
+    )
+    lane_keys = set(_build_lane_keys_from_manifests(initial_manifests))
+    held_job_ids, held_replan_rows = _load_held_replan_rows(settings, lane_keys=lane_keys)
+    held_row_ids = {
+        held_row.row_id
+        for held_row in held_replan_rows
+        if held_row.row_id is not None
+    }
     planning_rows = held_replan_rows + [
-        row for row in ready_rows if row.row_id not in {
-            held_row.row_id for held_row in held_replan_rows
-        }
+        row for row in ready_rows if row.row_id not in held_row_ids
     ]
 
     manifests = plan_build_manifests(
@@ -2569,13 +2766,18 @@ def send_ready_rows_to_print(
                     )
                     connection.commit()
                     try:
-                        result = process_print_manifest(
+                        with _build_lane_locks(
                             settings,
-                            active_manifest,
-                            active_rows,
-                            batch_number=1,
-                            job_name=job_name,
-                        )
+                            [_build_lane_key_from_manifest(active_manifest)],
+                            operation="send_to_print",
+                        ):
+                            result = process_print_manifest(
+                                settings,
+                                active_manifest,
+                                active_rows,
+                                batch_number=1,
+                                job_name=job_name,
+                            )
                     except PreFormAutoLayoutFailureError:
                         connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
                         shrink_result = _shrink_manifest_after_layout_failure(
@@ -2723,6 +2925,51 @@ def send_ready_rows_to_print(
 
                 if created_print_job_id is None:
                     raise RuntimeError("Print job reservation was not created.")
+                if _should_hold_accepted_manifest(settings, accepted_manifest, hold_now):
+                    _update_reserved_print_job_as_held(
+                        connection,
+                        job_id=created_print_job_id,
+                        result=result,
+                        settings=settings,
+                        cutoff_at=cutoff_at,
+                        now=now,
+                    )
+                    _held_job_ids_created_this_process.add(created_print_job_id)
+                    for row in accepted_rows:
+                        if row.row_id is None:
+                            continue
+                        connection.execute(
+                            """
+                            UPDATE upload_rows
+                            SET status = 'Submitted',
+                                queue_section = 'in_progress',
+                                handoff_stage = ?,
+                                linked_job_name = ?,
+                                linked_print_job_id = ?,
+                                current_event_at = ?
+                            WHERE id = ?
+                            """,
+                            (HOLDING_STATUS, result["job_name"], created_print_job_id, now, row.row_id),
+                        )
+                        metadata = json.dumps({
+                            "status": "Submitted",
+                            "queue_section": "in_progress",
+                            "handoff_stage": HOLDING_STATUS,
+                            "job_name": result["job_name"],
+                            "linked_print_job_id": created_print_job_id,
+                            "manifest": result["manifest_json"],
+                            "estimated_density": accepted_manifest.estimated_density,
+                            "density_target": settings.print_hold_density_target,
+                        })
+                        connection.execute(
+                            """
+                            INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                            VALUES (?, ?, ?, ?)
+                            """,
+                            (row.row_id, "build_holding", now, metadata),
+                        )
+                    continue
+
                 _update_reserved_print_job_from_result(
                     connection,
                     job_id=created_print_job_id,
@@ -2798,6 +3045,10 @@ def release_held_print_job(
         raise ValueError("Held job is missing its build manifest.")
 
     manifest = BuildManifest.model_validate(job.manifest_json)
+    lane_key = _build_lane_key_from_manifest(
+        manifest,
+        device_id=job.printer_device_id,
+    )
     row_ids = [
         file_spec.row_id
         for group in manifest.import_groups
@@ -2807,13 +3058,16 @@ def release_held_print_job(
 
     with closing(connect(settings)) as connection:
         rows = _load_rows_by_ids(connection, row_ids)
-        result = process_print_manifest(
-            settings,
-            manifest,
-            rows,
-            batch_number=1,
-            job_name=job.job_name,
-        )
+        with _build_lane_locks(settings, [lane_key], operation="release_held"):
+            result = process_print_manifest(
+                settings,
+                manifest,
+                rows,
+                batch_number=1,
+                job_name=job.job_name,
+                device_id=job.printer_device_id,
+                printer_device_name=job.printer_device_name,
+            )
         accepted_rows = _manifest_rows(result["manifest"], {
             row.row_id: row for row in rows if row.row_id is not None
         })

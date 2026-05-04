@@ -106,6 +106,11 @@ class ImportFailurePreFormClient(StubPreFormClient):
         return super().import_model(scene_id, stl_path, preset)
 
 
+class DispatchFailurePreFormClient(StubPreFormClient):
+    def send_to_printer(self, scene_id: str, device_id: str, job_name: str | None = None):
+        raise Exception("printer dispatch failed")
+
+
 def _build_settings(tmp_path: Path):
     data_dir = tmp_path / "data"
     return replace(
@@ -951,7 +956,7 @@ def test_import_quarantine_holds_accepted_manifest_when_density_drops_below_targ
     for file_path in (accepted_file, broken_file):
         file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
     register_test_dims(str(accepted_file), 40.0, 30.0)
-    register_test_dims(str(broken_file), 300.0, 120.0)
+    register_test_dims(str(broken_file), 700.0, 40.0)
 
     row_ids = _seed_rows(
         settings,
@@ -971,8 +976,8 @@ def test_import_quarantine_holds_accepted_manifest_when_density_drops_below_targ
                 preset="Ortho Solid - Flat, No Supports",
                 status="Ready",
                 content_hash="hash-broken-large",
-                dimension_x_mm=300.0,
-                dimension_y_mm=120.0,
+                dimension_x_mm=700.0,
+                dimension_y_mm=40.0,
             ),
         ],
     )
@@ -1008,7 +1013,7 @@ def test_selected_device_import_quarantine_holds_under_target_without_printer_di
     for file_path in (accepted_file, broken_file):
         file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
     register_test_dims(str(accepted_file), 40.0, 30.0)
-    register_test_dims(str(broken_file), 300.0, 120.0)
+    register_test_dims(str(broken_file), 700.0, 40.0)
 
     row_ids = _seed_rows(
         settings,
@@ -1028,8 +1033,8 @@ def test_selected_device_import_quarantine_holds_under_target_without_printer_di
                 preset="Ortho Solid - Flat, No Supports",
                 status="Ready",
                 content_hash="hash-device-broken-large",
-                dimension_x_mm=300.0,
-                dimension_y_mm=120.0,
+                dimension_x_mm=700.0,
+                dimension_y_mm=40.0,
             ),
         ],
     )
@@ -1054,6 +1059,47 @@ def test_selected_device_import_quarantine_holds_under_target_without_printer_di
     assert jobs[0].status == "Holding for More Cases"
     assert jobs[0].printer_device_id == "form-4bl-lab"
     assert jobs[0].estimated_density == 1200.0 / 69188.0
+
+
+def test_selected_device_dispatch_failure_removes_reserved_job(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "device-dispatch-fails.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-DISPATCH-FAILS",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-dispatch-fails",
+            ),
+        ],
+    )
+
+    stub_client = DispatchFailurePreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-lab", "name": "Lab Printer", "model": "Form 4BL", "status": "ready"}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert response.status_code == 502
+    assert list_print_jobs(settings) == []
+    row = get_upload_row_by_id(settings, row_ids[0])
+    assert row.status == "Ready"
+    assert row.queue_section == "analysis"
+    assert row.linked_print_job_id is None
 
 
 def test_selected_device_send_to_print_marks_import_failure_for_review_without_retry(tmp_path):
