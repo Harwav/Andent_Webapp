@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -112,6 +112,15 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         updated_at TEXT NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS build_lane_locks (
+        lane_key TEXT PRIMARY KEY,
+        owner_token TEXT NOT NULL,
+        operation TEXT NOT NULL,
+        acquired_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+    )
+    """,
 )
 
 INDEX_STATEMENTS: tuple[str, ...] = (
@@ -135,11 +144,16 @@ INDEX_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS ix_print_jobs_created_at
     ON print_jobs(created_at)
     """,
+    """
+    CREATE INDEX IF NOT EXISTS ix_build_lane_locks_expires_at
+    ON build_lane_locks(expires_at)
+    """,
 )
 
 BLOCKED_DELETE_ROW_STATUSES = {"Submitted", "Printed"}
 LIVE_PRINT_DISPATCH_STATUSES = {"Printing", "Paused", "Completed"}
 LIVE_PRINT_DISPATCH_DELETE_ERROR = "Rows linked to a live print dispatch cannot be deleted."
+BUILD_LANE_LOCK_TTL_MINUTES = 120
 
 
 def ensure_storage(settings: Settings) -> None:
@@ -156,6 +170,62 @@ def connect(settings: Settings) -> sqlite3.Connection:
     return connection
 
 
+def _parse_iso_datetime(value: str) -> datetime:
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def try_acquire_build_lane_lock(
+    settings: Settings,
+    lane_key: str,
+    owner_token: str,
+    operation: str,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    current = now or datetime.now(timezone.utc)
+    acquired_at = current.isoformat()
+    expires_at = (current + timedelta(minutes=BUILD_LANE_LOCK_TTL_MINUTES)).isoformat()
+    with closing(connect(settings)) as connection:
+        connection.execute(
+            "DELETE FROM build_lane_locks WHERE expires_at <= ?",
+            (acquired_at,),
+        )
+        try:
+            connection.execute(
+                """
+                INSERT INTO build_lane_locks (lane_key, owner_token, operation, acquired_at, expires_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (lane_key, owner_token, operation, acquired_at, expires_at),
+            )
+        except sqlite3.IntegrityError:
+            connection.rollback()
+            return False
+        connection.commit()
+        return True
+
+
+def release_build_lane_lock(
+    settings: Settings,
+    lane_key: str,
+    owner_token: str,
+) -> None:
+    with closing(connect(settings)) as connection:
+        connection.execute(
+            """
+            DELETE FROM build_lane_locks
+            WHERE lane_key = ? AND owner_token = ?
+            """,
+            (lane_key, owner_token),
+        )
+        connection.commit()
+
+
 def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name: str, definition: str) -> None:
     existing = {
         row["name"]
@@ -163,6 +233,90 @@ def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name:
     }
     if column_name not in existing:
         connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
+
+
+def _manifest_density_metrics(manifest: dict[str, object]) -> tuple[float, float] | None:
+    import_groups = manifest.get("import_groups")
+    if not isinstance(import_groups, list):
+        return None
+
+    used_xy_budget = 0.0
+    saw_file_spec = False
+    for group in import_groups:
+        if not isinstance(group, dict):
+            continue
+        files = group.get("files")
+        if not isinstance(files, list):
+            continue
+        for file_spec in files:
+            if not isinstance(file_spec, dict):
+                continue
+            saw_file_spec = True
+            try:
+                used_xy_budget += float(file_spec.get("xy_footprint_estimate") or 0.0)
+            except (TypeError, ValueError):
+                continue
+    if not saw_file_spec:
+        return None
+
+    try:
+        printer_xy_budget = float(manifest.get("printer_xy_budget") or 0.0)
+    except (TypeError, ValueError):
+        printer_xy_budget = 0.0
+    estimated_density = used_xy_budget / printer_xy_budget if printer_xy_budget else 0.0
+    return used_xy_budget, estimated_density
+
+
+def _repair_print_job_manifest_density(connection: sqlite3.Connection) -> None:
+    rows = connection.execute(
+        """
+        SELECT id, estimated_density, manifest_json
+        FROM print_jobs
+        WHERE manifest_json IS NOT NULL
+        """
+    ).fetchall()
+    for row in rows:
+        try:
+            manifest = json.loads(row["manifest_json"])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(manifest, dict):
+            continue
+
+        metrics = _manifest_density_metrics(manifest)
+        if metrics is None:
+            continue
+        used_xy_budget, estimated_density = metrics
+        try:
+            density_matches = (
+                row["estimated_density"] is not None
+                and abs(float(row["estimated_density"]) - estimated_density) < 1e-12
+            )
+            manifest_budget_matches = abs(
+                float(manifest.get("used_xy_budget") or 0.0) - used_xy_budget
+            ) < 1e-12
+            manifest_density_matches = abs(
+                float(manifest.get("estimated_density") or 0.0) - estimated_density
+            ) < 1e-12
+        except (TypeError, ValueError):
+            density_matches = False
+            manifest_budget_matches = False
+            manifest_density_matches = False
+
+        if density_matches and manifest_budget_matches and manifest_density_matches:
+            continue
+
+        manifest["used_xy_budget"] = used_xy_budget
+        manifest["estimated_density"] = estimated_density
+        connection.execute(
+            """
+            UPDATE print_jobs
+            SET estimated_density = ?,
+                manifest_json = ?
+            WHERE id = ?
+            """,
+            (estimated_density, json.dumps(manifest), row["id"]),
+        )
 
 
 def init_db(settings: Settings) -> None:
@@ -219,6 +373,7 @@ def init_db(settings: Settings) -> None:
             WHERE status IN ('Uploading', 'Analyzing', 'Queued')
             """
         )
+        _repair_print_job_manifest_density(connection)
         for statement in INDEX_STATEMENTS:
             connection.execute(statement)
         connection.commit()

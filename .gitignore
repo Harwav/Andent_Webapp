@@ -21,6 +21,7 @@ test-results/
 playwright-report/
 test-results/playwright/
 .playwright-mcp/
+.test-data-backups/
 
 # IDE
 .vscode/

@@ -36,9 +36,33 @@ $env:FORMFLOW_WEB_PORT = "8765"
 $env:FORMFLOW_WEB_OPEN_BROWSER = "0"
 $exe = Resolve-Path "dist/FormFlow_v0.1.0.exe"
 $p = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden
-Invoke-RestMethod http://127.0.0.1:8765/health
-Stop-Process -Id $p.Id -Force
-Get-Process | Where-Object { $_.Path -eq $exe.Path } | Stop-Process -Force
+try {
+  $healthy = $false
+  for ($i = 0; $i -lt 60; $i++) {
+    try {
+      $response = Invoke-RestMethod -Uri "http://127.0.0.1:8765/health" -TimeoutSec 2
+      if ($response.status -eq "healthy") {
+        $healthy = $true
+        break
+      }
+    } catch {
+      Start-Sleep -Seconds 1
+    }
+  }
+  if (-not $healthy) {
+    throw "EXE did not become healthy on port 8765"
+  }
+} finally {
+  Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+  Get-Process | Where-Object { $_.Path -eq $exe.Path } | Stop-Process -Force -ErrorAction SilentlyContinue
+  Get-NetTCPConnection -LocalPort 8765 -ErrorAction SilentlyContinue |
+    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+  Remove-Item Env:\FORMFLOW_WEB_PORT -ErrorAction SilentlyContinue
+  Remove-Item Env:\FORMFLOW_WEB_OPEN_BROWSER -ErrorAction SilentlyContinue
+  if (Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue) {
+    throw "Port 8765 was still listening after EXE cleanup"
+  }
+}
 ```
 
 5. For release automation, use `.github/workflows/build-windows-exe.yml`. It builds on `windows-latest`, smoke-tests the EXE, uploads the artifact, and creates a GitHub Release on `vX.Y.Z` tags or manual dispatch with `create_release=true`.

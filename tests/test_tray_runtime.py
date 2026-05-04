@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import socket
+import threading
+import time
 
 from desktop.tray_runtime import (
     FormFlowServerManager,
@@ -216,3 +218,77 @@ def test_refresh_status_turns_ready_payload_green(tmp_path):
 
     assert runtime.status == TrayStatus.READY
     assert runtime.preform_payload["readiness"] == "ready"
+
+
+def test_show_status_returns_while_native_dialog_is_open(tmp_path, monkeypatch):
+    paths = RuntimePaths.from_root(tmp_path)
+    runtime = FormFlowTrayRuntime(
+        paths=paths,
+        host="127.0.0.1",
+        port=8090,
+        logger=lambda message: None,
+        server_manager=None,
+    )
+    dialog_started = threading.Event()
+    dialog_release = threading.Event()
+    dialog_finished = threading.Event()
+
+    def blocking_dialog(*_args, **_kwargs):
+        dialog_started.set()
+        dialog_release.wait(timeout=0.5)
+        dialog_finished.set()
+        return True
+
+    monkeypatch.setattr("desktop.tray_runtime.show_windows_dialog", blocking_dialog)
+
+    started_at = time.monotonic()
+    runtime.show_status()
+    elapsed = time.monotonic() - started_at
+
+    try:
+        assert dialog_started.wait(timeout=0.2)
+        assert elapsed < 0.1
+    finally:
+        dialog_release.set()
+        assert dialog_finished.wait(timeout=1.0)
+
+
+def test_quit_confirmation_returns_before_native_dialog_answer(tmp_path, monkeypatch):
+    paths = RuntimePaths.from_root(tmp_path)
+    runtime = FormFlowTrayRuntime(
+        paths=paths,
+        host="127.0.0.1",
+        port=8090,
+        logger=lambda message: None,
+        server_manager=None,
+    )
+    stop_calls: list[str] = []
+
+    class FakeIcon:
+        def stop(self):
+            stop_calls.append("icon")
+
+    runtime.icon = FakeIcon()
+    dialog_started = threading.Event()
+    dialog_release = threading.Event()
+
+    def blocking_dialog(*_args, **_kwargs):
+        dialog_started.set()
+        dialog_release.wait(timeout=0.5)
+        return True
+
+    monkeypatch.setattr("desktop.tray_runtime.show_windows_dialog", blocking_dialog)
+
+    started_at = time.monotonic()
+    runtime.quit()
+    elapsed = time.monotonic() - started_at
+
+    assert dialog_started.wait(timeout=0.2)
+    assert elapsed < 0.1
+    assert stop_calls == []
+
+    dialog_release.set()
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline and stop_calls != ["icon"]:
+        time.sleep(0.01)
+    assert stop_calls == ["icon"]

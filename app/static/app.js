@@ -44,6 +44,7 @@ const state = {
     inflightUploads: 0,
     uploadBatchTotal: 0,
     uploadBatchCompleted: 0,
+    uploadBatchStartedAt: null,
     selectedIds: new Set(),
     activeFilters: new Set(),
     activePage: 1,
@@ -166,6 +167,25 @@ async function ensurePreviewDependencies() {
 function setStatus(message, isError = false) {
     elements.statusText.textContent = message;
     elements.statusText.classList.toggle("error-text", isError);
+}
+
+function formatClassificationElapsedTime(elapsedMs) {
+    const roundedSeconds = Math.round(Math.max(0, elapsedMs) / 1000);
+    const totalSeconds = elapsedMs > 0 ? Math.max(1, roundedSeconds) : 0;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    if (minutes === 0) {
+        return `${seconds}s`;
+    }
+    if (seconds === 0) {
+        return `${minutes}m`;
+    }
+    return `${minutes}m ${seconds}s`;
+}
+
+function describeClassificationComplete(fileCount, elapsedMs) {
+    return `Classified ${fileCount} file(s) in ${formatClassificationElapsedTime(elapsedMs)}. Queue ready.`;
 }
 
 function getPreformSetupStatus() {
@@ -894,6 +914,21 @@ function createChip(status) {
     return span;
 }
 
+function applyReviewReasonTooltip(chip, row) {
+    if (row.status !== "Needs Review") {
+        return;
+    }
+
+    const reason = row.review_reason || row.error_message || "";
+    if (!reason) {
+        return;
+    }
+
+    chip.title = reason;
+    chip.dataset.reviewReasonTooltip = "true";
+    chip.setAttribute("aria-label", `Needs Review: ${reason}`);
+}
+
 function updateSelectionNote(message) {
     if (!message) {
         elements.selectionNote.textContent = "";
@@ -1418,6 +1453,7 @@ function renderActiveRows() {
         const statusCell = document.createElement("td");
         const chip = createChip(rowStatusLabel(row));
         chip.dataset.testid = "status-chip";
+        applyReviewReasonTooltip(chip, row);
         statusCell.appendChild(chip);
         tr.appendChild(statusCell);
 
@@ -1495,6 +1531,7 @@ function renderWorkQueueSections() {
         const statusCell = document.createElement("td");
         const chip = createChip(rowStatusLabel(row));
         chip.dataset.testid = "status-chip";
+        applyReviewReasonTooltip(chip, row);
         statusCell.appendChild(chip);
         tr.appendChild(statusCell);
 
@@ -2329,6 +2366,9 @@ function addPendingFiles(files) {
 
     stlFiles.forEach((file) => state.pendingRows.push(createPendingRow(file)));
     state.activeTab = "work-queue";
+    if (state.uploadBatchTotal === 0) {
+        state.uploadBatchStartedAt = Date.now();
+    }
     state.uploadBatchTotal += stlFiles.length;
     setStatus(`Classifying 0 of ${state.uploadBatchTotal} file(s)…`);
     render();
@@ -2576,10 +2616,12 @@ async function uploadPendingRow(row) {
             setStatus(`Classifying ${state.uploadBatchCompleted} of ${state.uploadBatchTotal} file(s)…`);
         } else {
             const finalCount = state.uploadBatchCompleted;
+            const elapsedMs = state.uploadBatchStartedAt ? Date.now() - state.uploadBatchStartedAt : 0;
             state.uploadBatchTotal = 0;
             state.uploadBatchCompleted = 0;
+            state.uploadBatchStartedAt = null;
             await fetchQueue();
-            setStatus(`Classified ${finalCount} file(s). Queue ready.`);
+            setStatus(describeClassificationComplete(finalCount, elapsedMs));
         }
         render();
         drainUploadQueue();

@@ -257,6 +257,15 @@ class FormFlowTrayRuntime:
         except Exception as exc:
             self.logger(f"browser open failed: {exc}")
 
+    def _run_dialog_action(self, name: str, action: Callable[[], None]) -> None:
+        def run() -> None:
+            try:
+                action()
+            except Exception as exc:
+                self.logger(f"{name} failed: {exc}")
+
+        threading.Thread(target=run, name=name, daemon=True).start()
+
     def show_status(self, *_args: Any) -> None:
         message = build_status_message(
             url=self.url,
@@ -264,7 +273,10 @@ class FormFlowTrayRuntime:
             preform_payload=self.preform_payload,
             logs_dir=self.paths.logs_dir,
         )
-        show_windows_dialog("FormFlow Status", message)
+        self._run_dialog_action(
+            "formflow-status-dialog",
+            lambda: show_windows_dialog("FormFlow Status", message),
+        )
 
     def recheck_preform(self, *_args: Any) -> None:
         self.refresh_status(checking=True)
@@ -281,38 +293,44 @@ class FormFlowTrayRuntime:
         self.refresh_status(checking=False)
 
     def restart_formflow(self, *_args: Any) -> None:
-        if not show_windows_dialog(
-            "Restart FormFlow",
-            "Restart the local FormFlow server?",
-            question=True,
-        ):
-            return
-        self.refresh_status(checking=True)
-        if self.server_manager is not None:
-            stopped = self.server_manager.stop()
-            if not stopped or is_port_open(self.host, self.port):
-                self.logger("restart failed: server did not stop cleanly")
-                self.status = TrayStatus.ERROR
+        def confirm_and_restart() -> None:
+            if not show_windows_dialog(
+                "Restart FormFlow",
+                "Restart the local FormFlow server?",
+                question=True,
+            ):
                 return
-            self.server_manager.start()
-            self.server_manager.wait_until_listening()
-        self.refresh_status(checking=False)
+            self.refresh_status(checking=True)
+            if self.server_manager is not None:
+                stopped = self.server_manager.stop()
+                if not stopped or is_port_open(self.host, self.port):
+                    self.logger("restart failed: server did not stop cleanly")
+                    self.status = TrayStatus.ERROR
+                    return
+                self.server_manager.start()
+                self.server_manager.wait_until_listening()
+            self.refresh_status(checking=False)
+
+        self._run_dialog_action("formflow-restart-dialog", confirm_and_restart)
 
     def view_logs(self, *_args: Any) -> None:
         self.paths.logs_dir.mkdir(parents=True, exist_ok=True)
         subprocess.Popen(["explorer", str(self.paths.logs_dir)])
 
     def quit(self, *_args: Any) -> None:
-        if not show_windows_dialog(
-            "Quit FormFlow",
-            "Quit FormFlow and stop the local server?",
-            question=True,
-        ):
-            return
-        if self.server_manager is not None:
-            self.server_manager.stop()
-        if self.icon is not None:
-            self.icon.stop()
+        def confirm_and_quit() -> None:
+            if not show_windows_dialog(
+                "Quit FormFlow",
+                "Quit FormFlow and stop the local server?",
+                question=True,
+            ):
+                return
+            if self.server_manager is not None:
+                self.server_manager.stop()
+            if self.icon is not None:
+                self.icon.stop()
+
+        self._run_dialog_action("formflow-quit-dialog", confirm_and_quit)
 
 
 def run_without_tray(manager: FormFlowServerManager) -> None:

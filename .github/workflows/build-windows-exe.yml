@@ -92,8 +92,8 @@ jobs:
             Get-NetTCPConnection -LocalPort 8765 -ErrorAction SilentlyContinue |
               ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
             Start-Sleep -Seconds 2
-            if (Get-NetTCPConnection -LocalPort 8765 -ErrorAction SilentlyContinue) {
-              throw "Port 8765 was still open after EXE cleanup"
+            if (Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue) {
+              throw "Port 8765 was still listening after EXE cleanup"
             }
           }
 

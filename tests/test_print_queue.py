@@ -5,8 +5,10 @@ Tests for print_jobs table, schema, CRUD helpers, and config.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -208,6 +210,94 @@ def test_job_name_is_unique(tmp_path: Path):
             settings,
             PrintJob(job_name="260421-001", preset="Ortho Solid - Flat, No Supports"),
         )
+
+
+def test_init_db_repairs_stale_print_job_manifest_density(tmp_path: Path):
+    from app.database import connect, create_print_job, get_print_job_by_id, init_db
+    from app.schemas import PrintJob
+
+    settings = _test_settings(tmp_path)
+    init_db(settings)
+    created = create_print_job(
+        settings,
+        PrintJob(
+            job_name="260504-001",
+            preset="Ortho Solid - Flat, No Supports",
+            case_ids=["CASE-A"],
+            manifest_json={
+                "printer_xy_budget": 10000.0,
+                "used_xy_budget": 6000.0,
+                "estimated_density": 0.6,
+                "import_groups": [
+                    {
+                        "files": [
+                            {"case_id": "CASE-A", "xy_footprint_estimate": 1200.0},
+                        ],
+                    },
+                ],
+            },
+            estimated_density=0.6,
+        ),
+    )
+
+    init_db(settings)
+
+    repaired = get_print_job_by_id(settings, created.id)
+    assert repaired is not None
+    assert repaired.estimated_density == 0.12
+    assert repaired.manifest_json is not None
+    assert repaired.manifest_json["used_xy_budget"] == 1200.0
+    assert repaired.manifest_json["estimated_density"] == 0.12
+
+    with connect(settings) as connection:
+        stored = connection.execute(
+            "SELECT manifest_json FROM print_jobs WHERE id = ?",
+            (created.id,),
+        ).fetchone()
+    assert json.loads(stored["manifest_json"])["estimated_density"] == 0.12
+
+
+def test_build_lane_lock_blocks_same_lane_until_released(tmp_path):
+    from app.database import init_db, release_build_lane_lock, try_acquire_build_lane_lock
+
+    settings = _test_settings(tmp_path)
+    init_db(settings)
+
+    assert try_acquire_build_lane_lock(settings, "device:A|form4bl|pm|100", "owner-1", "send")
+    assert not try_acquire_build_lane_lock(settings, "device:A|form4bl|pm|100", "owner-2", "send")
+
+    release_build_lane_lock(settings, "device:A|form4bl|pm|100", "owner-1")
+
+    assert try_acquire_build_lane_lock(settings, "device:A|form4bl|pm|100", "owner-2", "send")
+
+
+def test_build_lane_lock_allows_different_lanes(tmp_path):
+    from app.database import init_db, try_acquire_build_lane_lock
+
+    settings = _test_settings(tmp_path)
+    init_db(settings)
+
+    assert try_acquire_build_lane_lock(settings, "device:A|form4bl|pm|100", "owner-1", "send")
+    assert try_acquire_build_lane_lock(settings, "device:B|form4bl|pm|100", "owner-2", "send")
+    assert try_acquire_build_lane_lock(settings, "group:Form 4B|lt-clear|100", "owner-3", "send")
+
+
+def test_build_lane_lock_replaces_expired_lock(tmp_path):
+    from app.database import init_db, try_acquire_build_lane_lock
+
+    settings = _test_settings(tmp_path)
+    init_db(settings)
+    old_now = datetime.now(timezone.utc) - timedelta(hours=3)
+
+    assert try_acquire_build_lane_lock(
+        settings,
+        "device:A|form4bl|pm|100",
+        "owner-1",
+        "send",
+        now=old_now,
+    )
+
+    assert try_acquire_build_lane_lock(settings, "device:A|form4bl|pm|100", "owner-2", "send")
 
 
 def test_case_ids_are_persisted_as_json(tmp_path: Path):

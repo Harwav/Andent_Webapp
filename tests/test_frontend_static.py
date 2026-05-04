@@ -147,6 +147,62 @@ def test_removal_undo_window_is_five_seconds():
     assert "const DELETE_UNDO_MS = 5000;" in app_js
 
 
+def test_upload_completion_reports_elapsed_classification_time():
+    app_js = APP_JS.read_text(encoding="utf-8")
+    format_elapsed = _extract_function_source(app_js, "formatClassificationElapsedTime")
+    describe_complete = _extract_function_source(app_js, "describeClassificationComplete")
+    script = textwrap.dedent(
+        f"""
+        {format_elapsed}
+        {describe_complete}
+        const result = describeClassificationComplete(122, 65000);
+        console.log(JSON.stringify(result));
+        """
+    )
+
+    message = json.loads(_run_node(script))
+
+    assert message == "Classified 122 file(s) in 1m 5s. Queue ready."
+    assert "uploadBatchStartedAt" in app_js
+    assert "Date.now() - state.uploadBatchStartedAt" in app_js
+
+
+def test_needs_review_status_chip_exposes_review_reason_tooltip():
+    app_js = APP_JS.read_text(encoding="utf-8")
+    apply_tooltip = _extract_function_source(app_js, "applyReviewReasonTooltip")
+    script = textwrap.dedent(
+        f"""
+        {apply_tooltip}
+        const chip = {{
+            dataset: {{ testid: "status-chip" }},
+            setAttribute(name, value) {{
+                this[name] = value;
+            }},
+        }};
+        applyReviewReasonTooltip(chip, {{
+            status: "Needs Review",
+            review_reason: "Unable to classify artifact confidently from filename or geometry.",
+        }});
+        console.log(JSON.stringify({{
+            title: chip.title,
+            ariaLabel: chip["aria-label"],
+            testid: chip.dataset.testid,
+            tooltip: chip.dataset.reviewReasonTooltip,
+        }}));
+        """
+    )
+
+    chip = json.loads(_run_node(script))
+
+    assert chip["title"] == "Unable to classify artifact confidently from filename or geometry."
+    assert chip["ariaLabel"] == (
+        "Needs Review: Unable to classify artifact confidently from filename or geometry."
+    )
+    assert chip["testid"] == "status-chip"
+    assert chip["tooltip"] == "true"
+    assert "applyReviewReasonTooltip(chip, row)" in app_js
+
+
 def test_active_work_queue_exposes_printer_group_selector():
     index_html = INDEX_HTML.read_text(encoding="utf-8")
     app_js = APP_JS.read_text(encoding="utf-8")

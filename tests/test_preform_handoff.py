@@ -93,6 +93,19 @@ class StubPreFormClient:
         self.closed = True
 
 
+class ImportFailurePreFormClient(StubPreFormClient):
+    def __init__(self, base_url: str, failing_name_part: str):
+        super().__init__(base_url)
+        self.failing_name_part = failing_name_part
+
+    def import_model(self, scene_id: str, stl_path: str, preset: str | None = None):
+        if self.failing_name_part in Path(stl_path).name:
+            raise Exception(
+                'Failed to import model: 400 - {"error":{"code":"OPERATION_FAILED","message":"Broken model, the model is damaged and needs repair."}}'
+            )
+        return super().import_model(scene_id, stl_path, preset)
+
+
 def _build_settings(tmp_path: Path):
     data_dir = tmp_path / "data"
     return replace(
@@ -718,6 +731,329 @@ def test_selected_device_send_to_print_quarantines_bad_case_and_dispatches_remai
     assert get_upload_row_by_id(settings, row_ids[1]).status == "Needs Review"
     assert get_upload_row_by_id(settings, row_ids[2]).status == "Submitted"
     assert stub_client.imported_models == [("scene-1", str(good_file), "ortho_solid_v1")]
+
+
+def test_import_quarantine_recomputes_manifest_density_for_accepted_cases(tmp_path):
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    accepted_file = tmp_path / "accepted.stl"
+    broken_file = tmp_path / "broken.stl"
+    for file_path in (accepted_file, broken_file):
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(accepted_file), 40.0, 30.0)
+    register_test_dims(str(broken_file), 50.0, 40.0)
+
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                accepted_file,
+                case_id="CASE-ACCEPTED",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-accepted",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+            _row_payload(
+                broken_file,
+                case_id="CASE-BROKEN",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-broken",
+                dimension_x_mm=50.0,
+                dimension_y_mm=40.0,
+            ),
+        ],
+    )
+
+    stub_client = ImportFailurePreFormClient(settings.preform_server_url, "broken.stl")
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].case_ids == ["CASE-ACCEPTED"]
+    assert jobs[0].estimated_density == 1200.0 / 69188.0
+    assert jobs[0].manifest_json["used_xy_budget"] == 1200.0
+    assert jobs[0].manifest_json["estimated_density"] == 1200.0 / 69188.0
+
+    broken_row = get_upload_row_by_id(settings, row_ids[1])
+    assert broken_row is not None
+    assert broken_row.status == "Needs Review"
+    assert "Broken model" in (broken_row.review_reason or "")
+
+
+def test_build_lane_key_merges_compatible_presets_in_same_material_lane(tmp_path):
+    from app.database import get_upload_row_by_id
+    from app.services.build_planning import plan_build_manifests
+    from app.services.print_queue_service import _build_lane_keys_from_manifests
+
+    settings = _build_settings(tmp_path)
+    model_file = tmp_path / "model.stl"
+    tooth_file = tmp_path / "tooth.stl"
+    for file_path in (model_file, tooth_file):
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                model_file,
+                case_id="CASE-LANE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-lane-model",
+            ),
+            _row_payload(
+                tooth_file,
+                case_id="CASE-LANE",
+                preset="Tooth - With Supports",
+                status="Ready",
+                content_hash="hash-lane-tooth",
+                model_type="Tooth",
+            ),
+        ],
+    )
+    rows = [get_upload_row_by_id(settings, row_id) for row_id in row_ids]
+    manifests = plan_build_manifests(rows)
+
+    lane_keys = _build_lane_keys_from_manifests(manifests)
+
+    assert len(lane_keys) == 1
+    assert "form 4bl" in lane_keys[0]
+    assert "precision model" in lane_keys[0]
+    assert "|100|" in lane_keys[0]
+
+
+def test_build_lane_key_splits_selected_devices_for_same_material_lane(tmp_path):
+    from app.database import get_upload_row_by_id
+    from app.services.build_planning import plan_build_manifests
+    from app.services.print_queue_service import _build_lane_keys_from_manifests
+
+    settings = _build_settings(tmp_path)
+    case_file = tmp_path / "device-lane.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-DEVICE-LANE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-lane",
+            ),
+        ],
+    )
+    rows = [get_upload_row_by_id(settings, row_ids[0])]
+    manifests = plan_build_manifests(rows)
+
+    east = _build_lane_keys_from_manifests(manifests, device_id="form-4bl-east")
+    west = _build_lane_keys_from_manifests(manifests, device_id="form-4bl-west")
+
+    assert east != west
+    assert east[0].startswith("device:form-4bl-east|")
+    assert west[0].startswith("device:form-4bl-west|")
+
+
+def test_send_to_print_rejects_when_same_build_lane_is_locked(tmp_path):
+    from app.database import get_upload_row_by_id, try_acquire_build_lane_lock
+    from app.services.build_planning import plan_build_manifests
+    from app.services.print_queue_service import _build_lane_keys_from_manifests
+
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "locked-lane.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-LOCKED-LANE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-locked-lane",
+            ),
+        ],
+    )
+    rows = [get_upload_row_by_id(settings, row_ids[0])]
+    lane_key = _build_lane_keys_from_manifests(plan_build_manifests(rows))[0]
+    assert try_acquire_build_lane_lock(settings, lane_key, "test-owner", "send")
+
+    with patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 409
+    assert "Build preparation is already in progress" in response.json()["detail"]
+    assert list_print_jobs(settings) == []
+
+
+def test_send_to_print_allows_different_material_lane_while_other_lane_locked(tmp_path):
+    from app.database import try_acquire_build_lane_lock
+
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "unlocked-lane.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-UNLOCKED-LANE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-unlocked-lane",
+            ),
+        ],
+    )
+
+    assert try_acquire_build_lane_lock(
+        settings,
+        "group:form 4b|form 4b|lt-clear|lt clear|100|default",
+        "test-owner",
+        "send",
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    assert len(list_print_jobs(settings)) == 1
+
+
+def test_import_quarantine_holds_accepted_manifest_when_density_drops_below_target(tmp_path):
+    settings = _build_holding_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    accepted_file = tmp_path / "accepted-under-target.stl"
+    broken_file = tmp_path / "broken-large.stl"
+    for file_path in (accepted_file, broken_file):
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(accepted_file), 40.0, 30.0)
+    register_test_dims(str(broken_file), 300.0, 120.0)
+
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                accepted_file,
+                case_id="CASE-ACCEPTED-HOLD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-accepted-hold",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+            _row_payload(
+                broken_file,
+                case_id="CASE-BROKEN-LARGE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-broken-large",
+                dimension_x_mm=300.0,
+                dimension_y_mm=120.0,
+            ),
+        ],
+    )
+
+    stub_client = ImportFailurePreFormClient(settings.preform_server_url, "broken-large.stl")
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ):
+        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].status == "Holding for More Cases"
+    assert jobs[0].hold_reason == "below_density_target"
+    assert jobs[0].estimated_density == 1200.0 / 69188.0
+    assert jobs[0].case_ids == ["CASE-ACCEPTED-HOLD"]
+
+    accepted_row = get_upload_row_by_id(settings, row_ids[0])
+    broken_row = get_upload_row_by_id(settings, row_ids[1])
+    assert accepted_row.handoff_stage == "Holding for More Cases"
+    assert broken_row.status == "Needs Review"
+
+
+def test_selected_device_import_quarantine_holds_under_target_without_printer_dispatch(tmp_path):
+    settings = _build_holding_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    accepted_file = tmp_path / "device-accepted-under-target.stl"
+    broken_file = tmp_path / "device-broken-large.stl"
+    for file_path in (accepted_file, broken_file):
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(accepted_file), 40.0, 30.0)
+    register_test_dims(str(broken_file), 300.0, 120.0)
+
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                accepted_file,
+                case_id="CASE-DEVICE-ACCEPTED-HOLD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-accepted-hold",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+            _row_payload(
+                broken_file,
+                case_id="CASE-DEVICE-BROKEN-LARGE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-broken-large",
+                dimension_x_mm=300.0,
+                dimension_y_mm=120.0,
+            ),
+        ],
+    )
+
+    stub_client = ImportFailurePreFormClient(settings.preform_server_url, "device-broken-large.stl")
+    stub_client.devices = [
+        {"id": "form-4bl-lab", "name": "Lab Printer", "model": "Form 4BL", "status": "ready"}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert response.status_code == 200
+    assert stub_client.print_jobs == []
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].status == "Holding for More Cases"
+    assert jobs[0].printer_device_id == "form-4bl-lab"
+    assert jobs[0].estimated_density == 1200.0 / 69188.0
 
 
 def test_selected_device_send_to_print_marks_import_failure_for_review_without_retry(tmp_path):
@@ -1692,8 +2028,14 @@ def test_release_held_job_dispatches_and_records_operator_release(tmp_path):
     assert jobs[0].status == "Queued"
     assert jobs[0].print_job_id is None
     assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
+    assert jobs[0].screenshot_url == f"/api/print-queue/jobs/{jobs[0].id}/screenshot"
     assert jobs[0].release_reason == "operator_release"
     assert jobs[0].released_by_operator is True
+
+    screenshot_response = client.get(f"/api/print-queue/jobs/{jobs[0].id}/screenshot")
+
+    assert screenshot_response.status_code == 200
+    assert screenshot_response.content == b"preform-screenshot-png"
 
 
 def test_cutoff_poll_releases_held_job_created_in_current_process(tmp_path):
@@ -1817,6 +2159,167 @@ def test_new_compatible_rows_replan_with_existing_held_build(tmp_path):
     assert jobs[0].print_job_id is None
     assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
     assert set(jobs[0].case_ids) == {"CASE-HELD", "CASE-FILLER"}
+
+
+def test_selected_device_new_compatible_rows_replan_with_existing_held_build(tmp_path):
+    settings = _build_holding_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    held_file = tmp_path / "device-held.stl"
+    filler_file = tmp_path / "device-filler.stl"
+    for file_path in (held_file, filler_file):
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(held_file), 40.0, 30.0)
+    register_test_dims(str(filler_file), 700.0, 40.0)
+
+    first_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                held_file,
+                case_id="CASE-DEVICE-HELD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-held",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-lab", "name": "Lab Printer", "model": "Form 4BL", "status": "ready"}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        first_response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": first_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert first_response.status_code == 200
+    assert list_print_jobs(settings)[0].status == "Holding for More Cases"
+    assert stub_client.print_jobs == []
+
+    second_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                filler_file,
+                case_id="CASE-DEVICE-FILLER",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-filler",
+                dimension_x_mm=700.0,
+                dimension_y_mm=40.0,
+            ),
+        ],
+    )
+
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        second_response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": second_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert second_response.status_code == 200
+    assert stub_client.imported_models == [
+        ("scene-1", str(filler_file), "ortho_solid_v1"),
+        ("scene-1", str(held_file), "ortho_solid_v1"),
+    ]
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].printer_device_id == "form-4bl-lab"
+    assert jobs[0].printer_device_name == "Lab Printer"
+    assert jobs[0].status == "Queued"
+    assert jobs[0].hold_reason is None
+    assert jobs[0].print_job_id == "print-1"
+    assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
+    assert set(jobs[0].case_ids) == {"CASE-DEVICE-HELD", "CASE-DEVICE-FILLER"}
+
+    held_row = get_upload_row_by_id(settings, first_ids[0])
+    filler_row = get_upload_row_by_id(settings, second_ids[0])
+    assert held_row is not None
+    assert filler_row is not None
+    assert held_row.linked_print_job_id == jobs[0].id
+    assert filler_row.linked_print_job_id == jobs[0].id
+    assert held_row.queue_section == "history"
+    assert filler_row.queue_section == "history"
+
+
+def test_different_device_does_not_merge_existing_selected_device_hold(tmp_path):
+    settings = _build_holding_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    held_file = tmp_path / "device-a-held.stl"
+    device_b_file = tmp_path / "device-b-case.stl"
+    for file_path in (held_file, device_b_file):
+        file_path.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    register_test_dims(str(held_file), 40.0, 30.0)
+    register_test_dims(str(device_b_file), 40.0, 30.0)
+
+    first_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                held_file,
+                case_id="CASE-DEVICE-A-HELD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-a-held",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+        ],
+    )
+    second_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                device_b_file,
+                case_id="CASE-DEVICE-B",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-device-b",
+                dimension_x_mm=40.0,
+                dimension_y_mm=30.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-a", "name": "Printer A", "model": "Form 4BL", "status": "ready"},
+        {"id": "form-4bl-b", "name": "Printer B", "model": "Form 4BL", "status": "ready"},
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        first_response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": first_ids, "device_id": "form-4bl-a"},
+        )
+        second_response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": second_ids, "device_id": "form-4bl-b"},
+        )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 2
+    assert {job.printer_device_id for job in jobs} == {"form-4bl-a", "form-4bl-b"}
+    assert all(job.status == "Holding for More Cases" for job in jobs)
 
 
 def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):

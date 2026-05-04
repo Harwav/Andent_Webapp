@@ -20,12 +20,13 @@ import shutil
 import sqlite3
 import struct
 import zlib
-from contextlib import closing
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from time import sleep
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Iterable
+from uuid import uuid4
 
 from .formlabs_web_client import FormlabsWebClient
 from .preset_catalog import SUPPORTED_PRINTER_GROUPS, get_preset_profile
@@ -565,6 +566,74 @@ class DeviceDispatchValidationError(ValueError):
         self.status_code = status_code
 
 
+def _lane_part(value: object) -> str:
+    text = str(value or "unknown").strip() or "unknown"
+    return text.replace("|", "/").lower()
+
+
+def _manifest_layer_height_microns(manifest: "BuildManifest") -> str:
+    if manifest.layer_thickness_mm is None:
+        return "unknown"
+    return str(int(round(float(manifest.layer_thickness_mm) * 1000)))
+
+
+def _build_lane_key_from_manifest(
+    manifest: "BuildManifest",
+    *,
+    device_id: str | None = None,
+) -> str:
+    target = f"device:{device_id}" if device_id else f"group:{manifest.printer_group or 'unknown'}"
+    return "|".join(
+        [
+            _lane_part(target),
+            _lane_part(manifest.printer_group),
+            _lane_part(manifest.material_code),
+            _lane_part(manifest.material_label),
+            _manifest_layer_height_microns(manifest),
+            _lane_part(manifest.print_setting),
+        ]
+    )
+
+
+def _build_lane_keys_from_manifests(
+    manifests: list["BuildManifest"],
+    *,
+    device_id: str | None = None,
+) -> list[str]:
+    lane_keys = {
+        _build_lane_key_from_manifest(manifest, device_id=device_id)
+        for manifest in manifests
+        if manifest.planning_status == "planned" and manifest.import_groups
+    }
+    return sorted(lane_keys)
+
+
+@contextmanager
+def _build_lane_locks(
+    settings: "Settings",
+    lane_keys: list[str],
+    *,
+    operation: str,
+):
+    from ..database import release_build_lane_lock, try_acquire_build_lane_lock
+
+    owner_token = uuid4().hex
+    acquired: list[str] = []
+    try:
+        for lane_key in sorted(set(lane_keys)):
+            if try_acquire_build_lane_lock(settings, lane_key, owner_token, operation):
+                acquired.append(lane_key)
+                continue
+            raise ValueError(
+                "Build preparation is already in progress for this printer/material/layer lane. "
+                "Wait for the current build to finish or hold, then try again."
+            )
+        yield
+    finally:
+        for lane_key in reversed(acquired):
+            release_build_lane_lock(settings, lane_key, owner_token)
+
+
 class PreFormImportFailureError(RuntimeError):
     def __init__(self, failed_case_errors: dict[str, str]):
         super().__init__("No valid cases could be imported by PreFormServer.")
@@ -627,6 +696,37 @@ def _dispatch_scene_if_enabled(
     if not isinstance(response, dict):
         raise RuntimeError("PreFormServer returned an invalid print response.")
     return _print_id_from_response(response)
+
+
+def _dispatch_prepared_scene_if_enabled(
+    settings: "Settings",
+    result: dict[str, object],
+    rows: list["ClassificationRow"],
+    *,
+    device_id: str | None = None,
+) -> str | None:
+    from .preform_client import PreFormClient
+
+    scene_id = result.get("scene_id")
+    manifest = result.get("manifest")
+    job_name = result.get("job_name")
+    if not scene_id or manifest is None or not job_name:
+        raise RuntimeError("Prepared PreForm scene cannot be dispatched without scene, manifest, and job name.")
+
+    client = PreFormClient(settings.preform_server_url)
+    try:
+        return _dispatch_scene_if_enabled(
+            client=client,
+            settings=settings,
+            scene_id=str(scene_id),
+            manifest=manifest,
+            rows=rows,
+            job_name=str(job_name),
+            device_id=device_id,
+            force_dispatch=device_id is not None,
+        )
+    finally:
+        client.close()
 
 
 def _scene_settings_from_manifest(manifest: "BuildManifest") -> dict[str, Any]:
@@ -701,6 +801,14 @@ def _last_added_case_id(manifest: "BuildManifest") -> str | None:
     return None
 
 
+def _manifest_used_xy_budget(manifest: "BuildManifest") -> float:
+    return sum(
+        float(file_spec.xy_footprint_estimate or 0.0)
+        for group in manifest.import_groups
+        for file_spec in group.files
+    )
+
+
 def _subset_manifest(
     manifest: "BuildManifest",
     case_ids: list[str],
@@ -723,11 +831,20 @@ def _subset_manifest(
             )
         )
 
-    return manifest.model_copy(
+    updated_manifest = manifest.model_copy(
         update={
             "case_ids": case_ids,
             "preset_names": sorted(set(preset_names)),
             "import_groups": import_groups,
+        }
+    )
+    used_xy_budget = _manifest_used_xy_budget(updated_manifest)
+    printer_xy_budget = float(updated_manifest.printer_xy_budget or 0.0)
+    estimated_density = used_xy_budget / printer_xy_budget if printer_xy_budget else 0.0
+    return updated_manifest.model_copy(
+        update={
+            "used_xy_budget": used_xy_budget,
+            "estimated_density": estimated_density,
         }
     )
 
@@ -983,6 +1100,7 @@ def process_print_manifest(
     job_name: str | None = None,
     device_id: str | None = None,
     printer_device_name: str | None = None,
+    dispatch_scene: bool = True,
 ) -> dict:
     """Process one planned build manifest for printing."""
     from .preform_client import PreFormClient
@@ -1117,7 +1235,7 @@ def process_print_manifest(
             rows=active_rows,
             job_name=job_name,
             device_id=device_id,
-            force_dispatch=device_id is not None,
+            force_dispatch=(device_id is not None and dispatch_scene),
         )
         return {
             "job_name": job_name,
@@ -1176,6 +1294,22 @@ def _should_hold_manifest(
     if manifest.planning_status != "planned" or not manifest.import_groups:
         return False
     if final_index_by_compatibility.get(manifest.compatibility_key) != manifest_index:
+        return False
+    if manifest.estimated_density >= density_target:
+        return False
+    cutoff = _parse_cutoff_today(settings.print_hold_cutoff_local_time, now)
+    return now < cutoff
+
+
+def _should_hold_accepted_manifest(
+    settings: "Settings",
+    manifest: "BuildManifest",
+    now: datetime,
+) -> bool:
+    density_target = getattr(settings, "print_hold_density_target", 0.40)
+    if density_target <= 0:
+        return False
+    if manifest.planning_status != "planned" or not manifest.import_groups:
         return False
     if manifest.estimated_density >= density_target:
         return False
@@ -1774,6 +1908,12 @@ def _send_ready_rows_to_device(
         )
 
     prevalidated_rows, quarantined_cases, prevalidation_ms = _prevalidate_dispatch_rows(ready_rows)
+    held_job_ids, held_replan_rows = _load_held_replan_rows(settings)
+    held_row_ids = {
+        row.row_id
+        for row in held_replan_rows
+        if row.row_id is not None
+    }
     groups: list[dict[str, object]] = []
     blocked_groups: list[dict[str, object]] = []
     now = _now_iso()
@@ -1785,7 +1925,25 @@ def _send_ready_rows_to_device(
             now=now,
         )
 
-        planning_rows = _selected_model_rows(prevalidated_rows, device)
+        if held_job_ids:
+            connection.execute(
+                f"""
+                DELETE FROM print_jobs
+                WHERE id IN ({",".join("?" for _ in held_job_ids)})
+                """,
+                tuple(held_job_ids),
+            )
+            for held_job_id in held_job_ids:
+                _held_job_ids_created_this_process.discard(held_job_id)
+
+        planning_rows = _selected_model_rows(held_replan_rows, device) + _selected_model_rows(
+            [
+                row
+                for row in prevalidated_rows
+                if row.row_id not in held_row_ids
+            ],
+            device,
+        )
         manifests = plan_build_manifests(
             planning_rows,
             max_layout_density=settings.print_max_layout_density,
@@ -2476,6 +2634,26 @@ def send_ready_rows_to_print(
                         break
                     active_manifest = _subset_manifest(active_manifest, retry_case_ids)
 
+                failed_case_errors = result.get("failed_case_errors") or {}
+                if isinstance(failed_case_errors, dict) and failed_case_errors:
+                    _mark_cases_needs_review_with_retry(
+                        connection,
+                        [
+                            {
+                                "case_id": case_id,
+                                "row_ids": [
+                                    row.row_id
+                                    for row in planning_rows
+                                    if row.row_id is not None and row.case_id == case_id
+                                ],
+                                "reason": f"PreForm import failed: {error}",
+                            }
+                            for case_id, error in failed_case_errors.items()
+                        ],
+                        event_type="case_quarantined_during_preform_import",
+                        now=now,
+                    )
+
                 accepted_manifest = result["manifest"]
                 accepted_rows = _manifest_rows(accepted_manifest, rows_by_id)
                 accepted_row_ids = {row.row_id for row in accepted_rows if row.row_id is not None}
@@ -2686,6 +2864,7 @@ def release_held_print_job(
                 ),
             )
         else:
+            screenshot_url = result.get("screenshot_url") or f"/api/print-queue/jobs/{job_id}/screenshot"
             for row_id in accepted_row_ids:
                 connection.execute(
                     """
@@ -2729,7 +2908,7 @@ def release_held_print_job(
                     result["scene_id"],
                     result["print_job_id"],
                     result.get("form_file_path"),
-                    result.get("screenshot_url"),
+                    screenshot_url,
                     result.get("status", "Queued"),
                     result["preset"],
                     json.dumps(result.get("preset_names", [])),
@@ -2751,6 +2930,7 @@ def release_held_print_job(
             )
 
         connection.commit()
+        _screenshot_cache.pop(job_id, None)
         refreshed = connection.execute(
             "SELECT id FROM print_jobs WHERE id = ?",
             (job_id,),
