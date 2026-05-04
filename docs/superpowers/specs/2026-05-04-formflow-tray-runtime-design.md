@@ -1,12 +1,14 @@
 # FormFlow Tray Runtime Design
 **Date:** 2026-05-04
-**Status:** Approved
+**Status:** Implemented
+
+**Implemented in:** `desktop/tray_runtime.py`, `run_formflow.py`, `formflow.spec`, `.github/workflows/build-windows-exe.yml`
 
 ---
 
 ## Context
 
-FormFlow currently has a Windows EXE build path that starts the FastAPI app and opens the browser, but it does not yet behave like the proven YF_ERP desktop runtime. YF_ERP uses `run_server_tray.py` as a long-lived Windows tray process: it creates a `pystray` icon, starts the web server in a background thread, exposes right-click actions, shows Windows dialogs, opens the browser, restarts the server, displays status, opens logs, and quits cleanly.
+FormFlow previously had a Windows EXE build path that started the FastAPI app and opened the browser, but it did not behave like the proven YF_ERP desktop runtime. YF_ERP uses `run_server_tray.py` as a long-lived Windows tray process: it creates a `pystray` icon, starts the web server in a background thread, exposes right-click actions, shows Windows dialogs, opens the browser, restarts the server, displays status, opens logs, and quits cleanly.
 
 FormFlow should use the same operating model, adapted to its FastAPI + PreFormServer workflow.
 
@@ -14,7 +16,7 @@ FormFlow should use the same operating model, adapted to its FastAPI + PreFormSe
 
 ## Goal
 
-Build a Windows tray runtime for FormFlow so the packaged EXE starts as a desktop app with a right-click tray menu and live green/yellow/red status icon.
+Build a Windows tray runtime for FormFlow so the packaged EXE starts as a desktop app with a right-click tray menu and live green/yellow/red status icon. This is now the packaged runtime path.
 
 ---
 
@@ -34,9 +36,9 @@ If FormFlow itself fails to start, the tray should remain red and the status dia
 
 ## Chosen Approach
 
-Use a YF_ERP-style integrated tray runtime in `run_formflow.py`.
+Use a YF_ERP-style integrated tray runtime behind a thin `run_formflow.py` launcher.
 
-The EXE process owns both the tray icon and the FastAPI server. `run_formflow.py` starts uvicorn in a background thread, runs `pystray.Icon(...).run()` on the main thread, polls the local HTTP endpoints, and updates the icon/title/menu state from those results.
+The EXE process owns both the tray icon and the FastAPI server. `run_formflow.py` imports `desktop.tray_runtime.main()`. The runtime starts `uvicorn.Server` in a background thread, runs `pystray.Icon(...).run()` on the main thread, polls the local HTTP endpoints, and updates the icon/title/menu state from those results.
 
 This keeps packaging simple: one executable, one runtime process, one place to manage browser launch, logs, restart, and shutdown.
 
@@ -88,6 +90,8 @@ Left-click/default action should open FormFlow.
 
 Do not put business logic in the tray runtime. The tray only reflects backend readiness and calls existing API endpoints.
 
+Implementation note: `uvicorn.Config` uses `log_config=None` in the packaged server manager. In `console=False` PyInstaller builds, default uvicorn logging can crash because the formatter tries to call `isatty()` on a missing console stream.
+
 ---
 
 ## Packaging
@@ -107,6 +111,8 @@ The EXE should continue to write runtime data beside the EXE by default unless t
 - `FORMFLOW_WEB_DATA_DIR`
 - `FORMFLOW_WEB_OUTPUT_DIR`
 - `FORMFLOW_WEB_DATABASE_PATH`
+
+Startup diagnostics are written to `logs/formflow_tray_diagnostic.log` under the runtime root. The log is created before importing the FastAPI app so startup failures in windowed EXE mode still leave evidence on disk.
 
 ---
 
@@ -157,6 +163,16 @@ Required automated checks:
    - verify `/health` returns `healthy`
    - verify the process is cleaned up by executable path and port
    - verify no `FormFlow_v*.exe` process remains and the test port is closed after cleanup
+
+Implemented verification evidence:
+
+- `python -m pip install -r requirements.txt`
+- import audit for `app.main` and `desktop.tray_runtime`
+- focused tests: `tests/test_tray_runtime.py`, `tests/test_exe_packaging.py`, `tests/test_health_endpoints.py`
+- full tests: `396 passed, 3 skipped`
+- `python scripts/builders/build_windows_exe.py`
+- packaged EXE smoke on port `8765`: `/health` returned `healthy`, cleanup released the port
+- packaged `/api/preform-setup/status` returned `ready` against live PreFormServer `3.58.0.626`
 
 Required manual/live checks:
 

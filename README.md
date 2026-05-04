@@ -50,6 +50,27 @@ Open in browser:
 http://localhost:8090/
 ```
 
+### Windows Desktop EXE
+
+FormFlow can also be packaged as a single Windows tray application. The EXE starts the FastAPI server in the background, shows a green/yellow/red system-tray readiness icon, opens FormFlow in the browser, and exposes tray actions for status, PreFormServer recheck, restart, logs, and quit.
+
+```powershell
+# Build the versioned EXE from app/version.py
+python scripts/builders/build_windows_exe.py
+
+# Smoke-test without opening a browser
+$env:FORMFLOW_WEB_PORT = "8765"
+$env:FORMFLOW_WEB_OPEN_BROWSER = "0"
+$exe = Resolve-Path "dist\FormFlow_v0.1.0.exe"
+$p = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden
+Invoke-RestMethod http://127.0.0.1:8765/health
+Stop-Process -Id $p.Id -Force
+Remove-Item Env:\FORMFLOW_WEB_PORT -ErrorAction SilentlyContinue
+Remove-Item Env:\FORMFLOW_WEB_OPEN_BROWSER -ErrorAction SilentlyContinue
+```
+
+Packaged runtime data defaults to folders beside the EXE (`data/`, `output/`, `logs/`) unless `FORMFLOW_WEB_DATA_DIR`, `FORMFLOW_WEB_OUTPUT_DIR`, or `FORMFLOW_WEB_DATABASE_PATH` override the paths. Startup diagnostics are written to `logs/formflow_tray_diagnostic.log`.
+
 ### Health Checks
 
 ```bash
@@ -88,11 +109,15 @@ Andent_Webapp/
 │   ├── fps_parser.py             # FPS file parser
 │   └── constants.py              # App constants
 ├── tests/                     # Test suite
+├── desktop/                   # Windows tray runtime and packaged server lifecycle
+├── scripts/builders/          # Windows EXE build helpers
 ├── Andent/                    # Product documentation
 │   ├── 00_context/
 │   ├── 01_requirements/
 │   └── 02_planning/
 ├── requirements.txt
+├── formflow.spec              # PyInstaller one-file EXE spec
+├── run_formflow.py            # Thin tray-runtime entrypoint
 └── README.md
 ```
 
@@ -131,12 +156,14 @@ Environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ANDENT_WEB_HOST` | `127.0.0.1` | Server host |
-| `ANDENT_WEB_PORT` | `8090` | Server port |
-| `ANDENT_WEB_DATA_DIR` | `./data` | Data directory |
-| `ANDENT_WEB_DATABASE_PATH` | `./data/andent_web.db` | Database path |
-| `ANDENT_WEB_PRINT_HOLD_DENSITY_TARGET` | `0.40` | Minimum estimated density before a final compatible build dispatches immediately |
-| `ANDENT_WEB_PRINT_HOLD_CUTOFF_LOCAL_TIME` | `18:00` | Local cutoff time when held builds become releasable |
+| `FORMFLOW_WEB_HOST` | `127.0.0.1` | Server host |
+| `FORMFLOW_WEB_PORT` | `8090` | Server port |
+| `FORMFLOW_WEB_DATA_DIR` | `./data` | Data directory |
+| `FORMFLOW_WEB_DATABASE_PATH` | `./data/formflow.db` | Database path |
+| `FORMFLOW_WEB_OUTPUT_DIR` | `./output` | Local output directory |
+| `FORMFLOW_WEB_OPEN_BROWSER` | `1` | Set to `0`, `false`, or `no` to suppress packaged-runtime browser launch |
+| `FORMFLOW_WEB_PRINT_HOLD_DENSITY_TARGET` | `0.40` | Minimum estimated density before a final compatible build dispatches immediately |
+| `FORMFLOW_WEB_PRINT_HOLD_CUTOFF_LOCAL_TIME` | `18:00` | Local cutoff time when held builds become releasable |
 
 ## Testing
 
@@ -167,6 +194,7 @@ Prerequisite: a live compatible PreFormServer is reachable at `http://localhost:
 - [x] Density-based holding and Release now path
 - [x] Real PreFormServer handoff path
 - [x] Print Queue tab and job status polling
+- [x] Windows tray EXE runtime and CI packaging smoke test
 - [ ] Live PreFormServer/Formlabs acceptance validation
 
 ## Development

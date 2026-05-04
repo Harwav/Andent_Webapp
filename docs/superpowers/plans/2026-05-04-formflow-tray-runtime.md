@@ -4,6 +4,8 @@
 
 **Goal:** Replace the current console-only Windows EXE launcher with a robust YF_ERP-style tray runtime that shows green/yellow/red readiness, exposes a right-click menu, and shuts down cleanly.
 
+**Status:** Implemented and pushed to `origin/main` on 2026-05-04.
+
 **Architecture:** Move tray/server lifecycle logic into a testable `desktop/tray_runtime.py` module. Keep `run_formflow.py` as a thin entrypoint that calls the runtime. Package the same entrypoint with PyInstaller using `console=False`, `pystray`, `Pillow`, and explicit hidden imports.
 
 **Tech Stack:** Python 3.13, FastAPI, uvicorn `Server`, pystray, Pillow, PyInstaller, pytest, PowerShell smoke tests.
@@ -990,6 +992,10 @@ git commit -m "Harden FormFlow tray release automation" `
 ---
 
 ## Self-Review
+
+Implementation note:
+- `FormFlowServerManager` disables uvicorn's default logging config with `log_config=None`; this is required for `console=False` PyInstaller builds because default uvicorn logging expects console streams.
+- Startup diagnostics are written to `logs/formflow_tray_diagnostic.log` before importing `app.main`.
 
 Spec coverage:
 - Status model is implemented in Tasks 1 and 2.
