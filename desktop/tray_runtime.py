@@ -311,3 +311,71 @@ class FormFlowTrayRuntime:
             self.server_manager.stop()
         if self.icon is not None:
             self.icon.stop()
+
+
+def run_without_tray(manager: FormFlowServerManager) -> None:
+    manager.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        manager.stop()
+
+
+def main() -> None:
+    paths = RuntimePaths.from_root(runtime_root())
+    logger = create_diagnostic_logger(paths)
+    logger("FormFlow tray runtime starting")
+    host, port = configure_runtime_environment(paths)
+
+    def app_factory() -> Any:
+        from app.main import app
+
+        return app
+
+    manager = FormFlowServerManager(host=host, port=port, app_factory=app_factory)
+    runtime = FormFlowTrayRuntime(
+        paths=paths,
+        host=host,
+        port=port,
+        logger=logger,
+        server_manager=manager,
+    )
+
+    try:
+        import pystray
+    except Exception as exc:
+        logger(f"pystray unavailable, running without tray: {exc}")
+        manager.start()
+        manager.wait_until_listening()
+        if os.environ.get("FORMFLOW_WEB_OPEN_BROWSER", "1").lower() not in {"0", "false", "no"}:
+            runtime.open_formflow()
+        run_without_tray(manager)
+        return
+
+    menu = pystray.Menu(
+        pystray.MenuItem("Open FormFlow", runtime.open_formflow, default=True),
+        pystray.MenuItem("Server Status", runtime.show_status),
+        pystray.MenuItem("Re-check PreFormServer", runtime.recheck_preform),
+        pystray.MenuItem("Restart FormFlow", runtime.restart_formflow),
+        pystray.MenuItem("View Logs", runtime.view_logs),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Quit", runtime.quit),
+    )
+    runtime.icon = pystray.Icon(
+        "FormFlow",
+        create_tray_icon(TrayStatus.CHECKING),
+        "FormFlow (checking)",
+        menu,
+    )
+
+    manager.start()
+
+    def startup_probe() -> None:
+        manager.wait_until_listening()
+        runtime.refresh_status(checking=False)
+        if os.environ.get("FORMFLOW_WEB_OPEN_BROWSER", "1").lower() not in {"0", "false", "no"}:
+            runtime.open_formflow()
+
+    threading.Thread(target=startup_probe, name="formflow-startup-probe", daemon=True).start()
+    runtime.icon.run()

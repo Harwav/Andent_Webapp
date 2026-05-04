@@ -6,4 +6,10 @@ python-multipart==0.0.18
 pydantic==2.10.3
 numpy-stl>=3.1.1
 httpx==0.28.1
+requests==2.32.3
 pytest>=8.0.0,<9.0.0
+
+# Windows EXE packaging/runtime
+Pillow==10.4.0
+pystray==0.19.5
+pyinstaller==6.14.2
