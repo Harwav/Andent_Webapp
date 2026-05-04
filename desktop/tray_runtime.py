@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import os
+import socket
 import sys
+import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
+
+import uvicorn
+from PIL import Image, ImageDraw
 
 
 class TrayStatus(str, Enum):
@@ -103,3 +109,60 @@ def build_status_message(
         f"PreFormServer version: {version}\n"
         f"Logs: {logs_dir.as_posix()}"
     )
+
+
+def create_tray_icon(status: TrayStatus) -> Image.Image:
+    colors = {
+        TrayStatus.READY: (0, 150, 0, 255),
+        TrayStatus.CHECKING: (220, 170, 0, 255),
+        TrayStatus.ERROR: (220, 0, 0, 255),
+    }
+    image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse([8, 8, 56, 56], fill=colors[status])
+    return image
+
+
+def is_port_open(host: str, port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.2)
+        return sock.connect_ex((host, port)) == 0
+
+
+class FormFlowServerManager:
+    def __init__(self, *, host: str, port: int, app_factory: Callable[[], Any]):
+        self.host = host
+        self.port = port
+        self.app_factory = app_factory
+        self.server: uvicorn.Server | None = None
+        self.thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        if self.thread and self.thread.is_alive():
+            return
+        config = uvicorn.Config(
+            self.app_factory(),
+            host=self.host,
+            port=self.port,
+            reload=False,
+            log_level="info",
+        )
+        self.server = uvicorn.Server(config)
+        self.thread = threading.Thread(target=self.server.run, name="formflow-uvicorn", daemon=True)
+        self.thread.start()
+
+    def wait_until_listening(self, timeout_s: float = 30.0) -> bool:
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            if is_port_open(self.host, self.port):
+                return True
+            time.sleep(0.25)
+        return False
+
+    def stop(self, join_timeout_s: float = 5.0) -> bool:
+        if self.server is not None:
+            self.server.should_exit = True
+        if self.thread is not None:
+            self.thread.join(timeout=join_timeout_s)
+            return not self.thread.is_alive()
+        return True

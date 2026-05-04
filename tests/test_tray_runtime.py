@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
+import socket
 
 from desktop.tray_runtime import (
+    FormFlowServerManager,
     RuntimePaths,
     TrayStatus,
     build_status_message,
     configure_runtime_environment,
     create_diagnostic_logger,
+    create_tray_icon,
     decide_tray_status,
+    is_port_open,
 )
 
 
@@ -86,3 +90,61 @@ def test_create_diagnostic_logger_writes_before_app_imports(tmp_path):
 
     log_text = (paths.logs_dir / "formflow_tray_diagnostic.log").read_text(encoding="utf-8")
     assert "startup marker" in log_text
+
+
+def test_tray_icon_uses_expected_center_pixel_colors():
+    expected = {
+        TrayStatus.READY: (0, 150, 0),
+        TrayStatus.CHECKING: (220, 170, 0),
+        TrayStatus.ERROR: (220, 0, 0),
+    }
+
+    for status, rgb in expected.items():
+        image = create_tray_icon(status)
+        assert image.getpixel((32, 32))[:3] == rgb
+
+
+def test_is_port_open_reports_listening_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen()
+    port = sock.getsockname()[1]
+    try:
+        assert is_port_open("127.0.0.1", port) is True
+    finally:
+        sock.close()
+
+
+def test_is_port_open_reports_closed_port():
+    assert is_port_open("127.0.0.1", 9) is False
+
+
+def test_server_manager_stop_sets_should_exit_and_joins(monkeypatch):
+    events: list[str] = []
+
+    class FakeServer:
+        should_exit = False
+
+        def run(self):
+            events.append("run")
+
+    manager = FormFlowServerManager(host="127.0.0.1", port=8090, app_factory=lambda: object())
+    manager.server = FakeServer()
+
+    class FakeThread:
+        def __init__(self):
+            self.join_timeout = None
+
+        def is_alive(self):
+            return False
+
+        def join(self, timeout):
+            self.join_timeout = timeout
+            events.append(f"join:{timeout}")
+
+    thread = FakeThread()
+    manager.thread = thread
+
+    assert manager.stop(join_timeout_s=1.5) is True
+    assert manager.server.should_exit is True
+    assert "join:1.5" in events
