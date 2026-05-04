@@ -152,6 +152,40 @@ def test_server_manager_stop_sets_should_exit_and_joins(monkeypatch):
     assert "join:1.5" in events
 
 
+def test_server_manager_disables_uvicorn_default_logging_for_windowed_exe(monkeypatch):
+    config_kwargs: dict[str, object] = {}
+
+    class FakeConfig:
+        def __init__(self, app, **kwargs):
+            config_kwargs.update(kwargs)
+
+    class FakeServer:
+        def __init__(self, config):
+            self.config = config
+
+        def run(self):
+            return None
+
+    class FakeThread:
+        def __init__(self, *, target, name, daemon):
+            self.target = target
+
+        def is_alive(self):
+            return False
+
+        def start(self):
+            return None
+
+    monkeypatch.setattr("desktop.tray_runtime.uvicorn.Config", FakeConfig)
+    monkeypatch.setattr("desktop.tray_runtime.uvicorn.Server", FakeServer)
+    monkeypatch.setattr("desktop.tray_runtime.threading.Thread", FakeThread)
+
+    manager = FormFlowServerManager(host="127.0.0.1", port=8090, app_factory=lambda: object())
+    manager.start()
+
+    assert config_kwargs["log_config"] is None
+
+
 def test_tray_menu_labels_match_operator_actions():
     assert tray_menu_labels() == [
         "Open FormFlow",

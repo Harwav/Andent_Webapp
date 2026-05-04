@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import urllib.request
 import webbrowser
 from dataclasses import dataclass
@@ -149,6 +150,7 @@ class FormFlowServerManager:
             host=self.host,
             port=self.port,
             reload=False,
+            log_config=None,
             log_level="info",
         )
         self.server = uvicorn.Server(config)
@@ -325,8 +327,18 @@ def run_without_tray(manager: FormFlowServerManager) -> None:
 def main() -> None:
     paths = RuntimePaths.from_root(runtime_root())
     logger = create_diagnostic_logger(paths)
+    try:
+        _main(paths, logger)
+    except Exception:
+        logger("fatal startup error:")
+        logger(traceback.format_exc())
+        raise
+
+
+def _main(paths: RuntimePaths, logger: Callable[[str], None]) -> None:
     logger("FormFlow tray runtime starting")
     host, port = configure_runtime_environment(paths)
+    logger(f"runtime configured for {host}:{port}")
 
     def app_factory() -> Any:
         from app.main import app
@@ -353,6 +365,7 @@ def main() -> None:
         run_without_tray(manager)
         return
 
+    logger("pystray imported")
     menu = pystray.Menu(
         pystray.MenuItem("Open FormFlow", runtime.open_formflow, default=True),
         pystray.MenuItem("Server Status", runtime.show_status),
@@ -369,13 +382,16 @@ def main() -> None:
         menu,
     )
 
+    logger("starting uvicorn server")
     manager.start()
 
     def startup_probe() -> None:
         manager.wait_until_listening()
+        logger("startup probe completed")
         runtime.refresh_status(checking=False)
         if os.environ.get("FORMFLOW_WEB_OPEN_BROWSER", "1").lower() not in {"0", "false", "no"}:
             runtime.open_formflow()
 
     threading.Thread(target=startup_probe, name="formflow-startup-probe", daemon=True).start()
+    logger("starting tray icon loop")
     runtime.icon.run()
