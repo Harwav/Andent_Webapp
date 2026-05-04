@@ -9,14 +9,16 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import state as runtime_state
 from .config import Settings, get_settings
 from .database import init_db
-from .services.preform_setup_service import PreFormSetupError, PreFormSetupService
-from .services.print_queue_service import migrate_print_job_outputs_to_output_dir
-from .routers.uploads import router as uploads_router
 from .routers.metrics import router as metrics_router
 from .routers.preform_setup import router as preform_setup_router
 from .routers.print_queue import router as print_queue_router
+from .routers.setup import router as setup_router
+from .routers.uploads import router as uploads_router
+from .services.preform_setup_service import PreFormSetupError, PreFormSetupService
+from .services.print_queue_service import migrate_print_job_outputs_to_output_dir
 from .version import __version__
 
 
@@ -51,6 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = resolved_settings
     app.state.default_print_dispatch_mode = resolved_settings.print_dispatch_mode
+    app.state.lan_ip = runtime_state.LAN_IP
 
     resolved_settings.output_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(resolved_settings.static_dir)), name="static")
@@ -59,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(metrics_router)
     app.include_router(preform_setup_router)
     app.include_router(print_queue_router)
+    app.include_router(setup_router)
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:

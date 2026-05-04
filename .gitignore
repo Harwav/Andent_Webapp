@@ -53,3 +53,8 @@ output/
 # Environment
 .env
 .env.local
+
+# PyInstaller build artifacts
+/version_info.txt
+/Andent_Updater.exe
+*.spec.bak

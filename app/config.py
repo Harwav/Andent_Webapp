@@ -34,6 +34,7 @@ class Settings:
     print_max_layout_density: float
     print_hold_cutoff_local_time: str
     print_dispatch_mode: str
+    lan_bind_after_setup: bool
     latency_p95_target_s: float
     dispatch_success_rate_target: float
 
@@ -147,6 +148,7 @@ def build_settings(
             "18:00",
         )),
         print_dispatch_mode=_print_dispatch_mode_from_env(),
+        lan_bind_after_setup=_env_flag("ANDENT_WEB_LAN_BIND_AFTER_SETUP", True),
         latency_p95_target_s=float(
             _env_value("FORMFLOW_WEB_LATENCY_P95_TARGET_S", "30.0")
         ),

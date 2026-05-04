@@ -1,5 +1,8 @@
 # Windows EXE Deployment Implementation Plan
 
+> ⚠️ **SUPERSEDED on 2026-05-01** by [2026-05-01-windows-exe-deployment-v2.md](2026-05-01-windows-exe-deployment-v2.md).
+> Reasons: 3 BLOCKERs (wrong upload form field name, broken test fixture pattern, threading import race) plus missing tasks for logging, single-instance lock, splash screen, LAN-consent gate, and several PyInstaller correctness items (`.omx/` data, `multipart` hidden import, `pydantic_core`). Do not execute this plan as written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Package FormFlow as a single Windows EXE that a non-technical dental lab technician can download, double-click, and be fully running within minutes — including a browser-based first-run setup wizard for PreFormServer, a system tray icon, and an auto-updater.
