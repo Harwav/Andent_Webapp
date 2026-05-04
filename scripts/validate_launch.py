@@ -3,7 +3,7 @@
 Live launch validation script.
 
 Usage:
-    python scripts/validate_launch.py [--base-url http://127.0.0.1:8090] [--fixtures-dir Andent/04_customer-facing]
+    python scripts/validate_launch.py [--base-url http://127.0.0.1:8090] [--fixtures-dir docs/04_customer-facing]
 
 Uploads every .stl file found under fixtures-dir, sends one ready case to print
 when PreFormServer is ready, then fetches /api/metrics/launch-check and prints
@@ -187,7 +187,7 @@ def print_report(check: dict, preform_running: bool) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description="FormFlow launch validation")
     parser.add_argument("--base-url", default="http://127.0.0.1:8090")
-    parser.add_argument("--fixtures-dir", default="Andent/04_customer-facing")
+    parser.add_argument("--fixtures-dir", default="docs/04_customer-facing")
     parser.add_argument(
         "--skip-preform",
         action="store_true",

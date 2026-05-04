@@ -157,7 +157,7 @@ Possible supporting changes:
 - `app/schemas.py` only if a new planner-only field is required, though avoiding schema churn is preferred
 
 Documentation updates after implementation:
-- `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
+- `docs/02_planning/02.02_Architecture-PreFormServer-handoff.md`
 - any benchmark artifact summary or future-design note that references planner footprint behavior
 
 ## Risks and Mitigations

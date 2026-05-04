@@ -17,12 +17,12 @@ Checkpoint pushed on 2026-04-24 for later continuation:
 - Task 3 implementation is committed, with a follow-up checkpoint fixing the full-arch factor so it applies to every qualifying `Form 4BL` full-arch row without an undocumented upper-size gate.
 - Focused verification passes: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_build_planning.py tests/test_batching.py -q` -> `32 passed`.
 - Correction on 2026-04-24: an earlier `.form` export folder was invalid because scenes were created for `FORM-4-0` / Form 4B and saved even after partial imports. That folder was removed.
-- Corrected inspection artifacts are in `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/form4bl_form_exports/`: 9 local Form 4BL `.form` files, 9 screenshots, and `export-summary.json`. Each build imported the planned model count, used `FRML-4-0`, and completed auto-layout before saving. The `.form` files are intentionally gitignored generated binaries; screenshots and JSON summaries are tracked.
+- Corrected inspection artifacts are in `docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/form4bl_form_exports/`: 9 local Form 4BL `.form` files, 9 screenshots, and `export-summary.json`. Each build imported the planned model count, used `FRML-4-0`, and completed auto-layout before saving. The `.form` files are intentionally gitignored generated binaries; screenshots and JSON summaries are tracked.
 - More accurate XY density is recorded in `form4bl_form_exports/xy-density-mesh-projection-025mm.json` and documented in `form4bl_form_exports/README.md`: transformed STL mesh projection on a `0.25 mm` raster, average density `22.01%`, expected approximation error roughly `1-4%`.
-- Human Pack benchmark from `C:\Users\Marcus\Desktop\BM\20260409_Andent_Matt\Human Pack` is recorded in `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/human-pack-xy-density-mesh-projection-025mm.json`: 4 `.form` files, model counts `[31, 36, 36, 22]`, average mesh-projection XY density `56.13%`.
+- Human Pack benchmark from `C:\Users\Marcus\Desktop\BM\20260409_Andent_Matt\Human Pack` is recorded in `docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/human-pack-xy-density-mesh-projection-025mm.json`: 4 `.form` files, model counts `[31, 36, 36, 22]`, average mesh-projection XY density `56.13%`.
 - The planner under-packing root cause was the conservative `Form 4BL` XY budget (`29,000 mm^2`). `Form 4BL` now uses the live platform area `353 mm x 196 mm = 69,188 mm^2`, and Form 4B uses its physical platform area `200 mm x 125 mm = 25,000 mm^2`; unknown-printer and Form 4 fallback budgets remain conservative at `10,820.9 mm^2`.
 - Regenerated `after-summary.json` now plans the `From 4BL Test Data` dataset into 4 builds with model counts `[29, 34, 35, 24]`, close to the Human Pack `[31, 36, 36, 22]`.
-- Fresh calibrated 4-build Form 4BL inspection artifacts are in `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/form4bl_form_exports_calibrated_4build/`: 4 local `.form` files, 4 `.png` screenshots, `export-summary.json`, and `xy-density-mesh-projection-025mm.json`. The `.form` files are intentionally gitignored generated binaries; screenshots and JSON summaries are tracked.
+- Fresh calibrated 4-build Form 4BL inspection artifacts are in `docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/form4bl_form_exports_calibrated_4build/`: 4 local `.form` files, 4 `.png` screenshots, `export-summary.json`, and `xy-density-mesh-projection-025mm.json`. The `.form` files are intentionally gitignored generated binaries; screenshots and JSON summaries are tracked.
 - The calibrated export run used `FRML-4-0`, `FLPMBE01`, `0.100 mm`, `DEFAULT`, `DENTAL` auto-layout, `model_spacing_mm = 0`, and `allow_overlapping_supports = false`. Default/implicit spacing failed build 2; zero spacing allowed all 4 planned builds to auto-layout and export.
 - Calibrated run result: 4 planned builds, 4 saved builds, 0 failed exports, 122 total models, average `30.5` models/build, total PreFormServer processing time `841.88s`, average build processing time `210.469s`.
 - Calibrated mesh-projection XY density on a `0.25 mm` raster averaged `48.46%` across the 4 generated builds. Per-build density was `[44.79%, 61.75%, 53.55%, 33.74%]`.
@@ -42,17 +42,17 @@ Checkpoint pushed on 2026-04-24 for later continuation:
   Responsibility: regression coverage for emitted manifest file specs after support inflation removal.
 - Create: `scripts/form4bl_packing_benchmark.py`
   Responsibility: reusable benchmark harness for planner-only metrics plus optional live PreForm processing and artifact export.
-- Create: `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/`
+- Create: `docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/`
   Responsibility: before/after benchmark JSON and Markdown summary produced from the evaluation dataset.
-- Modify: `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
+- Modify: `docs/02_planning/02.02_Architecture-PreFormServer-handoff.md`
   Responsibility: document the new planner heuristic and benchmarked state after implementation.
 
 ## Task 1: Capture the Baseline Benchmark
 
 **Files:**
 - Create: `scripts/form4bl_packing_benchmark.py`
-- Create: `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-summary.json`
-- Create: `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-live.md`
+- Create: `docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-summary.json`
+- Create: `docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-live.md`
 
 - [x] **Step 1: Write the benchmark harness before changing planner logic**
 
@@ -151,8 +151,8 @@ Run:
 
 ```powershell
 git add scripts/form4bl_packing_benchmark.py `
-  Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-summary.json `
-  Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-live.md
+  docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-summary.json `
+  docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/before-live.md
 git commit -m "Capture the pre-calibration Form 4BL planner baseline"
 ```
 
@@ -389,8 +389,8 @@ Expected:
 
 **Files:**
 - Modify: `scripts/form4bl_packing_benchmark.py`
-- Create: `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/after-summary.json`
-- Create: `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/comparison.md`
+- Create: `docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/after-summary.json`
+- Create: `docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/comparison.md`
 
 - [ ] **Step 1: Extend the benchmark harness to emit richer summary fields used in the report**
 
@@ -449,7 +449,7 @@ Expected:
 
 - [ ] **Step 4: Write the comparison report**
 
-Create `Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/comparison.md`:
+Create `docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/comparison.md`:
 
 ```md
 # Full-Arch Calibration Benchmark Comparison
@@ -487,15 +487,15 @@ Run:
 
 ```powershell
 git add scripts/form4bl_packing_benchmark.py `
-  Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/after-summary.json `
-  Andent/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/comparison.md
+  docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/after-summary.json `
+  docs/02_planning/98_VerificationArtifacts/full_arch_calibration_20260424/comparison.md
 git commit -m "Benchmark the calibrated full-arch planner against Form 4BL data"
 ```
 
 ## Task 6: Update the Architecture Doc
 
 **Files:**
-- Modify: `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
+- Modify: `docs/02_planning/02.02_Architecture-PreFormServer-handoff.md`
 
 - [ ] **Step 1: Update the planner-heuristic description**
 
@@ -521,7 +521,7 @@ Add a changelog/status entry like:
 Run:
 
 ```powershell
-git diff -- Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md
+git diff -- docs/02_planning/02.02_Architecture-PreFormServer-handoff.md
 ```
 
 Expected:
@@ -532,7 +532,7 @@ Expected:
 Run:
 
 ```powershell
-git add Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md
+git add docs/02_planning/02.02_Architecture-PreFormServer-handoff.md
 git commit -m "Document the calibrated full-arch planner heuristic"
 ```
 

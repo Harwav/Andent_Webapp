@@ -15,7 +15,10 @@ Andent_Webapp/
 ├── app/                       # FastAPI web application (routers, services, static assets)
 ├── core/                      # Shared backend modules (classification, validation, pipeline)
 ├── tests/                     # Pytest test suite (phase-aligned TDD)
-├── Andent/                    # Product documentation (requirements, planning, validation)
+├── docs/00_context/          # Product documentation context
+├── docs/01_requirements/      # Product requirements
+├── docs/02_planning/          # Product planning and architecture
+├── docs/superpowers/         # Agent/workflow documentation
 ├── requirements.txt           # Python dependencies
 └── README.md                  # Project overview
 ```
@@ -29,7 +32,7 @@ Andent_Webapp/
 | Classification logic | `app/services/classification.py` | STL model type detection |
 | Core utilities | `core/` | Reusable backend modules |
 | Test coverage | `tests/` | Phase-labeled pytest tests |
-| Product specs | `Andent/02_planning/` | PRD, architecture, roadmap |
+| Product specs | `docs/02_planning/` | PRD, architecture, roadmap |
 
 ## CODE MAP
 
@@ -59,7 +62,7 @@ Andent_Webapp/
 
 ## UNIQUE STYLES
 
-- **Documentation-centric**: `Andent/` folder with numbered subdirs (`00_context`, `01_requirements`, `02_planning`, `99_Archive`)
+- **Documentation-centric**: `docs/` folder with numbered subdirs (`00_context`, `01_requirements`, `02_planning`, `99_Archive`)
 - **Vanilla JS frontend**: No React/Vue/Angular - pure JS + HTML + CSS in `app/static/`
 - **Polling-based updates**: HTTP polling (5-10s) instead of WebSocket/SSE
 - **Phase-gated scope**: Clear Phase 0/Phase 1+ separation in architecture

@@ -514,7 +514,7 @@ This script uploads the representative fixture STLs, reads back the metrics endp
 Live launch validation script.
 
 Usage:
-    python scripts/validate_launch.py [--base-url http://127.0.0.1:8090] [--fixtures-dir Andent/04_customer-facing]
+    python scripts/validate_launch.py [--base-url http://127.0.0.1:8090] [--fixtures-dir docs/04_customer-facing]
 
 Uploads every .stl file found under fixtures-dir, then fetches
 /api/metrics/launch-check and prints a pass/fail report.
@@ -587,7 +587,7 @@ def print_report(check: dict) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Andent Web launch validation")
     parser.add_argument("--base-url", default="http://127.0.0.1:8090")
-    parser.add_argument("--fixtures-dir", default="Andent/04_customer-facing")
+    parser.add_argument("--fixtures-dir", default="docs/04_customer-facing")
     args = parser.parse_args()
 
     fixtures_dir = Path(args.fixtures_dir)
@@ -653,12 +653,12 @@ Verify health: `curl http://127.0.0.1:8090/health` → `{"status": "ok"}`
 - [ ] **Step 2: Run the validation script**
 
 ```
-python scripts/validate_launch.py --fixtures-dir Andent/04_customer-facing
+python scripts/validate_launch.py --fixtures-dir docs/04_customer-facing
 ```
 
 - [ ] **Step 3: Record results**
 
-Copy the printed report into `Andent/02_planning/04_Roadmap-implementation.md` under the Phase 3 section.
+Copy the printed report into `docs/02_planning/04_Roadmap-implementation.md` under the Phase 3 section.
 
 The report block to paste:
 
@@ -677,7 +677,7 @@ The report block to paste:
 - [ ] **Step 4: Commit the evidence**
 
 ```bash
-git add Andent/02_planning/04_Roadmap-implementation.md
+git add docs/02_planning/04_Roadmap-implementation.md
 git commit -m "docs: record live validation results for PRD launch sign-off"
 ```
 

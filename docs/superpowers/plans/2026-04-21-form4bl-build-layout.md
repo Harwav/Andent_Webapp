@@ -62,7 +62,7 @@ Remaining outside this implementation plan: browser visual inspection of the pri
   Update print job schema and DB round-trip tests for mixed-preset builds.
 - `tests/test_planning_preview.py`
   Update preview expectations to reflect compatibility-aware build grouping.
-- `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
+- `docs/02_planning/02.02_Architecture-PreFormServer-handoff.md`
   Update the architecture doc after code lands so repo docs match the implemented behavior.
 
 ## Task 1: Add The Preset Catalog
@@ -978,7 +978,7 @@ git commit -m "feat: drive print handoff from compatibility-aware build manifest
 **Files:**
 - Modify: `app/services/planning_preview.py`
 - Modify: `app/static/app.js`
-- Modify: `Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md`
+- Modify: `docs/02_planning/02.02_Architecture-PreFormServer-handoff.md`
 - Test: `tests/test_planning_preview.py`
 
 **Status 2026-04-21:** Implementation complete on `main`; full repository verification passed with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q` -> `187 passed`.
@@ -1073,7 +1073,7 @@ Expected: PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/services/planning_preview.py app/static/app.js Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md tests/test_planning_preview.py tests/test_print_queue.py tests/test_preform_handoff.py
+git add app/services/planning_preview.py app/static/app.js docs/02_planning/02.02_Architecture-PreFormServer-handoff.md tests/test_planning_preview.py tests/test_print_queue.py tests/test_preform_handoff.py
 git commit -m "docs: align preview and queue surfaces with form 4bl build manifests"
 ```
 

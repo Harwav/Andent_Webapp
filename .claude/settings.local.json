@@ -21,7 +21,8 @@
       "Bash(PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_print_queue.py -q)",
       "Bash(rm -f andent.db andent_web.db server-8090.err.log server-8090.out.log)",
       "Bash(rm -rf uploads/*)",
-      "PowerShell($pidVal = Get-Content data\\\\uvicorn.pid -ErrorAction SilentlyContinue; if \\($pidVal\\) { Stop-Process -Id $pidVal -Force -ErrorAction SilentlyContinue; Write-Host \"Killed PID $pidVal\" } else { Write-Host \"No PID file found\" })"
+      "PowerShell($pidVal = Get-Content data\\\\uvicorn.pid -ErrorAction SilentlyContinue; if \\($pidVal\\) { Stop-Process -Id $pidVal -Force -ErrorAction SilentlyContinue; Write-Host \"Killed PID $pidVal\" } else { Write-Host \"No PID file found\" })",
+      "Bash(git mv *)"
     ]
   }
 }

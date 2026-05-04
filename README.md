@@ -111,7 +111,7 @@ Andent_Webapp/
 ├── tests/                     # Test suite
 ├── desktop/                   # Windows tray runtime and packaged server lifecycle
 ├── scripts/builders/          # Windows EXE build helpers
-├── Andent/                    # Product documentation
+├── docs/                   # Product documentation
 │   ├── 00_context/
 │   ├── 01_requirements/
 │   └── 02_planning/
@@ -199,11 +199,11 @@ Prerequisite: a live compatible PreFormServer is reachable at `http://localhost:
 
 ## Development
 
-See `Andent/02_planning/` for product documentation:
-- [PRD](Andent/02_planning/01_PRD-andent-web.md)
-- [Architecture](Andent/02_planning/02_Architecture-andent-web.md)
-- [PreFormServer Handoff](Andent/02_planning/02.02_Architecture-PreFormServer-handoff.md)
-- [Implementation Roadmap](Andent/02_planning/04_Roadmap-implementation.md)
+See `docs/02_planning/` for product documentation:
+- [PRD](docs/02_planning/01_PRD-andent-web.md)
+- [Architecture](docs/02_planning/02_Architecture-andent-web.md)
+- [PreFormServer Handoff](docs/02_planning/02.02_Architecture-PreFormServer-handoff.md)
+- [Implementation Roadmap](docs/02_planning/04_Roadmap-implementation.md)
 
 ## License
 
