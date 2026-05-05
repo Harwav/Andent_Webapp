@@ -180,7 +180,15 @@ npx playwright install chromium
 npm run test:release-gate
 ```
 
-Prerequisite: a live compatible PreFormServer is reachable at `http://localhost:44388` for the happy-path scenarios.
+This is the hard ship/no-ship gate. It runs environment probes, Python backend tests, Chromium browser flows, canonical Form 4BL dataset classification, live virtual/debug PreFormServer handoff invariants, and packaged EXE startup proof. A release ships only when the command exits `0` and the generated verdict says `SHIP: yes`.
+
+Prerequisites:
+- Canonical STL data exists at `C:\Users\Marcus\Desktop\From 4BL Test Data`, or set `FORMFLOW_RELEASE_TEST_DATA_DIR`.
+- A live compatible PreFormServer is reachable at `http://127.0.0.1:44388`, or set `PREFORM_SERVER_URL`.
+- The available PreForm target is virtual/debug only for the release-gate dispatch path.
+- A packaged EXE exists under `dist/`, for example `dist\FormFlow_v0.1.0.exe`.
+
+Evidence is written under `docs/02_planning/98_VerificationArtifacts/pre_release_*` by default, including `release-gate.json`, `verdict.md`, stage logs, dataset manifest, PreForm status, browser evidence, print-job evidence, and packaged-runtime evidence.
 
 ## Roadmap
 

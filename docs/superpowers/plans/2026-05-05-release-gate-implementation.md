@@ -1480,3 +1480,44 @@ Before reporting implementation complete:
 - The virtual/debug device naming may differ across PreFormServer versions. If `is_virtual_device()` rejects a valid virtual device, extend it with a recorded metadata key rather than weakening the physical-dispatch guard.
 - `tests/test_exe_packaging.py` may not produce the final executable path expected by `findPackagedExecutable()`. If paths differ, update `findPackagedExecutable()` with the actual dist path and keep both old and new candidates.
 - Existing unrelated worktree changes must not be reverted while executing this plan.
+
+---
+
+## 2026-05-05 Continuation Log
+
+Implemented and committed release-gate foundations through packaged runtime proof:
+
+- `3d6cf8d` - evidence primitives and verdict rendering.
+- `73c9db7` - canonical dataset validation and PreForm virtual/debug device probes.
+- `5329e68` - staged Python release-gate harness and Node compatibility wrapper.
+- `4350cd0` - browser helpers for real STL folder upload and isolated app startup.
+- `470426c` - canonical dataset browser classification gate.
+- `b7a425a` - live virtual PreForm dispatch proof and no-physical-dispatch evidence.
+- `f3e9c98` - packaged EXE startup proof against `dist\FormFlow_v0.1.0.exe`.
+
+Additional final-wiring changes pending in the next commit:
+
+- `run_release_gate.py` now records a no-ship harness stage on unexpected exceptions and writes verdict evidence instead of dropping a raw stack trace.
+- `stages.py` disables third-party pytest plugin autoload for backend tests, resolves `npx.cmd` on Windows, limits virtual dispatch env to the live browser/PreForm stages, and runs the mocked browser stage serially with a longer timeout.
+- `tests/test_release_gate_harness.py` covers those stage-planning guardrails.
+- `README.md` documents the hard ship/no-ship release gate, prerequisites, and evidence location.
+
+Verification captured before pausing:
+
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_release_gate_harness.py -q` -> 16 passed.
+- `python -m py_compile scripts\release_gate\run_release_gate.py scripts\release_gate\stages.py tests\test_release_gate_harness.py` -> passed.
+- `npx tsc --noEmit` -> passed.
+- Focused packaged runtime Playwright proof passed and wrote `test-results\release-gate\manual-packaged-runtime\packaged-runtime.json`.
+- Full hard gate reached backend successfully after fixes: backend stage logged `455 passed, 3 skipped`.
+
+Current no-ship blocker:
+
+- The existing mocked browser/E2E stage is not green. Serial focused run of `npx.cmd playwright test tests/e2e tests/release_gate/smoke.spec.ts tests/release_gate/ui-hooks.spec.ts tests/release_gate/bulk-actions.spec.ts --project=chromium --workers=1` produced 23 failures and 1 pass.
+- Primary failure groups: stale row-selection expectations, stale legend/status-chip expectations, preview/undo/bulk tests failing after the app server became unavailable.
+- The interrupted final full-gate run was stopped intentionally by the user; its spawned release-gate, Playwright, and port-8200 uvicorn child processes were terminated before this log was written.
+
+Next continuation target:
+
+1. Fix or retire stale mocked browser specs so the browser-mocked stage is a meaningful production gate.
+2. Re-run the full hard gate against `C:\Users\Marcus\Desktop\From 4BL Test Data` and live PreFormServer at `http://127.0.0.1:44388`.
+3. Treat release as blocked until the final generated `verdict.md` says `SHIP: yes`.

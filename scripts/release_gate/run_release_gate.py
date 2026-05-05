@@ -79,16 +79,28 @@ def run_command(stage, store: EvidenceStore) -> StageResult:
     started = time.monotonic()
     log_path = store.path(stage.log_name or f"{stage.name}.log")
     env = {**os.environ, **stage.env}
-    with log_path.open("w", encoding="utf-8") as log:
-        completed = subprocess.run(
-            stage.command,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=stage.timeout_seconds,
-            env=env,
-            check=False,
+    try:
+        with log_path.open("w", encoding="utf-8") as log:
+            completed = subprocess.run(
+                stage.command,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=stage.timeout_seconds,
+                env=env,
+                check=False,
+            )
+    except subprocess.TimeoutExpired:
+        result = StageResult(
+            stage.name,
+            "fail",
+            round(time.monotonic() - started, 3),
+            " ".join(stage.command),
+            [log_path.name],
+            [f"timed out after {stage.timeout_seconds}s"],
         )
+        store.write_stage_result(result)
+        return result
     status = "pass" if completed.returncode == 0 else "fail"
     result = StageResult(
         stage.name,
@@ -105,25 +117,38 @@ def run_command(stage, store: EvidenceStore) -> StageResult:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     store = EvidenceStore(args.evidence_dir)
-    results = [run_environment(args, store)]
-    if args.mode == "all" and results[0].status == "pass":
-        for stage in build_stage_plan(
-            evidence_dir=args.evidence_dir,
-            test_data_dir=args.test_data_dir,
-            preform_url=args.preform_url,
-            headed=args.headed,
-            skip_package_build=args.skip_package_build,
-        ):
-            if stage.name == "environment":
-                continue
-            results.append(run_command(stage, store))
-            if results[-1].status != "pass":
-                break
     metadata = {
         "git_commit": git_commit(),
         "dataset_path": str(args.test_data_dir),
         "preform_url": args.preform_url,
     }
+    results: list[StageResult] = []
+    try:
+        results.append(run_environment(args, store))
+        if args.mode == "all" and results[0].status == "pass":
+            for stage in build_stage_plan(
+                evidence_dir=args.evidence_dir,
+                test_data_dir=args.test_data_dir,
+                preform_url=args.preform_url,
+                headed=args.headed,
+                skip_package_build=args.skip_package_build,
+            ):
+                if stage.name == "environment":
+                    continue
+                results.append(run_command(stage, store))
+                if results[-1].status != "pass":
+                    break
+    except Exception as exc:
+        result = StageResult(
+            "harness",
+            "fail",
+            0.0,
+            "release gate harness",
+            [],
+            [f"{type(exc).__name__}: {exc}"],
+        )
+        results.append(result)
+        store.write_stage_result(result)
     dataset_manifest_path = store.path("dataset-manifest.json")
     if dataset_manifest_path.exists():
         metadata["stl_count"] = json.loads(

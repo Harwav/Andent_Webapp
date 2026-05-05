@@ -5,7 +5,7 @@ import pytest
 from scripts.release_gate.evidence import EvidenceStore, StageResult, build_dataset_manifest
 from scripts.release_gate.preform_probe import is_virtual_device
 from scripts.release_gate.run_release_gate import build_parser, default_evidence_dir
-from scripts.release_gate.stages import build_stage_plan, validate_dataset
+from scripts.release_gate.stages import build_stage_plan, command_name, validate_dataset
 from scripts.release_gate.verdict import render_verdict
 
 
@@ -149,3 +149,55 @@ def test_stage_plan_keeps_skip_package_build_out_of_playwright_args(tmp_path):
     packaged = next(stage for stage in plan if stage.name == "packaged-runtime")
     assert "--skip-package-build" not in packaged.command
     assert packaged.env["FORMFLOW_RELEASE_SKIP_PACKAGE_BUILD"] == "1"
+
+
+def test_stage_plan_disables_external_pytest_plugins(tmp_path):
+    plan = build_stage_plan(
+        evidence_dir=tmp_path,
+        test_data_dir=tmp_path,
+        preform_url="http://127.0.0.1:44388",
+        headed=False,
+        skip_package_build=False,
+    )
+
+    backend = next(stage for stage in plan if stage.name == "backend")
+    assert backend.env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
+    assert "FORMFLOW_WEB_PRINT_DISPATCH_MODE" not in backend.env
+
+
+def test_stage_plan_limits_virtual_dispatch_to_live_stages(tmp_path):
+    plan = build_stage_plan(
+        evidence_dir=tmp_path,
+        test_data_dir=tmp_path,
+        preform_url="http://127.0.0.1:44388",
+        headed=False,
+        skip_package_build=False,
+    )
+
+    live_stage_names = {"browser-live-app", "live-preform-virtual", "packaged-runtime"}
+    for stage in plan:
+        if stage.name in live_stage_names:
+            assert stage.env["FORMFLOW_WEB_PRINT_DISPATCH_MODE"] == "virtual"
+        else:
+            assert "FORMFLOW_WEB_PRINT_DISPATCH_MODE" not in stage.env
+
+
+def test_command_name_uses_windows_cmd_shim(monkeypatch):
+    monkeypatch.setattr("scripts.release_gate.stages.os.name", "nt")
+
+    assert command_name("npx") == "npx.cmd"
+    assert command_name("python") == "python"
+
+
+def test_browser_mocked_stage_runs_serially_with_actionable_timeout(tmp_path):
+    plan = build_stage_plan(
+        evidence_dir=tmp_path,
+        test_data_dir=tmp_path,
+        preform_url="http://127.0.0.1:44388",
+        headed=False,
+        skip_package_build=False,
+    )
+
+    stage = next(stage for stage in plan if stage.name == "browser-mocked")
+    assert "--workers=1" in stage.command
+    assert stage.timeout_seconds >= 1200

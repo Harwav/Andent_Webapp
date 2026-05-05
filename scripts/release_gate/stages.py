@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 
 
@@ -36,6 +37,12 @@ def validate_dataset(dataset_dir: Path) -> Path:
     return dataset_dir
 
 
+def command_name(name: str) -> str:
+    if os.name == "nt" and name in {"npx", "npm"}:
+        return f"{name}.cmd"
+    return name
+
+
 def build_stage_plan(
     *,
     evidence_dir: Path,
@@ -48,12 +55,17 @@ def build_stage_plan(
         "FORMFLOW_RELEASE_EVIDENCE_DIR": str(evidence_dir),
         "FORMFLOW_RELEASE_TEST_DATA_DIR": str(test_data_dir),
         "PREFORM_SERVER_URL": preform_url,
-        "FORMFLOW_WEB_PRINT_DISPATCH_MODE": "virtual",
-        "ANDENT_WEB_PRINT_DISPATCH_MODE": "virtual",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
     }
     if skip_package_build:
         common_env["FORMFLOW_RELEASE_SKIP_PACKAGE_BUILD"] = "1"
+    virtual_dispatch_env = {
+        **common_env,
+        "FORMFLOW_WEB_PRINT_DISPATCH_MODE": "virtual",
+        "ANDENT_WEB_PRINT_DISPATCH_MODE": "virtual",
+    }
     headed_flag = ["--headed"] if headed else []
+    npx = command_name("npx")
     return [
         StageCommand(
             "environment",
@@ -79,7 +91,7 @@ def build_stage_plan(
         StageCommand(
             "browser-mocked",
             [
-                "npx",
+                npx,
                 "playwright",
                 "test",
                 "tests/e2e",
@@ -87,15 +99,16 @@ def build_stage_plan(
                 "tests/release_gate/ui-hooks.spec.ts",
                 "tests/release_gate/bulk-actions.spec.ts",
                 "--project=chromium",
+                "--workers=1",
             ],
-            300,
+            1200,
             common_env,
             "browser-mocked.log",
         ),
         StageCommand(
             "browser-live-app",
             [
-                "npx",
+                npx,
                 "playwright",
                 "test",
                 "tests/release_gate/live_virtual_handoff.spec.ts",
@@ -103,13 +116,13 @@ def build_stage_plan(
                 *headed_flag,
             ],
             480,
-            common_env,
+            virtual_dispatch_env,
             "browser-live-app.log",
         ),
         StageCommand(
             "live-preform-virtual",
             [
-                "npx",
+                npx,
                 "playwright",
                 "test",
                 "tests/release_gate/live_pack_invariants.spec.ts",
@@ -117,13 +130,13 @@ def build_stage_plan(
                 *headed_flag,
             ],
             1200,
-            common_env,
+            virtual_dispatch_env,
             "live-preform-virtual.log",
         ),
         StageCommand(
             "packaged-runtime",
             [
-                "npx",
+                npx,
                 "playwright",
                 "test",
                 "tests/release_gate/packaged_runtime.spec.ts",
@@ -131,7 +144,7 @@ def build_stage_plan(
                 *headed_flag,
             ],
             600,
-            common_env,
+            virtual_dispatch_env,
             "packaged-runtime.log",
         ),
     ]
