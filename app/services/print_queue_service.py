@@ -612,6 +612,55 @@ def _build_lane_keys_from_manifests(
     return sorted(lane_keys)
 
 
+def _coalesce_manifests_by_lane_key(
+    manifests: list["BuildManifest"],
+) -> list["BuildManifest"]:
+    """Merge manifests with the same lane key into a single manifest.
+
+    When multiple manifests share the same lane key (same printer/material/layer/print_setting),
+    they should be coalesced into one manifest to ensure a single PreForm operation per lane.
+    """
+    from collections import defaultdict
+
+    if not manifests:
+        return []
+
+    # Group manifests by lane key
+    lane_key_to_manifests: dict[str, list["BuildManifest"]] = defaultdict(list)
+    for manifest in manifests:
+        if manifest.planning_status != "planned" or not manifest.import_groups:
+            continue
+        lane_key = _build_lane_key_from_manifest(manifest)
+        lane_key_to_manifests[lane_key].append(manifest)
+
+    # Coalesce manifests with the same lane key
+    coalesced: list["BuildManifest"] = []
+    for lane_key, lane_manifests in lane_key_to_manifests.items():
+        if len(lane_manifests) == 1:
+            # No coalescing needed
+            coalesced.append(lane_manifests[0])
+        else:
+            # Merge multiple manifests into one
+            merged_groups: list["BuildManifestImportGroup"] = []
+            merged_case_ids: list[str] = []
+            for manifest in lane_manifests:
+                for group in manifest.import_groups:
+                    merged_groups.append(group)
+                merged_case_ids.extend(manifest.case_ids)
+
+            # Use the first manifest as the base, updating the fields
+            first = lane_manifests[0]
+            coalesced_manifest = first.model_copy(deep=True)
+            coalesced_manifest.import_groups = merged_groups
+            coalesced_manifest.case_ids = merged_case_ids
+
+            # Recalculate estimated density for the merged manifest
+            # (using the existing estimated_density from first manifest as approximation)
+            coalesced.append(coalesced_manifest)
+
+    return coalesced
+
+
 @contextmanager
 def _build_lane_locks(
     settings: "Settings",
@@ -1553,6 +1602,7 @@ def _update_reserved_print_job_as_held(
     settings: "Settings",
     cutoff_at: datetime,
     now: str,
+    hold_reason: str = "below_density_target",
 ) -> None:
     screenshot_url = result.get("screenshot_url") or f"/api/print-queue/jobs/{job_id}/screenshot"
     connection.execute(
@@ -1603,7 +1653,7 @@ def _update_reserved_print_job_as_held(
             result.get("estimated_density"),
             settings.print_hold_density_target,
             cutoff_at.isoformat(),
-            "below_density_target",
+            hold_reason,
             (
                 1 if result.get("validation_passed")
                 else 0 if result.get("validation_passed") is False
@@ -2000,6 +2050,8 @@ def _send_ready_rows_to_device(
             planning_rows,
             max_layout_density=settings.print_max_layout_density,
         )
+        # Coalesce manifests with same lane key to prevent concurrent PreForm operations
+        manifests = _coalesce_manifests_by_lane_key(manifests)
         rows_by_id = {
             row.row_id: row
             for row in planning_rows
@@ -2094,6 +2146,7 @@ def _send_ready_rows_to_device(
                             rows=_load_rows_by_ids(connection, row_ids),
                         )
                     ) from exc
+                result = None
                 try:
                     with _build_lane_locks(
                         settings,
@@ -2153,10 +2206,11 @@ def _send_ready_rows_to_device(
                     _update_reserved_print_job_as_held(
                         connection,
                         job_id=created_print_job_id,
-                        result=hold_result,
+                        result=result if result is not None else hold_result,
                         settings=settings,
                         cutoff_at=cutoff_at,
                         now=now,
+                        hold_reason="busy_lane",
                     )
                     _held_job_ids_created_this_process.add(created_print_job_id)
                     held_row_ids = []
@@ -2815,6 +2869,7 @@ def send_ready_rows_to_print(
                         settings=settings,
                         cutoff_at=cutoff_at,
                         now=now,
+                        hold_reason="below_density_target",
                     )
                     _held_job_ids_created_this_process.add(created_print_job_id)
                     for row in accepted_rows:

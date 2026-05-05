@@ -336,3 +336,141 @@ def test_config_loads_formlabs_api_token(monkeypatch: pytest.MonkeyPatch):
     settings = build_settings()
 
     assert settings.formlabs_api_token == "test-token-123"
+
+
+def test_coalesce_manifests_by_lane_key_merges_same_lane(tmp_path):
+    """Two manifests with same lane key should merge into one."""
+    from app.schemas import BuildManifest, BuildManifestImportGroup, FilePrepSpec
+
+    def make_file(row_id, case_id):
+        return FilePrepSpec(
+            row_id=row_id,
+            case_id=case_id,
+            file_name=f"case{row_id}.stl",
+            file_path=f"/tmp/case{row_id}.stl",
+            preset_name="Ortho Solid - Flat, No Supports",
+            compatibility_key="form-4bl|precision-model-v1|100",
+            xy_footprint_estimate=1000.0,
+            support_inflation_factor=1.0,
+        )
+
+    # Two manifests with same lane configuration (same printer/material/layer)
+    manifest_a = BuildManifest(
+        compatibility_key="form-4bl|precision-model-v1|100",
+        case_ids=["CASE001", "CASE002", "CASE003"],
+        preset_names=["Ortho Solid - Flat, No Supports"],
+        import_groups=[
+            BuildManifestImportGroup(
+                preset_name="Ortho Solid - Flat, No Supports",
+                preform_hint="ortho_solid_v1",
+                row_ids=[1, 2],
+                files=[make_file(1, "CASE001"), make_file(2, "CASE002")],
+            ),
+        ],
+        printer_group="Form 4BL",
+        material_code="FLPMBE01",
+        material_label="Precision Model V1",
+        layer_thickness_mm=0.1,
+        print_setting="DEFAULT",
+        estimated_density=0.45,
+    )
+
+    manifest_b = BuildManifest(
+        compatibility_key="form-4bl|precision-model-v1|100",
+        case_ids=["CASE004", "CASE005"],
+        preset_names=["Ortho Solid - Flat, No Supports"],
+        import_groups=[
+            BuildManifestImportGroup(
+                preset_name="Ortho Solid - Flat, No Supports",
+                preform_hint="ortho_solid_v1",
+                row_ids=[3, 4],
+                files=[make_file(3, "CASE004"), make_file(4, "CASE005")],
+            ),
+        ],
+        printer_group="Form 4BL",
+        material_code="FLPMBE01",
+        material_label="Precision Model V1",
+        layer_thickness_mm=0.1,
+        print_setting="DEFAULT",
+        estimated_density=0.25,
+    )
+
+    from app.services.print_queue_service import _coalesce_manifests_by_lane_key
+
+    coalesced = _coalesce_manifests_by_lane_key([manifest_a, manifest_b])
+
+    # Should be 1 coalesced manifest, not 2
+    assert len(coalesced) == 1, f"Expected 1 coalesced manifest, got {len(coalesced)}"
+
+    result = coalesced[0]
+    # All case_ids should be present
+    assert set(result.case_ids) == {"CASE001", "CASE002", "CASE003", "CASE004", "CASE005"}
+    # All row_ids should be present
+    all_row_ids = [f.row_id for g in result.import_groups for f in g.files]
+    assert set(all_row_ids) == {1, 2, 3, 4}
+    # All import_groups preserved
+    assert len(result.import_groups) == 2
+
+
+def test_coalesce_manifests_by_lane_key_keeps_different_lanes_separate(tmp_path):
+    """Manifests with different lane keys should not merge."""
+    from app.schemas import BuildManifest, BuildManifestImportGroup, FilePrepSpec
+
+    def make_file(row_id, case_id, preset_name, compat_key):
+        return FilePrepSpec(
+            row_id=row_id,
+            case_id=case_id,
+            file_name=f"case{row_id}.stl",
+            file_path=f"/tmp/case{row_id}.stl",
+            preset_name=preset_name,
+            compatibility_key=compat_key,
+            xy_footprint_estimate=1000.0,
+            support_inflation_factor=1.0,
+        )
+
+    manifest_form4bl = BuildManifest(
+        compatibility_key="form-4bl|precision-model-v1|100",
+        case_ids=["CASE001"],
+        preset_names=["Ortho Solid - Flat, No Supports"],
+        import_groups=[
+            BuildManifestImportGroup(
+                preset_name="Ortho Solid - Flat, No Supports",
+                preform_hint="ortho_solid_v1",
+                row_ids=[1],
+                files=[make_file(1, "CASE001", "Ortho Solid - Flat, No Supports", "form-4bl|precision-model-v1|100")],
+            ),
+        ],
+        printer_group="Form 4BL",
+        material_code="FLPMBE01",
+        material_label="Precision Model V1",
+        layer_thickness_mm=0.1,
+        print_setting="DEFAULT",
+        estimated_density=0.5,
+    )
+
+    manifest_form4b = BuildManifest(
+        compatibility_key="form-4b|tough2000|50",
+        case_ids=["CASE002"],
+        preset_names=["Tough 2000 V2"],
+        import_groups=[
+            BuildManifestImportGroup(
+                preset_name="Tough 2000 V2",
+                preform_hint="tough_v2",
+                row_ids=[2],
+                files=[make_file(2, "CASE002", "Tough 2000 V2", "form-4b|tough2000|50")],
+            ),
+        ],
+        printer_group="Form 4B",
+        material_code="FLTBLK01",
+        material_label="Tough 2000 V2",
+        layer_thickness_mm=0.05,
+        print_setting="DEFAULT",
+        estimated_density=0.5,
+    )
+
+    from app.services.print_queue_service import _coalesce_manifests_by_lane_key
+
+    coalesced = _coalesce_manifests_by_lane_key([manifest_form4bl, manifest_form4b])
+
+    # Should remain 2 separate manifests (different lane keys)
+    assert len(coalesced) == 2
