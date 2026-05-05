@@ -868,7 +868,7 @@ def test_build_lane_key_splits_selected_devices_for_same_material_lane(tmp_path)
     assert west[0].startswith("device:form-4bl-west|")
 
 
-def test_send_to_print_rejects_when_same_build_lane_is_locked(tmp_path):
+def test_send_to_print_holds_rows_when_same_build_lane_is_busy(tmp_path):
     from app.database import get_upload_row_by_id, try_acquire_build_lane_lock
     from app.services.build_planning import plan_build_manifests
     from app.services.print_queue_service import _build_lane_keys_from_manifests
@@ -877,33 +877,81 @@ def test_send_to_print_rejects_when_same_build_lane_is_locked(tmp_path):
     app = create_app(settings)
     client = TestClient(app)
 
-    case_file = tmp_path / "locked-lane.stl"
+    case_file = tmp_path / "busy-lane.stl"
     case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
     row_ids = _seed_rows(
         settings,
         [
             _row_payload(
                 case_file,
-                case_id="CASE-LOCKED-LANE",
+                case_id="CASE-BUSY-LANE",
                 preset="Ortho Solid - Flat, No Supports",
                 status="Ready",
-                content_hash="hash-locked-lane",
+                content_hash="hash-busy-lane",
             ),
         ],
     )
     rows = [get_upload_row_by_id(settings, row_ids[0])]
-    lane_key = _build_lane_keys_from_manifests(plan_build_manifests(rows))[0]
+    lane_key = _build_lane_keys_from_manifests(
+        plan_build_manifests(rows),
+        device_id="form-4bl-lab",
+    )[0]
     assert try_acquire_build_lane_lock(settings, lane_key, "test-owner", "send")
 
-    with patch(
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {
+            "id": "form-4bl-lab",
+            "name": "Lab Printer",
+            "model": "Form 4BL",
+            "status": "Ready",
+            "is_virtual": True,
+        }
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
         "app.services.preform_setup_service.get_preform_setup_status",
         return_value=_ready_setup_status(settings),
-    ):
-        response = client.post("/api/uploads/rows/send-to-print", json={"row_ids": row_ids})
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-lab"},
+        )
 
-    assert response.status_code == 409
-    assert "Build preparation is already in progress" in response.json()["detail"]
-    assert list_print_jobs(settings) == []
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["groups"][0]["status"] == "held"
+    assert "already preparing" in payload["groups"][0]["error"].lower()
+    assert stub_client.imported_models == []
+    assert stub_client.print_jobs == []
+
+    jobs = list_print_jobs(settings)
+    assert len(jobs) == 1
+    assert jobs[0].status == "Holding for More Cases"
+    assert jobs[0].printer_device_id == "form-4bl-lab"
+    assert jobs[0].case_ids == ["CASE-BUSY-LANE"]
+
+    row = get_upload_row_by_id(settings, row_ids[0])
+    assert row.status == "Submitted"
+    assert row.queue_section == "in_progress"
+    assert row.handoff_stage == "Holding for More Cases"
+    assert row.linked_print_job_id == jobs[0].id
+
+    with closing(connect(settings)) as connection:
+        events = connection.execute(
+            """
+            SELECT event_type, metadata_json
+            FROM upload_row_events
+            WHERE row_id = ?
+            ORDER BY id
+            """,
+            (row_ids[0],),
+        ).fetchall()
+    assert [event["event_type"] for event in events] == [
+        "created",
+        "handoff_started",
+        "build_holding",
+    ]
+    assert not any(event["event_type"] == "handoff_failed" for event in events)
 
 
 def test_send_to_print_allows_different_material_lane_while_other_lane_locked(tmp_path):
@@ -1922,7 +1970,7 @@ def test_send_to_print_defaults_to_form4bl_when_no_printer_selected(tmp_path):
     assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
 
 
-def test_send_to_print_holds_final_below_target_build_without_preform_dispatch(tmp_path):
+def test_send_to_print_holds_final_below_target_build_with_preform_preview_without_dispatch(tmp_path):
     settings = _build_holding_settings(tmp_path)
     app = create_app(settings)
     client = TestClient(app)
@@ -1957,12 +2005,15 @@ def test_send_to_print_holds_final_below_target_build_without_preform_dispatch(t
     assert row["status"] == "Submitted"
     assert row["queue_section"] == "in_progress"
     assert row["handoff_stage"] == "Holding for More Cases"
-    assert stub_client.created_scenes == []
+    assert stub_client.created_scenes == [
+        ("CASE-HOLD", datetime.now().strftime("%y%m%d") + "_0001")
+    ]
     assert stub_client.print_jobs == []
 
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
     assert jobs[0].status == "Holding for More Cases"
+    assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
     assert jobs[0].printer_type == "Form 4BL"
     assert jobs[0].resin == "Precision Model V1"
     assert jobs[0].layer_height_microns == 100
@@ -1976,7 +2027,7 @@ def test_send_to_print_holds_final_below_target_build_without_preform_dispatch(t
 
     assert screenshot_response.status_code == 200
     assert screenshot_response.headers["content-type"] == "image/png"
-    assert screenshot_response.content.startswith(b"\x89PNG\r\n\x1a\n")
+    assert screenshot_response.content == b"preform-screenshot-png"
 
 
 def test_selected_device_send_to_print_holds_final_below_target_build(tmp_path):
@@ -2019,12 +2070,15 @@ def test_selected_device_send_to_print_holds_final_below_target_build(tmp_path):
     assert response.status_code == 200
     payload = response.json()
     assert payload["groups"][0]["status"] == "held"
-    assert stub_client.created_scenes == []
+    assert stub_client.created_scenes == [
+        ("CASE-DEVICE-HOLD", datetime.now().strftime("%y%m%d") + "_0001")
+    ]
     assert stub_client.print_jobs == []
 
     jobs = list_print_jobs(settings)
     assert len(jobs) == 1
     assert jobs[0].status == "Holding for More Cases"
+    assert jobs[0].form_file_path == str((settings.output_dir / jobs[0].job_name / f"{jobs[0].job_name}.form").resolve())
     assert jobs[0].hold_reason == "below_density_target"
     assert jobs[0].printer_device_id == "form-4bl-lab"
     assert jobs[0].estimated_density == 1200.0 / 69188.0
@@ -2065,6 +2119,7 @@ def test_release_held_job_dispatches_and_records_operator_release(tmp_path):
     assert hold_response.status_code == 200
     assert release_response.status_code == 200
     assert stub_client.created_scenes == [
+        ("CASE-RELEASE", datetime.now().strftime("%y%m%d") + "_0001"),
         ("CASE-RELEASE", datetime.now().strftime("%y%m%d") + "_0001")
     ]
     assert stub_client.print_jobs == []
@@ -2195,8 +2250,9 @@ def test_new_compatible_rows_replan_with_existing_held_build(tmp_path):
     assert second_response.status_code == 200
     assert stub_client.print_jobs == []
     assert stub_client.imported_models == [
-        ("scene-1", str(filler_file), "ortho_solid_v1"),
         ("scene-1", str(held_file), "ortho_solid_v1"),
+        ("scene-2", str(filler_file), "ortho_solid_v1"),
+        ("scene-2", str(held_file), "ortho_solid_v1"),
     ]
 
     jobs = list_print_jobs(settings)
@@ -2277,8 +2333,9 @@ def test_selected_device_new_compatible_rows_replan_with_existing_held_build(tmp
 
     assert second_response.status_code == 200
     assert stub_client.imported_models == [
-        ("scene-1", str(filler_file), "ortho_solid_v1"),
         ("scene-1", str(held_file), "ortho_solid_v1"),
+        ("scene-2", str(filler_file), "ortho_solid_v1"),
+        ("scene-2", str(held_file), "ortho_solid_v1"),
     ]
 
     jobs = list_print_jobs(settings)
@@ -2366,6 +2423,98 @@ def test_different_device_does_not_merge_existing_selected_device_hold(tmp_path)
     assert len(jobs) == 2
     assert {job.printer_device_id for job in jobs} == {"form-4bl-a", "form-4bl-b"}
     assert all(job.status == "Holding for More Cases" for job in jobs)
+
+
+def test_busy_lane_does_not_delete_existing_held_job(tmp_path):
+    from app.database import get_upload_row_by_id, try_acquire_build_lane_lock
+    from app.services.build_planning import plan_build_manifests
+    from app.services.print_queue_service import _build_lane_keys_from_manifests
+
+    settings = replace(_build_settings(tmp_path), print_hold_density_target=0.95)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    held_file = tmp_path / "held.stl"
+    held_file.write_text("solid held\nendsolid held\n", encoding="utf-8")
+    held_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                held_file,
+                case_id="CASE-ALREADY-HELD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-already-held",
+                dimension_x_mm=20.0,
+                dimension_y_mm=20.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {
+            "id": "form-4bl-lab",
+            "name": "Lab Printer",
+            "model": "Form 4BL",
+            "status": "Ready",
+            "is_virtual": True,
+        }
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        first_response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": held_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert first_response.status_code == 200
+    existing_job = list_print_jobs(settings)[0]
+    assert existing_job.status == "Holding for More Cases"
+
+    new_file = tmp_path / "new-compatible.stl"
+    new_file.write_text("solid new\nendsolid new\n", encoding="utf-8")
+    new_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                new_file,
+                case_id="CASE-NEW-HELD",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-new-held",
+                dimension_x_mm=20.0,
+                dimension_y_mm=20.0,
+            ),
+        ],
+    )
+    new_rows = [get_upload_row_by_id(settings, new_ids[0])]
+    lane_key = _build_lane_keys_from_manifests(
+        plan_build_manifests(new_rows),
+        device_id="form-4bl-lab",
+    )[0]
+    assert try_acquire_build_lane_lock(settings, lane_key, "external-prep", "send")
+
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        second_response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": new_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert second_response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert {job.status for job in jobs} == {"Holding for More Cases"}
+    assert {case_id for job in jobs for case_id in job.case_ids} == {
+        "CASE-ALREADY-HELD",
+        "CASE-NEW-HELD",
+    }
+    assert get_upload_row_by_id(settings, held_ids[0]).queue_section == "in_progress"
+    assert get_upload_row_by_id(settings, new_ids[0]).queue_section == "in_progress"
 
 
 def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
