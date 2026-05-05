@@ -1196,6 +1196,56 @@ def test_selected_device_send_to_print_marks_import_failure_for_review_without_r
     assert list_print_jobs(settings) == []
 
 
+def test_selected_device_empty_import_failure_marks_active_manifest_without_retry(tmp_path):
+    from app.services.print_queue_service import PreFormImportFailureError
+
+    settings = _build_settings(tmp_path)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    case_file = tmp_path / "support-model-id-missing.stl"
+    case_file.write_text("solid test\nendsolid test\n", encoding="utf-8")
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                case_file,
+                case_id="CASE-EMPTY-IMPORT-FAIL",
+                preset="Tooth - With Supports",
+                status="Ready",
+                content_hash="hash-empty-import-fail",
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-east", "name": "Form 4BL East", "model": "Form 4BL", "status": "ready"}
+    ]
+    process_manifest = Mock(side_effect=PreFormImportFailureError({}))
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")), patch(
+        "app.services.print_queue_service.process_print_manifest",
+        process_manifest,
+    ):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-east"},
+        )
+
+    assert response.status_code == 502
+    assert process_manifest.call_count == 1
+    payload = response.json()
+    assert payload["groups"] == []
+    assert payload["blocked_groups"][0]["status"] == "failed"
+    row = get_upload_row_by_id(settings, row_ids[0])
+    assert row.status == "Needs Review"
+    assert "PreForm import failed" in row.review_reason
+    assert list_print_jobs(settings) == []
+
+
 def test_selected_device_import_failure_review_write_retries_transient_sqlite_lock(tmp_path):
     import sqlite3
 
@@ -2517,6 +2567,85 @@ def test_busy_lane_does_not_delete_existing_held_job(tmp_path):
     assert get_upload_row_by_id(settings, new_ids[0]).queue_section == "in_progress"
 
 
+def test_busy_lane_held_job_on_other_device_survives_send_to_print(tmp_path):
+    from app.database import get_upload_row_by_id, try_acquire_build_lane_lock
+    from app.services.build_planning import plan_build_manifests
+    from app.services.print_queue_service import _build_lane_keys_from_manifests
+
+    settings = replace(_build_settings(tmp_path), print_hold_density_target=0.95)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    busy_file = tmp_path / "busy-a.stl"
+    other_file = tmp_path / "other-b.stl"
+    busy_file.write_text("solid busy\nendsolid busy\n", encoding="utf-8")
+    other_file.write_text("solid other\nendsolid other\n", encoding="utf-8")
+    busy_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                busy_file,
+                case_id="CASE-BUSY-A",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-busy-a",
+                dimension_x_mm=20.0,
+                dimension_y_mm=20.0,
+            ),
+        ],
+    )
+    other_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                other_file,
+                case_id="CASE-OTHER-B",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-other-b",
+                dimension_x_mm=20.0,
+                dimension_y_mm=20.0,
+            ),
+        ],
+    )
+
+    row = get_upload_row_by_id(settings, busy_ids[0])
+    lane_key = _build_lane_keys_from_manifests(
+        plan_build_manifests([row]),
+        device_id="form-4bl-a",
+    )[0]
+    assert try_acquire_build_lane_lock(settings, lane_key, "external-prep", "send")
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-a", "name": "Printer A", "model": "Form 4BL", "status": "Ready"},
+        {"id": "form-4bl-b", "name": "Printer B", "model": "Form 4BL", "status": "Ready"},
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), patch(
+        "app.services.preform_setup_service.get_preform_setup_status",
+        return_value=_ready_setup_status(settings),
+    ), patch("app.services.print_queue_service.validate_stl_file", return_value=Mock(is_valid=True, message="OK")):
+        first_response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": busy_ids, "device_id": "form-4bl-a"},
+        )
+        assert first_response.status_code == 200
+        busy_job = list_print_jobs(settings)[0]
+        assert busy_job.hold_reason == "busy_lane"
+
+        second_response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": other_ids, "device_id": "form-4bl-b"},
+        )
+
+    assert second_response.status_code == 200
+    jobs = list_print_jobs(settings)
+    assert {job.printer_device_id for job in jobs} == {"form-4bl-a", "form-4bl-b"}
+    assert any(job.id == busy_job.id and job.hold_reason == "busy_lane" for job in jobs)
+    busy_row = get_upload_row_by_id(settings, busy_ids[0])
+    assert busy_row.linked_print_job_id == busy_job.id
+
+
 def test_overflow_pool_busy_lane_creates_single_held_job(tmp_path):
     """When the lane is busy, exactly one busy_lane held job covers the entire pool.
 
@@ -2613,8 +2742,8 @@ def test_overflow_pool_sequentially_packs_and_holds_only_final_remainder(tmp_pat
     app = create_app(settings)
     client = TestClient(app)
 
-    # Three cases. Two large (~24% effective each), one tiny (~5%).
-    # Iteration 1 packs LARGE-A + LARGE-B (~48% density, ≥ 40% target) → Queued.
+    # Three cases. Two large (~29.5% effective each), one tiny (~3%).
+    # Iteration 1 packs LARGE-A + LARGE-B (~59% density, >= 40% target) -> Queued.
     # If TINY fits the smallest-filler pass of iteration 1, it joins; otherwise iteration 2 holds it.
     # Test relies on dimensions chosen so smallest-filler does NOT fit TINY into iteration 1
     # (sufficient when the two large arches consume most of the 60% cap budget).
@@ -2622,9 +2751,9 @@ def test_overflow_pool_sequentially_packs_and_holds_only_final_remainder(tmp_pat
     for s in stls:
         s.write_text(f"solid {s.name}\nendsolid {s.name}\n", encoding="utf-8")
 
-    register_test_dims(str(stls[0]), 230.0, 180.0)
-    register_test_dims(str(stls[1]), 230.0, 180.0)
-    register_test_dims(str(stls[2]), 20.0, 15.0, "Tooth")
+    register_test_dims(str(stls[0]), 220.0, 160.0)
+    register_test_dims(str(stls[1]), 220.0, 160.0)
+    register_test_dims(str(stls[2]), 50.0, 40.0, "Tooth")
 
     all_ids = _seed_rows(
         settings,
@@ -2632,15 +2761,15 @@ def test_overflow_pool_sequentially_packs_and_holds_only_final_remainder(tmp_pat
             _row_payload(stls[0], case_id="LARGE-A",
                          preset="Ortho Solid - Flat, No Supports",
                          status="Ready", content_hash="h-la",
-                         dimension_x_mm=230.0, dimension_y_mm=180.0),
+                         dimension_x_mm=220.0, dimension_y_mm=160.0),
             _row_payload(stls[1], case_id="LARGE-B",
                          preset="Ortho Solid - Flat, No Supports",
                          status="Ready", content_hash="h-lb",
-                         dimension_x_mm=230.0, dimension_y_mm=180.0),
+                         dimension_x_mm=220.0, dimension_y_mm=160.0),
             _row_payload(stls[2], case_id="TINY",
                          preset="Tooth - With Supports",
                          status="Ready", content_hash="h-t",
-                         dimension_x_mm=20.0, dimension_y_mm=15.0),
+                         dimension_x_mm=50.0, dimension_y_mm=40.0),
         ],
     )
 

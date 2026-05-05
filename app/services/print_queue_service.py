@@ -614,6 +614,8 @@ def _build_lane_keys_from_manifests(
 
 def _coalesce_manifests_by_lane_key(
     manifests: list["BuildManifest"],
+    *,
+    max_layout_density: float | None = None,
 ) -> list["BuildManifest"]:
     """Merge planned manifests with the same lane key into a single manifest.
 
@@ -646,8 +648,14 @@ def _coalesce_manifests_by_lane_key(
         # plan_build_manifests split these precisely because one tray can't fit all rows.
         first = lane_manifests[0]
         printer_xy_budget = first.printer_xy_budget or 0.0
+        max_merged_xy_budget = printer_xy_budget
+        if printer_xy_budget > 0 and max_layout_density is not None and max_layout_density > 0:
+            max_merged_xy_budget = min(
+                printer_xy_budget,
+                printer_xy_budget * max_layout_density,
+            )
         merged_used_xy = sum(m.used_xy_budget for m in lane_manifests)
-        if printer_xy_budget > 0 and merged_used_xy > printer_xy_budget:
+        if max_merged_xy_budget > 0 and merged_used_xy > max_merged_xy_budget:
             # Merged footprint exceeds tray capacity — keep originals for individual dispatch.
             coalesced.extend(lane_manifests)
             continue
@@ -1691,11 +1699,6 @@ def _load_held_replan_rows(
     for job in list_print_jobs(settings):
         if job.status != HOLDING_STATUS or job.id is None or job.manifest_json is None:
             continue
-        if job.hold_reason == "busy_lane":
-            # busy_lane jobs get deleted when the lane becomes free (held_job_ids);
-            # their rows must not enter density-target replanning or they create a second held build
-            held_job_ids.append(job.id)
-            continue
         try:
             manifest = BuildManifest.model_validate(job.manifest_json)
         except Exception:
@@ -1707,6 +1710,10 @@ def _load_held_replan_rows(
         if lane_keys is not None and job_lane_key not in lane_keys:
             continue
         held_job_ids.append(job.id)
+        if job.hold_reason == "busy_lane":
+            # busy_lane jobs are lane-scoped stale reservations. Delete matching jobs
+            # without merging their rows into density-target replanning.
+            continue
         for group in job.manifest_json.get("import_groups", []):
             if not isinstance(group, dict):
                 continue
@@ -2060,12 +2067,6 @@ def _send_ready_rows_to_device(
             ],
             device,
         )
-        manifests = plan_build_manifests(
-            planning_rows,
-            max_layout_density=settings.print_max_layout_density,
-        )
-        # Coalesce manifests with same lane key to prevent concurrent PreForm operations
-        manifests = _coalesce_manifests_by_lane_key(manifests)
         rows_by_id = {
             row.row_id: row
             for row in planning_rows
@@ -2090,7 +2091,10 @@ def _send_ready_rows_to_device(
             if not ranked_manifests:
                 break
 
-            ranked_manifests = _coalesce_manifests_by_lane_key(ranked_manifests)
+            ranked_manifests = _coalesce_manifests_by_lane_key(
+                ranked_manifests,
+                max_layout_density=settings.print_max_layout_density,
+            )
 
             manifest = ranked_manifests[0]
             manifest_row_id_list = manifest_row_ids(manifest, live_pool)
@@ -2309,6 +2313,17 @@ def _send_ready_rows_to_device(
 
                 except PreFormImportFailureError as exc:
                     failed_case_errors = exc.failed_case_errors
+                    if not failed_case_errors:
+                        failed_case_errors = {
+                            case_id: "no valid cases could be imported"
+                            for case_id in active_manifest.case_ids
+                        }
+                    quarantined_case_ids = set(failed_case_errors.keys())
+                    failed_row_ids = [
+                        row.row_id
+                        for row in live_pool
+                        if row.row_id is not None and row.case_id in quarantined_case_ids
+                    ]
                     _mark_cases_needs_review_with_retry(
                         connection,
                         [
@@ -2331,11 +2346,10 @@ def _send_ready_rows_to_device(
                         _group_result(
                             manifest_id=manifest_id,
                             status="failed",
-                            row_ids=manifest_row_id_list,
+                            row_ids=failed_row_ids,
                             error="PreFormServer rejected every STL in this group during import.",
                         )
                     )
-                    quarantined_case_ids = set(failed_case_errors.keys())
                     live_pool = [r for r in live_pool if r.case_id not in quarantined_case_ids]
                     tray_outcome = "blocked"
                     break
@@ -2588,7 +2602,6 @@ def send_ready_rows_to_print(
         planning_rows,
         max_layout_density=settings.print_max_layout_density,
     )
-    manifests = _coalesce_manifests_by_lane_key(manifests)
     if not manifests:
         return rows
 
