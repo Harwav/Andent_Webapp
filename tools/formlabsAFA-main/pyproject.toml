@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "formlabsAFA"
+version = "0.1.0"
+description = "Formlabs Automated Frame Assembly — automated dental model frame printing"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp[speedups]>=3.11",
+    "aiosqlite",
+    "fastapi[standard]",
+    "manifold3d",
+    "mapbox-earcut",
+    "networkx",
+    "numpy",
+    "psutil",
+    "pydantic>=2.0",
+    "requests",
+    "rich>=13.0",
+    "rtree",
+    "scipy",
+    "Shapely>=2.0",
+    "trimesh>=4.0",
+    "watchdog>=6.0",
+]
+
+[project.optional-dependencies]
+uvloop = ["uvloop>=0.21.0"]
+
+[project.scripts]
+formlabsAFA = "formlabsAFA.__main__:cli"
+
+[tool.setuptools.packages.find]
+include = ["formlabsAFA*"]

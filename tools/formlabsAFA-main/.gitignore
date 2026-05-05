@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Python
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Local config (contains absolute paths and credentials — use config.example.toml as a template)
+config.toml
+
+# Workspace data (STLs, .form files, logs, database)
+workspace/
+*.db
+*.form
+
+# STL files in workspace (but NOT frame_profiles/ — those are app data)
+*.stl
+!frame_profiles/**/*.stl
+
+# PreForm Server binary (proprietary, users must supply their own)
+PreForm_Server/
+
+# IDE / editor
+.claude/
+.vscode/
+.idea/

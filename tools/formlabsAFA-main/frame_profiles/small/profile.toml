@@ -1,0 +1,4 @@
+name = "small"
+min_models = 1
+max_models = 15
+priority = 1

@@ -1,0 +1,4 @@
+name = "large"
+min_models = 16
+max_models = 20
+priority = 1

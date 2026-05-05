@@ -1,0 +1,158 @@
+# formlabsAFA config template
+#
+# Setup:
+#   cp config.example.toml config.toml
+#   # edit config.toml with your printer serial, paths, and (optionally) Dashboard API credentials
+#
+# Run:
+#   python3 -m formlabsAFA config.toml
+#
+# config.toml is gitignored — keep your real credentials there, not here.
+
+# ======================================================================
+# Build mode — selects how models are combined on the build plate.
+# ======================================================================
+[build]
+mode = "frame"   # "frame" | "loose" | "webbing"
+#   frame   — aligners punched into a pre-made frame profile (3-row or 4-row).
+#             Rotation locked. Uses [frame] + [tabs] + [breakaway].
+#   loose   — aligners packed freely, no frame, no webbing, rotation unlocked.
+#             Uses [free_layout].
+#   webbing — aligners connected by dynamically generated webs.
+#             Rotation unlocked. Uses [webbing] + [tabs] + [breakaway] + [free_layout].
+
+# ======================================================================
+# Universal sections (apply to all modes).
+# ======================================================================
+[general]
+base_path = "/path/to/formlabsAFA"          # absolute path to this repo (used to resolve relative paths)
+log_level = "INFO"                          # DEBUG for verbose output
+debug = false
+
+[printer]
+serial_or_group_queue_id = ""               # printer serial, IP, or Fleet Control queue ID
+upload_to_printer = false                   # false = just generate .form files, don't send to printers
+
+[preform_server]
+host = "localhost"
+port = 44388
+
+[material]
+machine_type = "FRML-4-0"                   # Form 4
+material_code = "FLFMGR01"                  # Draft V2 Grey
+layer_thickness_mm = 0.16                   # 160um "fast model" preset (aligner-optimized)
+# print_setting = "DEFAULT"                 # omit to let PreForm infer the preset from layer_thickness_mm
+
+[batch]
+initial_batch_size = 20                     # models per batch (validator enforces: >= min_models)
+min_models = 12
+process_partial_batches = true
+delay_between_checks_seconds = 2.0
+n_parallel_batches = 5
+
+[hollowing]
+enabled = true                              # mode-agnostic model prep
+honeycomb_infill = false
+shell_thickness_mm = 2.0
+hex_wall_thickness_mm = 1.0
+cutoff_height_mm = 0.01                     # scan-to-model surface detection threshold
+extrude_distance_mm = 0.11                  # scan-to-model surface extrusion distance
+
+[drain_holes]
+radius_mm = 1.0
+height_ratio = 0.75                         # drain holes placed in the lower X% of the shell
+suppression_distance_mm = 5.0               # min distance between drain holes
+max_count = 5
+# Retry params — used when a model produces cups (trapped resin) on the first attempt.
+# Relaxed values give the drain-hole algorithm more room to find valid placements.
+# Models that still cup after retry are imported raw (no hollowing).
+retry_suppression_distance_mm = 2.0         # tighter spacing on retry
+retry_height_ratio = 0.95                   # allow holes higher on the shell on retry
+retry_radius_mm = 0.75                      # smaller holes on retry
+
+[chamfer]
+enabled = false                             # mode-agnostic model prep
+leg_depth_mm = 0.01
+height_mm = 0.01
+
+[layout]
+model_spacing_mm = 1.0                      # mode-agnostic inter-model spacing
+
+[support]
+support_all_minima = false                  # mode-agnostic
+
+[fixture]                                   # optional in any mode
+enabled = false
+stl_path = "frame_profiles/modelFixture.stl"
+
+[model_labels]                              # optional in any mode — patient-ID etched into each model
+enabled = false
+font_size_mm = 3.0
+depth_mm = 0.4
+# Label world-position = model.bbox_min + bbox_size * bbox_fraction + offset_mm
+# bbox_fraction entries are in [0, 1] per axis.
+# Default places labels at +X/+Y/+Z corner (posterior/right/occlusal in a typical
+# z-up lower-right arch). TUNE FOR YOUR ALIGNER GEOMETRY before enabling.
+# Any single label failure FAILS THE BATCH — traceability is load-bearing.
+bbox_fraction = [0.9, 1.0, 1.0]   # [x, y, z] in 0..1
+offset_mm = [0.0, 0.0, 0.0]       # [x, y, z] fine-tune
+orientation_deg = [0.0, 0.0, 0.0] # [x, y, z] text rotation
+
+# ======================================================================
+# Connector / tab geometry (used by frame + webbing modes).
+# ======================================================================
+[tabs]
+height_mm = 1.6                             # shared: frame-punch tab height + webbing beam height
+frame_connection_distance_mm = 3.99         # frame-mode only: punch erosion distance
+
+[breakaway]                                 # used by frame + webbing; skipped in loose mode
+enabled = true
+width_mm = 1.0
+height_mm = 0.8
+
+# ======================================================================
+# Free-layout bounds (used by loose + webbing modes; frame mode uses profile-specific bounds).
+# ======================================================================
+[free_layout.bounds]
+x_min_mm = -169.016
+x_max_mm = 169.015
+y_min_mm = -92.0
+y_max_mm = 97.0
+
+# ======================================================================
+# Frame mode (active only when build.mode = "frame").
+# ======================================================================
+[frame]
+profiles_dir = "frame_profiles"             # dir containing subdirs each with profile.toml + frame.stl
+large_frame_cutoff = 15                     # >= this many models → prefer large frame
+min_large_models_small_frame = 4            # large-frame selection threshold
+front_clearance_mm = 4.0                    # post-layout clearance check on frame front edge
+back_clearance_mm = 4.0                     # post-layout clearance check on frame back edge
+large_model_min_y_dim_mm = 55.0             # y-dim above this counts as "large" for frame selection
+
+# ======================================================================
+# Webbing mode (active only when build.mode = "webbing").
+# Beam height comes from [tabs].height_mm — no webbing.height_mm here.
+# ======================================================================
+[webbing]
+thickness_mm = 2                            # web cross-section width
+chamfer_mm = 2                              # chamfer at web-model interface
+perimeter_rail = true                       # border rail connecting outermost models
+connect_front = true                        # webs on -Y face
+connect_back = true                         # webs on +Y face (fixture side)
+connect_left = true                         # webs on -X face
+connect_right = true                        # webs on +X face
+max_span_mm = 60.0                          # max web length
+punch_offset_mm = 0.5                       # negative = punch smaller (more web), positive = punch bigger
+anti_cup_min_span_mm = 15.0                 # beams shorter than this skip anti-cup
+anti_cup_spacing_mm = 20.0                  # gap between arches along beam
+anti_cup_width_mm = 2.2                     # diameter of half-circle arch cut from build plate upward
+
+# ======================================================================
+# Dashboard API (optional fleet monitoring).
+# ======================================================================
+[dashboard_api]
+enabled = false
+client_id = ""                              # from dashboard.formlabs.com/#developer
+client_secret = ""                          # from dashboard.formlabs.com/#developer
+poll_interval_seconds = 30
