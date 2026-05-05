@@ -614,49 +614,66 @@ def _build_lane_keys_from_manifests(
 
 def _coalesce_manifests_by_lane_key(
     manifests: list["BuildManifest"],
+    *,
+    max_layout_density: float | None = None,
 ) -> list["BuildManifest"]:
-    """Merge manifests with the same lane key into a single manifest.
+    """Merge planned manifests with the same lane key into a single manifest.
 
-    When multiple manifests share the same lane key (same printer/material/layer/print_setting),
-    they should be coalesced into one manifest to ensure a single PreForm operation per lane.
+    Non-planned manifests are passed through unchanged so they still reach the
+    manual-review branch in the dispatch loop.  Only merges when the combined
+    xy footprint fits within the printer_xy_budget; otherwise the originals are
+    kept so the dispatch loop can process them individually.
     """
     from collections import defaultdict
 
     if not manifests:
         return []
 
-    # Group manifests by lane key
     lane_key_to_manifests: dict[str, list["BuildManifest"]] = defaultdict(list)
+    coalesced: list["BuildManifest"] = []
+
     for manifest in manifests:
         if manifest.planning_status != "planned" or not manifest.import_groups:
+            coalesced.append(manifest)  # pass through non-plannable manifests unchanged
             continue
         lane_key = _build_lane_key_from_manifest(manifest)
         lane_key_to_manifests[lane_key].append(manifest)
 
-    # Coalesce manifests with the same lane key
-    coalesced: list["BuildManifest"] = []
-    for lane_key, lane_manifests in lane_key_to_manifests.items():
+    for lane_manifests in lane_key_to_manifests.values():
         if len(lane_manifests) == 1:
-            # No coalescing needed
             coalesced.append(lane_manifests[0])
-        else:
-            # Merge multiple manifests into one
-            merged_groups: list["BuildManifestImportGroup"] = []
-            merged_case_ids: list[str] = []
-            for manifest in lane_manifests:
-                for group in manifest.import_groups:
-                    merged_groups.append(group)
-                merged_case_ids.extend(manifest.case_ids)
+            continue
 
-            # Use the first manifest as the base, updating the fields
-            first = lane_manifests[0]
-            coalesced_manifest = first.model_copy(deep=True)
-            coalesced_manifest.import_groups = merged_groups
-            coalesced_manifest.case_ids = merged_case_ids
+        # Check merged footprint before coalescing to avoid violating print_max_layout_density.
+        # plan_build_manifests split these precisely because one tray can't fit all rows.
+        first = lane_manifests[0]
+        printer_xy_budget = first.printer_xy_budget or 0.0
+        max_merged_xy_budget = printer_xy_budget
+        if printer_xy_budget > 0 and max_layout_density is not None and max_layout_density > 0:
+            max_merged_xy_budget = min(
+                printer_xy_budget,
+                printer_xy_budget * max_layout_density,
+            )
+        merged_used_xy = sum(m.used_xy_budget for m in lane_manifests)
+        if max_merged_xy_budget > 0 and merged_used_xy > max_merged_xy_budget:
+            # Merged footprint exceeds tray capacity — keep originals for individual dispatch.
+            coalesced.extend(lane_manifests)
+            continue
 
-            # Recalculate estimated density for the merged manifest
-            # (using the existing estimated_density from first manifest as approximation)
-            coalesced.append(coalesced_manifest)
+        merged_groups: list["BuildManifestImportGroup"] = []
+        merged_case_ids: list[str] = []
+        for manifest in lane_manifests:
+            merged_groups.extend(manifest.import_groups)
+            merged_case_ids.extend(manifest.case_ids)
+
+        coalesced_manifest = first.model_copy(deep=True)
+        coalesced_manifest.import_groups = merged_groups
+        coalesced_manifest.case_ids = merged_case_ids
+        coalesced_manifest.used_xy_budget = merged_used_xy
+        coalesced_manifest.estimated_density = (
+            merged_used_xy / printer_xy_budget if printer_xy_budget else 0.0
+        )
+        coalesced.append(coalesced_manifest)
 
     return coalesced
 
@@ -1693,6 +1710,10 @@ def _load_held_replan_rows(
         if lane_keys is not None and job_lane_key not in lane_keys:
             continue
         held_job_ids.append(job.id)
+        if job.hold_reason == "busy_lane":
+            # busy_lane jobs are lane-scoped stale reservations. Delete matching jobs
+            # without merging their rows into density-target replanning.
+            continue
         for group in job.manifest_json.get("import_groups", []):
             if not isinstance(group, dict):
                 continue
@@ -2046,12 +2067,6 @@ def _send_ready_rows_to_device(
             ],
             device,
         )
-        manifests = plan_build_manifests(
-            planning_rows,
-            max_layout_density=settings.print_max_layout_density,
-        )
-        # Coalesce manifests with same lane key to prevent concurrent PreForm operations
-        manifests = _coalesce_manifests_by_lane_key(manifests)
         rows_by_id = {
             row.row_id: row
             for row in planning_rows
@@ -2061,23 +2076,30 @@ def _send_ready_rows_to_device(
         hold_now = _now()
         cutoff_at = _parse_cutoff_today(settings.print_hold_cutoff_local_time, hold_now)
 
-        pending_manifests: list[tuple["BuildManifest", bool]] = [
-            (manifest, False) for manifest in manifests
-        ]
-        retry_rows: list["ClassificationRow"] = []
-        while pending_manifests or retry_rows:
-            if not pending_manifests and retry_rows:
-                retry_manifests = plan_build_manifests(
-                    retry_rows,
-                    max_layout_density=settings.print_max_layout_density,
-                )
-                pending_manifests.extend((retry_manifest, True) for retry_manifest in retry_manifests)
-                retry_rows = []
-                continue
+        # NEW: pack-one-at-a-time pool model
+        # live_pool starts as planning_rows; on each iteration plan_build_manifests is
+        # called on the current pool to get the densest first tray. On PreForm success,
+        # accepted rows are removed from the pool and the next iteration re-plans the
+        # remainder. On density-hold or busy-lane, the loop stops (held = final remainder).
+        live_pool: list["ClassificationRow"] = list(planning_rows)
 
-            manifest, force_dispatch = pending_manifests.pop(0)
-            manifest_row_id_list = manifest_row_ids(manifest, planning_rows)
+        while live_pool:
+            ranked_manifests = plan_build_manifests(
+                _selected_model_rows(live_pool, device),
+                max_layout_density=settings.print_max_layout_density,
+            )
+            if not ranked_manifests:
+                break
+
+            ranked_manifests = _coalesce_manifests_by_lane_key(
+                ranked_manifests,
+                max_layout_density=settings.print_max_layout_density,
+            )
+
+            manifest = ranked_manifests[0]
+            manifest_row_id_list = manifest_row_ids(manifest, live_pool)
             manifest_id = build_manifest_assignment_id(manifest, manifest_row_id_list)
+
             if manifest.planning_status != "planned" or not manifest.import_groups:
                 reason = f"Build planning requires manual review: {manifest.non_plannable_reason}"
                 blocked_groups.append(
@@ -2095,7 +2117,7 @@ def _send_ready_rows_to_device(
                             "case_id": case_id,
                             "row_ids": [
                                 row.row_id
-                                for row in planning_rows
+                                for row in live_pool
                                 if row.row_id is not None and row.case_id == case_id
                             ],
                             "reason": reason,
@@ -2105,15 +2127,20 @@ def _send_ready_rows_to_device(
                     event_type="manual_review_required",
                     now=now,
                 )
+                non_plannable_case_ids = set(manifest.case_ids)
+                live_pool = [r for r in live_pool if r.case_id not in non_plannable_case_ids]
                 continue
 
             active_manifest = manifest
+            active_lane_key = _build_lane_key_from_manifest(
+                active_manifest, device_id=str(device["device_id"])
+            )
+            tray_outcome: str | None = None  # "queued" | "held_busy" | "held_density" | "blocked"
+
             while True:
                 active_rows = _manifest_rows(active_manifest, rows_by_id)
                 job_name = _generate_unique_job_name_for_manifest(
-                    connection,
-                    datetime.now(),
-                    active_manifest,
+                    connection, datetime.now(), active_manifest,
                 )
                 try:
                     created_print_job_id = _reserve_print_job_for_rows(
@@ -2146,24 +2173,15 @@ def _send_ready_rows_to_device(
                             rows=_load_rows_by_ids(connection, row_ids),
                         )
                     ) from exc
+
                 result = None
                 try:
                     with _build_lane_locks(
-                        settings,
-                        [
-                            _build_lane_key_from_manifest(
-                                active_manifest,
-                                device_id=str(device["device_id"]),
-                            )
-                        ],
-                        operation="send_to_print",
+                        settings, [active_lane_key], operation="send_to_print",
                     ):
                         result = process_print_manifest(
-                            settings,
-                            active_manifest,
-                            active_rows,
-                            batch_number=1,
-                            job_name=job_name,
+                            settings, active_manifest, active_rows,
+                            batch_number=1, job_name=job_name,
                             device_id=str(device["device_id"]),
                             printer_device_name=(
                                 str(device["device_name"])
@@ -2178,57 +2196,74 @@ def _send_ready_rows_to_device(
                         "Already preparing a build for this printer/material/layer lane. "
                         "Wait for the current build to finish or hold, then try again."
                     )
+                    pool_manifest = active_manifest
+                    try:
+                        all_pool_planned = plan_build_manifests(
+                            _selected_model_rows(live_pool, device),
+                            max_layout_density=None,
+                        )
+                        for candidate in all_pool_planned:
+                            if (
+                                candidate.planning_status == "planned"
+                                and _build_lane_key_from_manifest(
+                                    candidate, device_id=str(device["device_id"])
+                                ) == active_lane_key
+                            ):
+                                pool_manifest = candidate
+                                break
+                    except Exception:
+                        pass
+
+                    pool_rows = _manifest_rows(pool_manifest, rows_by_id)
                     hold_result = {
                         "scene_id": None,
-                        "preset": _manifest_preset_summary(active_manifest),
-                        "preset_names": active_manifest.preset_names,
-                        "compatibility_key": active_manifest.compatibility_key,
-                        "case_ids": _manifest_case_ids_by_file_order(active_manifest),
-                        "manifest_json": active_manifest.model_dump(),
+                        "preset": _manifest_preset_summary(pool_manifest),
+                        "preset_names": pool_manifest.preset_names,
+                        "compatibility_key": pool_manifest.compatibility_key,
+                        "case_ids": _manifest_case_ids_by_file_order(pool_manifest),
+                        "manifest_json": pool_manifest.model_dump(),
                         "form_file_path": None,
-                        "printer_type": active_manifest.printer_group,
+                        "printer_type": pool_manifest.printer_group,
                         "printer_device_id": str(device["device_id"]),
                         "printer_device_name": (
                             str(device["device_name"])
                             if device.get("device_name") is not None
                             else None
                         ),
-                        "resin": active_manifest.material_label,
+                        "resin": pool_manifest.material_label,
                         "layer_height_microns": (
-                            int(active_manifest.layer_thickness_mm * 1000)
-                            if active_manifest.layer_thickness_mm is not None
+                            int(pool_manifest.layer_thickness_mm * 1000)
+                            if pool_manifest.layer_thickness_mm is not None
                             else None
                         ),
-                        "estimated_density": active_manifest.estimated_density,
+                        "estimated_density": pool_manifest.estimated_density,
                         "validation_passed": None,
                         "validation_errors": [],
                     }
                     _update_reserved_print_job_as_held(
                         connection,
                         job_id=created_print_job_id,
-                        result=result if result is not None else hold_result,
+                        result=hold_result,
                         settings=settings,
                         cutoff_at=cutoff_at,
                         now=now,
                         hold_reason="busy_lane",
                     )
                     _held_job_ids_created_this_process.add(created_print_job_id)
-                    held_row_ids = []
-                    for row in active_rows:
+                    held_row_ids: list[int] = []
+                    for row in pool_rows:
                         if row.row_id is None:
                             continue
                         held_row_ids.append(row.row_id)
                         connection.execute(
-                            """
-                            UPDATE upload_rows
-                            SET status = 'Submitted',
-                                queue_section = 'in_progress',
-                                handoff_stage = ?,
-                                linked_job_name = ?,
-                                linked_print_job_id = ?,
-                                current_event_at = ?
-                            WHERE id = ?
-                            """,
+                            """UPDATE upload_rows
+                               SET status = 'Submitted',
+                                   queue_section = 'in_progress',
+                                   handoff_stage = ?,
+                                   linked_job_name = ?,
+                                   linked_print_job_id = ?,
+                                   current_event_at = ?
+                               WHERE id = ?""",
                             (HOLDING_STATUS, job_name, created_print_job_id, now, row.row_id),
                         )
                         metadata = json.dumps({
@@ -2238,16 +2273,14 @@ def _send_ready_rows_to_device(
                             "job_name": job_name,
                             "linked_print_job_id": created_print_job_id,
                             "manifest_id": manifest_id,
-                            "manifest": active_manifest.model_dump(),
-                            "estimated_density": active_manifest.estimated_density,
+                            "manifest": pool_manifest.model_dump(),
+                            "estimated_density": pool_manifest.estimated_density,
                             "density_target": settings.print_hold_density_target,
                             "error": busy_message,
                         })
                         connection.execute(
-                            """
-                            INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
-                            VALUES (?, ?, ?, ?)
-                            """,
+                            """INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                               VALUES (?, ?, ?, ?)""",
                             (row.row_id, "build_holding", now, metadata),
                         )
                     groups.append(
@@ -2259,32 +2292,38 @@ def _send_ready_rows_to_device(
                             error=busy_message,
                         )
                     )
-                    result = None
+                    tray_outcome = "held_busy"
                     break
+
                 except PreFormAutoLayoutFailureError:
                     connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
                     shrink_result = _shrink_manifest_after_layout_failure(
-                        connection,
-                        active_manifest,
-                        rows_by_id,
-                        now=now,
+                        connection, active_manifest, rows_by_id, now=now,
                     )
                     connection.commit()
                     if shrink_result is None:
                         _move_rows_back_to_analysis(
-                            connection,
-                            active_rows,
-                            now=now,
-                            event_type="handoff_failed",
+                            connection, active_rows, now=now, event_type="handoff_failed",
                         )
                         connection.commit()
                         raise
                     shrunken_manifest, deferred_rows = shrink_result
-                    retry_rows.extend(deferred_rows)
                     active_manifest = shrunken_manifest
                     continue
+
                 except PreFormImportFailureError as exc:
                     failed_case_errors = exc.failed_case_errors
+                    if not failed_case_errors:
+                        failed_case_errors = {
+                            case_id: "no valid cases could be imported"
+                            for case_id in active_manifest.case_ids
+                        }
+                    quarantined_case_ids = set(failed_case_errors.keys())
+                    failed_row_ids = [
+                        row.row_id
+                        for row in live_pool
+                        if row.row_id is not None and row.case_id in quarantined_case_ids
+                    ]
                     _mark_cases_needs_review_with_retry(
                         connection,
                         [
@@ -2292,7 +2331,7 @@ def _send_ready_rows_to_device(
                                 "case_id": case_id,
                                 "row_ids": [
                                     row.row_id
-                                    for row in planning_rows
+                                    for row in live_pool
                                     if row.row_id is not None and row.case_id == case_id
                                 ],
                                 "reason": f"PreForm import failed: {error}",
@@ -2307,24 +2346,28 @@ def _send_ready_rows_to_device(
                         _group_result(
                             manifest_id=manifest_id,
                             status="failed",
-                            row_ids=manifest_row_id_list,
+                            row_ids=failed_row_ids,
                             error="PreFormServer rejected every STL in this group during import.",
                         )
                     )
-                    result = None
+                    live_pool = [r for r in live_pool if r.case_id not in quarantined_case_ids]
+                    tray_outcome = "blocked"
                     break
+
                 except Exception:
                     connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
                     _move_rows_back_to_analysis(
-                        connection,
-                        active_rows,
-                        now=now,
-                        event_type="handoff_failed",
+                        connection, active_rows, now=now, event_type="handoff_failed",
                     )
                     connection.commit()
                     raise
-            if result is None:
+
+            if tray_outcome == "held_busy":
+                break
+            if tray_outcome == "blocked":
                 continue
+
+            assert result is not None
 
             failed_case_errors = result.get("failed_case_errors") or {}
             if isinstance(failed_case_errors, dict) and failed_case_errors:
@@ -2335,7 +2378,7 @@ def _send_ready_rows_to_device(
                             "case_id": case_id,
                             "row_ids": [
                                 row.row_id
-                                for row in planning_rows
+                                for row in live_pool
                                 if row.row_id is not None and row.case_id == case_id
                             ],
                             "reason": f"PreForm import failed: {error}",
@@ -2345,15 +2388,13 @@ def _send_ready_rows_to_device(
                     event_type="case_quarantined_during_preform_import",
                     now=now,
                 )
+                live_pool = [r for r in live_pool if r.case_id not in failed_case_errors.keys()]
 
             accepted_rows = _manifest_rows(result["manifest"], rows_by_id)
-            accepted_row_ids = [
-                row.row_id
-                for row in accepted_rows
-                if row.row_id is not None
-            ]
-
+            accepted_row_ids = [r.row_id for r in accepted_rows if r.row_id is not None]
             accepted_manifest = result["manifest"]
+            accepted_case_ids = set(accepted_manifest.case_ids)
+
             if _should_hold_accepted_manifest(settings, accepted_manifest, hold_now):
                 _update_reserved_print_job_as_held(
                     connection,
@@ -2368,16 +2409,14 @@ def _send_ready_rows_to_device(
                     if row.row_id is None:
                         continue
                     connection.execute(
-                        """
-                        UPDATE upload_rows
-                        SET status = 'Submitted',
-                            queue_section = 'in_progress',
-                            handoff_stage = ?,
-                            linked_job_name = ?,
-                            linked_print_job_id = ?,
-                            current_event_at = ?
-                        WHERE id = ?
-                        """,
+                        """UPDATE upload_rows
+                           SET status = 'Submitted',
+                               queue_section = 'in_progress',
+                               handoff_stage = ?,
+                               linked_job_name = ?,
+                               linked_print_job_id = ?,
+                               current_event_at = ?
+                           WHERE id = ?""",
                         (HOLDING_STATUS, result["job_name"], created_print_job_id, now, row.row_id),
                     )
                     metadata = json.dumps({
@@ -2392,10 +2431,8 @@ def _send_ready_rows_to_device(
                         "density_target": settings.print_hold_density_target,
                     })
                     connection.execute(
-                        """
-                        INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
-                        VALUES (?, ?, ?, ?)
-                        """,
+                        """INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                           VALUES (?, ?, ?, ?)""",
                         (row.row_id, "build_holding", now, metadata),
                     )
                 groups.append(
@@ -2403,25 +2440,22 @@ def _send_ready_rows_to_device(
                         manifest_id=manifest_id,
                         status="held",
                         row_ids=accepted_row_ids,
-                        job_name=str(result["job_name"]),
+                        job_name=result["job_name"],
                     )
                 )
-                continue
+                break
 
             try:
                 result["print_job_id"] = _dispatch_prepared_scene_if_enabled(
-                    settings,
-                    result,
-                    accepted_rows,
+                    settings=settings,
+                    result=result,
+                    rows=accepted_rows,
                     device_id=str(device["device_id"]),
                 )
             except Exception:
                 connection.execute("DELETE FROM print_jobs WHERE id = ?", (created_print_job_id,))
                 _move_rows_back_to_analysis(
-                    connection,
-                    accepted_rows,
-                    now=now,
-                    event_type="handoff_failed",
+                    connection, accepted_rows, now=now, event_type="handoff_failed",
                 )
                 connection.commit()
                 raise
@@ -2432,52 +2466,45 @@ def _send_ready_rows_to_device(
                 settings=settings,
                 now=now,
             )
-
             for row in accepted_rows:
                 if row.row_id is None:
                     continue
                 connection.execute(
-                    """
-                    UPDATE upload_rows
-                    SET status = 'Submitted',
-                        queue_section = 'history',
-                        handoff_stage = 'Queued',
-                        linked_job_name = ?,
-                        linked_print_job_id = ?,
-                        current_event_at = ?
-                    WHERE id = ?
-                    """,
+                    """UPDATE upload_rows
+                       SET status = 'Submitted',
+                           queue_section = 'history',
+                           handoff_stage = 'Queued',
+                           linked_job_name = ?,
+                           linked_print_job_id = ?,
+                           current_event_at = ?
+                       WHERE id = ?""",
                     (result["job_name"], created_print_job_id, now, row.row_id),
                 )
                 metadata = json.dumps({
                     "status": "Submitted",
-                    "job_name": result["job_name"],
-                    "print_job_id": result.get("print_job_id"),
+                    "queue_section": "history",
+                    "handoff_stage": "Queued",
+                    "linked_job_name": result["job_name"],
+                    "linked_print_job_id": created_print_job_id,
                     "manifest_id": manifest_id,
-                    "printer_device_id": result.get("printer_device_id"),
-                    "printer_device_name": result.get("printer_device_name"),
                 })
                 connection.execute(
-                    """
-                    INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
-                    VALUES (?, ?, ?, ?)
-                    """,
+                    """INSERT INTO upload_row_events (row_id, event_type, event_at, metadata_json)
+                       VALUES (?, ?, ?, ?)""",
                     (row.row_id, "submitted_to_print", now, metadata),
                 )
-
             groups.append(
                 _group_result(
                     manifest_id=manifest_id,
                     status="submitted",
                     row_ids=accepted_row_ids,
-                    job_name=str(result["job_name"]),
-                    print_job_id=(
-                        str(result["print_job_id"])
-                        if result.get("print_job_id") is not None
-                        else None
-                    ),
+                    job_name=result["job_name"],
+                    print_job_id=result.get("print_job_id"),
                 )
             )
+
+            live_pool = [r for r in live_pool if r.case_id not in accepted_case_ids]
+            connection.commit()
 
         connection.commit()
         updated_rows = _load_rows_by_ids(connection, row_ids)
