@@ -10,7 +10,7 @@ export type AppInstance = {
   process: ChildProcessWithoutNullStreams;
 };
 
-async function waitForHealth(url: string, timeoutMs = 60_000): Promise<void> {
+export async function waitForHealth(url: string, timeoutMs = 60_000): Promise<void> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     try {
@@ -22,6 +22,37 @@ async function waitForHealth(url: string, timeoutMs = 60_000): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error(`Timed out waiting for health: ${url}`);
+}
+
+export async function findPackagedExecutable(): Promise<string> {
+  const distDir = path.resolve('dist');
+  const fixedCandidates = [
+    path.join(distDir, 'FormFlow', 'FormFlow.exe'),
+    path.join(distDir, 'FormFlow.exe'),
+  ];
+  for (const candidate of fixedCandidates) {
+    try {
+      const stat = await fs.stat(candidate);
+      if (stat.isFile()) {
+        return candidate;
+      }
+    } catch {}
+  }
+
+  try {
+    const entries = await fs.readdir(distDir, { withFileTypes: true });
+    const versioned = entries
+      .filter((entry) => entry.isFile() && /^FormFlow_v.*\.exe$/i.test(entry.name))
+      .map((entry) => path.join(distDir, entry.name))
+      .sort((a, b) => b.localeCompare(a));
+    if (versioned.length > 0) {
+      return versioned[0];
+    }
+  } catch {}
+
+  throw new Error(
+    `No packaged FormFlow executable found in ${distDir}. Build the EXE before running the packaged-runtime gate.`,
+  );
 }
 
 export async function startAppInstance(opts: {
