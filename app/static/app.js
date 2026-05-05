@@ -55,6 +55,7 @@ const state = {
     bulkModelTypeValue: "",
     bulkPresetValue: "",
     bulkPrinterValue: "",
+    sendToPrintInFlight: false,
     pickerOpen: false,
     pickerReleaseId: null,
     preview: {
@@ -2212,7 +2213,7 @@ function renderBulkActions() {
         submitButton.type = "button";
         submitButton.dataset.testid = "send-to-print-button";
         const readyToSend = canPrint() && Boolean(state.bulkPrinterValue);
-        submitButton.disabled = !readyToSend;
+        submitButton.disabled = !readyToSend || state.sendToPrintInFlight;
         submitButton.className = readyToSend ? "primary-button" : "secondary-button";
         submitButton.textContent = readyToSend
             ? `Send to Print (${readyRows.length})`
@@ -2504,6 +2505,11 @@ async function sendRowsToPrint(rows, deviceId) {
         setStatus("Select a printer before sending rows to print.", true);
         return false;
     }
+    if (state.sendToPrintInFlight) {
+        setStatus("A send-to-print request is already running.", true);
+        return false;
+    }
+    state.sendToPrintInFlight = true;
     const previousJobIds = new Set(state.printQueue.jobs.map((job) => job.id));
     state.activeTab = "work-queue";
     markRowsInProgress(rows, "Processing");
@@ -2546,7 +2552,9 @@ async function sendRowsToPrint(rows, deviceId) {
         render();
         return false;
     } finally {
+        state.sendToPrintInFlight = false;
         window.pollingPaused = false;
+        render();
     }
 }
 

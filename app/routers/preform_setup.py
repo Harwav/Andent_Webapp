@@ -89,7 +89,7 @@ def _material_label_map(settings) -> dict[str, str]:
     catalog_path = Path(settings.project_root) / ".omx" / "preform-list-materials-latest.json"
     mapping: dict[str, str] = {}
     try:
-        data = json.loads(catalog_path.read_text(encoding="utf-8"))
+        data = json.loads(catalog_path.read_text(encoding="utf-8-sig"))
         for pt in data.get("printer_types", []):
             for mat in pt.get("materials", []):
                 label = mat.get("label", "").strip()

@@ -563,8 +563,8 @@ def test_printers_route_keeps_material_code_as_fallback(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     [printer] = response.json()["printers"]
-    assert printer["material"] == "FLBMAM01"
-    assert printer["material_name"] is None
+    assert printer["material"] == "BioMed Amber V1"
+    assert printer["material_name"] == "BioMed Amber V1"
     assert printer["material_code"] == "FLBMAM01"
 
 
@@ -605,8 +605,8 @@ def test_printers_route_keeps_code_from_name_like_field_as_fallback(tmp_path, mo
 
     assert response.status_code == 200
     [printer] = response.json()["printers"]
-    assert printer["material"] == "FLBMAM01"
-    assert printer["material_name"] is None
+    assert printer["material"] == "BioMed Amber V1"
+    assert printer["material_name"] == "BioMed Amber V1"
     assert printer["material_code"] == "FLBMAM01"
 
 
@@ -782,3 +782,83 @@ def test_setup_center_static_ui_does_not_display_sensitive_install_path():
     assert "Install Path" not in index_html
     assert "preform-install-path" not in index_html
     assert "status.install_path" not in app_js
+
+
+def test_material_label_map_handles_bom_in_catalog_file():
+    """The material label map must handle UTF-8 BOM in the catalog JSON file.
+
+    The real catalog (.omx/preform-list-materials-latest.json) has a UTF-8 BOM
+    that causes json.loads() to fail if read with encoding="utf-8".
+    _material_label_map must use encoding="utf-8-sig" to strip the BOM.
+    """
+    import app.routers.preform_setup as ps
+
+    # Reset cache so _material_label_map re-reads the file
+    ps._MATERIAL_LABEL_CACHE = None
+
+    from app.config import build_settings
+    settings = build_settings()
+
+    mapping = ps._material_label_map(settings)
+
+    # These codes are confirmed present in the real catalog with human-readable labels
+    assert mapping.get("FLBMAM01") == "BioMed Amber V1", (
+        f"FLBMAM01 should map to 'BioMed Amber V1', got {mapping.get('FLBMAM01')!r}. "
+        "Check that _material_label_map uses encoding='utf-8-sig' to handle BOM."
+    )
+    assert mapping.get("FLDLCL02") == "LT Clear V2"
+    assert mapping.get("FLPMBE01") == "Precision Model V1"
+
+
+def test_printers_route_resolves_material_code_to_label(tmp_path, monkeypatch):
+    """When a device has tank_material_code but no readable name, the API should
+    look up the human-readable label from the material catalog and return it as
+    material_name."""
+    from app.services.preform_client import PreFormClient
+    from app.services.preform_setup_service import PreFormSetupService
+
+    import app.routers.preform_setup as ps
+
+    # Reset the global cache so _material_label_map reads the catalog fresh
+    monkeypatch.setattr(ps, "_MATERIAL_LABEL_CACHE", None)
+
+    monkeypatch.setattr(
+        PreFormSetupService,
+        "_probe_server",
+        lambda self: {
+            "healthy": True,
+            "version": "3.58.0.626",
+            "code": None,
+            "message": None,
+        },
+    )
+    monkeypatch.setattr(
+        PreFormClient,
+        "list_devices",
+        lambda self: {
+            "count": 1,
+            "devices": [
+                {
+                    "connection_type": "WIFI",
+                    "id": "form-4b-ready",
+                    "product_name": "Form 4B",
+                    "status": "Ready",
+                    "tank_material_code": "FLBMAM01",
+                }
+            ],
+        },
+    )
+
+    client, _settings = _build_client(tmp_path)
+
+    response = client.get("/api/preform-setup/printers")
+
+    assert response.status_code == 200
+    [printer] = response.json()["printers"]
+    # The label lookup should resolve the code to a human-readable name
+    assert printer["material_name"] == "BioMed Amber V1", (
+        f"Expected material_name='BioMed Amber V1', got {printer['material_name']!r}. "
+        "The material code should be resolved to its label from the catalog."
+    )
+    assert printer["material"] == "BioMed Amber V1"
+    assert printer["material_code"] == "FLBMAM01"

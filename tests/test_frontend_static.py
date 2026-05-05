@@ -311,6 +311,16 @@ def test_send_to_print_error_reports_quarantine_reason():
     assert "bad-upper.stl - corrupted mesh" in message
 
 
+def test_send_to_print_uses_global_submit_guard():
+    app_js = APP_JS.read_text(encoding="utf-8")
+
+    assert "sendToPrintInFlight: false" in app_js
+    assert "state.sendToPrintInFlight = true;" in app_js
+    assert "state.sendToPrintInFlight = false;" in app_js
+    assert "if (state.sendToPrintInFlight)" in app_js
+    assert "submitButton.disabled = !readyToSend || state.sendToPrintInFlight;" in app_js
+
+
 def test_print_queue_displays_holding_density_cutoff_and_release():
     app_js = APP_JS.read_text(encoding="utf-8")
 
