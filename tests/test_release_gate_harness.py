@@ -1,7 +1,10 @@
 import json
-from pathlib import Path
+
+import pytest
 
 from scripts.release_gate.evidence import EvidenceStore, StageResult, build_dataset_manifest
+from scripts.release_gate.preform_probe import is_virtual_device
+from scripts.release_gate.stages import validate_dataset
 from scripts.release_gate.verdict import render_verdict
 
 
@@ -62,3 +65,29 @@ def test_verdict_requires_all_stages_pass():
     assert "SHIP: no" in markdown
     assert "| backend | fail |" in markdown
     assert "1 failed" in markdown
+
+
+def test_validate_dataset_rejects_missing_folder(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        validate_dataset(tmp_path / "missing")
+
+
+def test_validate_dataset_rejects_folder_without_stls(tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    with pytest.raises(ValueError, match="No .stl files"):
+        validate_dataset(empty)
+
+
+def test_validate_dataset_accepts_stl_folder(tmp_path):
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    (dataset / "case.stl").write_text("solid case\nendsolid case\n", encoding="utf-8")
+
+    assert validate_dataset(dataset) == dataset.resolve()
+
+
+def test_is_virtual_device_uses_virtual_debug_signals():
+    assert is_virtual_device({"id": "debug", "name": "Virtual Printer", "is_virtual": True})
+    assert is_virtual_device({"device_id": "virtual-1", "name": "Debug Form 4BL"})
+    assert not is_virtual_device({"device_id": "real-1", "name": "Lab Form 4BL", "is_virtual": False})
