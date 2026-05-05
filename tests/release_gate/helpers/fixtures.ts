@@ -13,6 +13,7 @@ async function runVerify(args: string[]) {
 
 type ReleaseGateFixtures = {
   latestPrintJob: (databasePath: string) => Promise<any>;
+  printJobSummary: (databasePath: string) => Promise<any>;
   queueSummary: (databasePath: string) => Promise<any>;
   sceneStatus: (baseUrl: string, sceneId: string) => Promise<any>;
 };
@@ -45,6 +46,9 @@ export const test = base.extend<ReleaseGateFixtures, ReleaseGateWorkerFixtures>(
 
   latestPrintJob: async ({}, use) => {
     await use((databasePath) => runVerify(['latest-print-job', '--database-path', databasePath]));
+  },
+  printJobSummary: async ({}, use) => {
+    await use((databasePath) => runVerify(['print-job-summary', '--database-path', databasePath]));
   },
   queueSummary: async ({}, use) => {
     await use((databasePath) => runVerify(['queue-summary', '--database-path', databasePath]));

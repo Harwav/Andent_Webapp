@@ -56,6 +56,38 @@ def queue_summary(database_path: Path) -> dict:
     }
 
 
+def print_job_summary(database_path: Path) -> dict:
+    connection = sqlite3.connect(database_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        jobs = connection.execute(
+            """SELECT id, job_name, status, hold_reason, printer_device_id,
+                      printer_device_name, case_ids, preset_names_json,
+                      compatibility_key, manifest_json, scene_id
+               FROM print_jobs
+               ORDER BY id"""
+        ).fetchall()
+    finally:
+        connection.close()
+    payload = []
+    for row in jobs:
+        manifest = json.loads(row["manifest_json"]) if row["manifest_json"] else {}
+        payload.append({
+            "id": row["id"],
+            "job_name": row["job_name"],
+            "status": row["status"],
+            "hold_reason": row["hold_reason"],
+            "printer_device_id": row["printer_device_id"],
+            "printer_device_name": row["printer_device_name"],
+            "case_ids": json.loads(row["case_ids"] or "[]"),
+            "preset_names": json.loads(row["preset_names_json"] or "[]"),
+            "compatibility_key": row["compatibility_key"],
+            "manifest": manifest,
+            "scene_id": row["scene_id"],
+        })
+    return {"jobs": payload}
+
+
 def parse_health_response(payload: dict) -> dict:
     version = str(payload.get("version", "")).strip()
     return {"ok": bool(version), "version": version}
@@ -86,6 +118,9 @@ def main() -> None:
     queue = subparsers.add_parser("queue-summary")
     queue.add_argument("--database-path", required=True)
 
+    print_jobs = subparsers.add_parser("print-job-summary")
+    print_jobs.add_argument("--database-path", required=True)
+
     health = subparsers.add_parser("preform-health")
     health.add_argument("--base-url", required=True)
 
@@ -99,6 +134,8 @@ def main() -> None:
         print(json.dumps(latest_print_job(Path(args.database_path))))
     elif args.command == "queue-summary":
         print(json.dumps(queue_summary(Path(args.database_path))))
+    elif args.command == "print-job-summary":
+        print(json.dumps(print_job_summary(Path(args.database_path))))
     elif args.command == "preform-health":
         print(json.dumps(check_preform_health(args.base_url)))
     else:
