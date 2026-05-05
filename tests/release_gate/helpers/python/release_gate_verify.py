@@ -37,6 +37,25 @@ def latest_print_job(database_path: Path) -> dict:
     }
 
 
+def queue_summary(database_path: Path) -> dict:
+    connection = sqlite3.connect(database_path)
+    try:
+        rows = connection.execute(
+            """SELECT status, queue_section, COUNT(*)
+               FROM upload_rows
+               GROUP BY status, queue_section
+               ORDER BY status, queue_section"""
+        ).fetchall()
+    finally:
+        connection.close()
+    return {
+        "rows": [
+            {"status": status, "queue_section": section, "count": count}
+            for status, section, count in rows
+        ]
+    }
+
+
 def parse_health_response(payload: dict) -> dict:
     version = str(payload.get("version", "")).strip()
     return {"ok": bool(version), "version": version}
@@ -64,6 +83,9 @@ def main() -> None:
     latest = subparsers.add_parser("latest-print-job")
     latest.add_argument("--database-path", required=True)
 
+    queue = subparsers.add_parser("queue-summary")
+    queue.add_argument("--database-path", required=True)
+
     health = subparsers.add_parser("preform-health")
     health.add_argument("--base-url", required=True)
 
@@ -75,6 +97,8 @@ def main() -> None:
 
     if args.command == "latest-print-job":
         print(json.dumps(latest_print_job(Path(args.database_path))))
+    elif args.command == "queue-summary":
+        print(json.dumps(queue_summary(Path(args.database_path))))
     elif args.command == "preform-health":
         print(json.dumps(check_preform_health(args.base_url)))
     else:
