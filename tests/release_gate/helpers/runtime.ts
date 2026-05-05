@@ -28,6 +28,7 @@ export async function startAppInstance(opts: {
   port: number;
   dataDir: string;
   preformUrl: string;
+  extraEnv?: Record<string, string>;
 }): Promise<AppInstance> {
   await fs.rm(opts.dataDir, { recursive: true, force: true });
   await fs.mkdir(opts.dataDir, { recursive: true });
@@ -43,7 +44,10 @@ export async function startAppInstance(opts: {
         FORMFLOW_WEB_DATABASE_PATH: databasePath,
         FORMFLOW_WEB_APPDATA_DIR: path.join(opts.dataDir, 'appdata'),
         FORMFLOW_WEB_PRINT_HOLD_DENSITY_TARGET: '0.0',
+        FORMFLOW_WEB_PRINT_DISPATCH_MODE: 'virtual',
+        ANDENT_WEB_PRINT_DISPATCH_MODE: 'virtual',
         PREFORM_SERVER_URL: opts.preformUrl,
+        ...(opts.extraEnv ?? {}),
       },
       stdio: 'pipe',
     },
