@@ -22,7 +22,11 @@
       "Bash(rm -f andent.db andent_web.db server-8090.err.log server-8090.out.log)",
       "Bash(rm -rf uploads/*)",
       "PowerShell($pidVal = Get-Content data\\\\uvicorn.pid -ErrorAction SilentlyContinue; if \\($pidVal\\) { Stop-Process -Id $pidVal -Force -ErrorAction SilentlyContinue; Write-Host \"Killed PID $pidVal\" } else { Write-Host \"No PID file found\" })",
-      "Bash(git mv *)"
+      "Bash(git mv *)",
+      "Bash(python -m pytest tests/test_preform_setup.py -v -p no:mcp_eval)",
+      "Bash(uvicorn app.main:app --reload --port 8090)",
+      "Bash(python -m pytest tests/test_preform_handoff.py -v)",
+      "Bash(python -m pytest tests/test_print_queue.py::test_coalesce_manifests_by_lane_key_merges_same_lane -v)"
     ]
   }
 }
