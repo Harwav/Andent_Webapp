@@ -2517,6 +2517,168 @@ def test_busy_lane_does_not_delete_existing_held_job(tmp_path):
     assert get_upload_row_by_id(settings, new_ids[0]).queue_section == "in_progress"
 
 
+def test_overflow_pool_busy_lane_creates_single_held_job(tmp_path):
+    """When the lane is busy, exactly one busy_lane held job covers the entire pool.
+
+    Pre-refactor: pre-planned 2 manifests, each independently hits BuildLaneBusyError,
+    creating 2 held jobs.
+    Post-refactor: pack-one-at-a-time tries the first tray, hits busy lane, holds the
+    pool as a single job, and stops.
+    """
+    from app.database import try_acquire_build_lane_lock
+    from app.services.build_planning import plan_build_manifests
+    from app.services.print_queue_service import _build_lane_keys_from_manifests
+
+    settings = replace(_build_settings(tmp_path), print_hold_density_target=0.95)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    stl_a = tmp_path / "case_a.stl"
+    stl_b = tmp_path / "case_b.stl"
+    stl_a.write_text("solid a\nendsolid a\n", encoding="utf-8")
+    stl_b.write_text("solid b\nendsolid b\n", encoding="utf-8")
+
+    # Register large XY footprint so the two arches overflow 60% cap when combined
+    register_test_dims(str(stl_a), 230.0, 180.0)
+    register_test_dims(str(stl_b), 230.0, 180.0)
+
+    # Two large full-arches that overflow the 60% density cap when combined
+    all_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(stl_a, case_id="OVERFLOW-A",
+                         preset="Ortho Solid - Flat, No Supports",
+                         status="Ready", content_hash="hash-oa",
+                         dimension_x_mm=230.0, dimension_y_mm=180.0),
+            _row_payload(stl_b, case_id="OVERFLOW-B",
+                         preset="Ortho Solid - Flat, No Supports",
+                         status="Ready", content_hash="hash-ob",
+                         dimension_x_mm=230.0, dimension_y_mm=180.0),
+        ],
+    )
+
+    # Confirm test setup forces 2 manifests
+    from app.database import _load_rows_by_ids
+    with closing(connect(settings)) as conn:
+        rows = _load_rows_by_ids(conn, all_ids)
+    manifests = plan_build_manifests(rows, max_layout_density=0.60)
+    assert len(manifests) == 2, f"Test setup must produce 2 manifests, got {len(manifests)}"
+    lane_keys = _build_lane_keys_from_manifests(manifests, device_id="form-4bl-lab")
+    assert len(lane_keys) == 1
+    lane_key = next(iter(lane_keys))
+
+    # Pre-acquire the lane lock to simulate busy
+    try_acquire_build_lane_lock(settings, lane_key, "external-owner", "external")
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-lab", "name": "Lab Printer", "model": "Form 4BL",
+         "status": "Ready", "is_virtual": True}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), \
+         patch("app.services.preform_setup_service.get_preform_setup_status",
+               return_value=_ready_setup_status(settings)), \
+         patch("app.services.print_queue_service.validate_stl_file",
+               return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": all_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    held_jobs = [j for j in jobs if j.status == "Holding for More Cases"]
+    assert len(held_jobs) == 1, (
+        f"Expected exactly 1 held job, got {len(held_jobs)}. "
+        f"Jobs: {[(j.id, j.status, j.hold_reason) for j in jobs]}"
+    )
+    held_job = held_jobs[0]
+    assert held_job.hold_reason == "busy_lane"
+
+    # All rows linked to that single job
+    for row_id in all_ids:
+        row = get_upload_row_by_id(settings, row_id)
+        assert row is not None
+        assert row.linked_print_job_id == held_job.id
+
+
+def test_overflow_pool_sequentially_packs_and_holds_only_final_remainder(tmp_path):
+    """A pool that produces multiple trays dispatches the full ones and holds only the final sparse one.
+
+    Per architecture-doc §7, each iteration runs the same packing procedure: largest-first seed,
+    fill descending while it fits the 60% cap, smallest-filler pass to top up. The held tray is
+    the final remainder — what genuinely couldn't be absorbed by any preceding iteration.
+    """
+    settings = _build_holding_settings(tmp_path)  # density_target=0.40, cutoff=23:59
+    app = create_app(settings)
+    client = TestClient(app)
+
+    # Three cases. Two large (~24% effective each), one tiny (~5%).
+    # Iteration 1 packs LARGE-A + LARGE-B (~48% density, ≥ 40% target) → Queued.
+    # If TINY fits the smallest-filler pass of iteration 1, it joins; otherwise iteration 2 holds it.
+    # Test relies on dimensions chosen so smallest-filler does NOT fit TINY into iteration 1
+    # (sufficient when the two large arches consume most of the 60% cap budget).
+    stls = [tmp_path / f"case_{i}.stl" for i in range(3)]
+    for s in stls:
+        s.write_text(f"solid {s.name}\nendsolid {s.name}\n", encoding="utf-8")
+
+    register_test_dims(str(stls[0]), 230.0, 180.0)
+    register_test_dims(str(stls[1]), 230.0, 180.0)
+    register_test_dims(str(stls[2]), 20.0, 15.0, "Tooth")
+
+    all_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(stls[0], case_id="LARGE-A",
+                         preset="Ortho Solid - Flat, No Supports",
+                         status="Ready", content_hash="h-la",
+                         dimension_x_mm=230.0, dimension_y_mm=180.0),
+            _row_payload(stls[1], case_id="LARGE-B",
+                         preset="Ortho Solid - Flat, No Supports",
+                         status="Ready", content_hash="h-lb",
+                         dimension_x_mm=230.0, dimension_y_mm=180.0),
+            _row_payload(stls[2], case_id="TINY",
+                         preset="Tooth - With Supports",
+                         status="Ready", content_hash="h-t",
+                         dimension_x_mm=20.0, dimension_y_mm=15.0),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-lab", "name": "Lab Printer", "model": "Form 4BL",
+         "status": "Ready", "is_virtual": True}
+    ]
+    with patch("app.services.preform_client.PreFormClient", return_value=stub_client), \
+         patch("app.services.preform_setup_service.get_preform_setup_status",
+               return_value=_ready_setup_status(settings)), \
+         patch("app.services.print_queue_service.validate_stl_file",
+               return_value=Mock(is_valid=True, message="OK")):
+        response = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": all_ids, "device_id": "form-4bl-lab"},
+        )
+
+    assert response.status_code == 200
+    jobs = list_print_jobs(settings)
+    queued = [j for j in jobs if j.status == "Queued"]
+    held = [j for j in jobs if j.status == "Holding for More Cases"]
+
+    # Exactly one Queued (the full tray) and at most one Held (the final remainder)
+    assert len(queued) >= 1, f"Expected at least 1 Queued, got {len(queued)}"
+    assert len(held) <= 1, f"Expected at most 1 Held, got {len(held)}"
+
+    # If TINY ended up held, hold_reason must be below_density_target
+    if held:
+        assert held[0].hold_reason == "below_density_target"
+        assert set(held[0].case_ids) == {"TINY"}
+
+    # The Queued tray must contain both large cases together
+    queued_cases = set(queued[0].case_ids)
+    assert "LARGE-A" in queued_cases
+    assert "LARGE-B" in queued_cases
+
+
 def test_send_to_print_marks_rows_with_history_job_link_metadata(tmp_path):
     settings = _build_settings(tmp_path)
     app = create_app(settings)

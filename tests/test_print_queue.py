@@ -474,3 +474,188 @@ def test_coalesce_manifests_by_lane_key_keeps_different_lanes_separate(tmp_path)
 
     # Should remain 2 separate manifests (different lane keys)
     assert len(coalesced) == 2
+
+
+def test_coalesce_manifests_passes_through_non_planned_manifests():
+    """Non-planned manifests must pass through so the dispatch loop can route them to manual review."""
+    from app.schemas import BuildManifest, BuildManifestImportGroup, FilePrepSpec
+    from app.services.print_queue_service import _coalesce_manifests_by_lane_key
+
+    planned = BuildManifest(
+        compatibility_key="form-4bl|precision-model-v1|100",
+        case_ids=["CASE-PLANNED"],
+        preset_names=["Ortho Solid - Flat, No Supports"],
+        import_groups=[
+            BuildManifestImportGroup(
+                preset_name="Ortho Solid - Flat, No Supports",
+                preform_hint="ortho_solid_v1",
+                row_ids=[1],
+                files=[FilePrepSpec(
+                    row_id=1, case_id="CASE-PLANNED",
+                    file_name="planned.stl", file_path="/tmp/planned.stl",
+                    preset_name="Ortho Solid - Flat, No Supports",
+                    compatibility_key="form-4bl|precision-model-v1|100",
+                    xy_footprint_estimate=1000.0, support_inflation_factor=1.0,
+                )],
+            ),
+        ],
+        printer_group="Form 4BL",
+        material_code="FLPMBE01",
+        material_label="Precision Model V1",
+        layer_thickness_mm=0.1,
+        print_setting="DEFAULT",
+        estimated_density=0.3,
+        planning_status="planned",
+    )
+
+    non_planned = BuildManifest(
+        compatibility_key="form-4bl|precision-model-v1|100",
+        case_ids=["CASE-BLOCKED"],
+        preset_names=[],
+        import_groups=[],
+        printer_group="Form 4BL",
+        material_code="FLPMBE01",
+        material_label="Precision Model V1",
+        layer_thickness_mm=0.1,
+        print_setting="DEFAULT",
+        estimated_density=0.0,
+        planning_status="non_plannable",
+        non_plannable_reason="incompatible_case_presets",
+    )
+
+    coalesced = _coalesce_manifests_by_lane_key([planned, non_planned])
+
+    # Both manifests must be returned — non-planned must not be silently dropped
+    assert len(coalesced) == 2
+    statuses = {m.planning_status for m in coalesced}
+    assert "planned" in statuses
+    assert "non_plannable" in statuses
+
+
+def test_coalesce_manifests_recomputes_estimated_density():
+    """Merged manifest density must reflect combined used_xy_budget, not just the first manifest."""
+    from app.schemas import BuildManifest, BuildManifestImportGroup, FilePrepSpec
+    from app.services.print_queue_service import _coalesce_manifests_by_lane_key
+
+    def make_file(row_id, case_id):
+        return FilePrepSpec(
+            row_id=row_id, case_id=case_id,
+            file_name=f"{case_id}.stl", file_path=f"/tmp/{case_id}.stl",
+            preset_name="Ortho Solid - Flat, No Supports",
+            compatibility_key="form-4bl|precision-model-v1|100",
+            xy_footprint_estimate=1000.0, support_inflation_factor=1.0,
+        )
+
+    printer_xy_budget = 100_000.0
+
+    manifest_a = BuildManifest(
+        compatibility_key="form-4bl|precision-model-v1|100",
+        case_ids=["CASE-A"],
+        preset_names=["Ortho Solid - Flat, No Supports"],
+        import_groups=[BuildManifestImportGroup(
+            preset_name="Ortho Solid - Flat, No Supports",
+            preform_hint="ortho_solid_v1",
+            row_ids=[1],
+            files=[make_file(1, "CASE-A")],
+        )],
+        printer_group="Form 4BL",
+        material_code="FLPMBE01",
+        material_label="Precision Model V1",
+        layer_thickness_mm=0.1,
+        print_setting="DEFAULT",
+        printer_xy_budget=printer_xy_budget,
+        used_xy_budget=45_000.0,
+        estimated_density=0.45,
+    )
+
+    manifest_b = BuildManifest(
+        compatibility_key="form-4bl|precision-model-v1|100",
+        case_ids=["CASE-B"],
+        preset_names=["Ortho Solid - Flat, No Supports"],
+        import_groups=[BuildManifestImportGroup(
+            preset_name="Ortho Solid - Flat, No Supports",
+            preform_hint="ortho_solid_v1",
+            row_ids=[2],
+            files=[make_file(2, "CASE-B")],
+        )],
+        printer_group="Form 4BL",
+        material_code="FLPMBE01",
+        material_label="Precision Model V1",
+        layer_thickness_mm=0.1,
+        print_setting="DEFAULT",
+        printer_xy_budget=printer_xy_budget,
+        used_xy_budget=25_000.0,
+        estimated_density=0.25,
+    )
+
+    coalesced = _coalesce_manifests_by_lane_key([manifest_a, manifest_b])
+
+    assert len(coalesced) == 1
+    result = coalesced[0]
+    assert result.used_xy_budget == 70_000.0
+    assert abs(result.estimated_density - 0.70) < 0.001
+
+
+def test_coalesce_manifests_keeps_originals_when_merge_exceeds_budget():
+    """If merged footprint exceeds printer_xy_budget, keep the originals for individual dispatch."""
+    from app.schemas import BuildManifest, BuildManifestImportGroup, FilePrepSpec
+    from app.services.print_queue_service import _coalesce_manifests_by_lane_key
+
+    def make_file(row_id, case_id):
+        return FilePrepSpec(
+            row_id=row_id, case_id=case_id,
+            file_name=f"{case_id}.stl", file_path=f"/tmp/{case_id}.stl",
+            preset_name="Ortho Solid - Flat, No Supports",
+            compatibility_key="form-4bl|precision-model-v1|100",
+            xy_footprint_estimate=1000.0, support_inflation_factor=1.0,
+        )
+
+    printer_xy_budget = 100_000.0
+
+    manifest_a = BuildManifest(
+        compatibility_key="form-4bl|precision-model-v1|100",
+        case_ids=["CASE-BIG-A"],
+        preset_names=["Ortho Solid - Flat, No Supports"],
+        import_groups=[BuildManifestImportGroup(
+            preset_name="Ortho Solid - Flat, No Supports",
+            preform_hint="ortho_solid_v1",
+            row_ids=[1],
+            files=[make_file(1, "CASE-BIG-A")],
+        )],
+        printer_group="Form 4BL",
+        material_code="FLPMBE01",
+        material_label="Precision Model V1",
+        layer_thickness_mm=0.1,
+        print_setting="DEFAULT",
+        printer_xy_budget=printer_xy_budget,
+        used_xy_budget=70_000.0,
+        estimated_density=0.70,
+    )
+
+    manifest_b = BuildManifest(
+        compatibility_key="form-4bl|precision-model-v1|100",
+        case_ids=["CASE-BIG-B"],
+        preset_names=["Ortho Solid - Flat, No Supports"],
+        import_groups=[BuildManifestImportGroup(
+            preset_name="Ortho Solid - Flat, No Supports",
+            preform_hint="ortho_solid_v1",
+            row_ids=[2],
+            files=[make_file(2, "CASE-BIG-B")],
+        )],
+        printer_group="Form 4BL",
+        material_code="FLPMBE01",
+        material_label="Precision Model V1",
+        layer_thickness_mm=0.1,
+        print_setting="DEFAULT",
+        printer_xy_budget=printer_xy_budget,
+        used_xy_budget=50_000.0,
+        estimated_density=0.50,
+    )
+
+    coalesced = _coalesce_manifests_by_lane_key([manifest_a, manifest_b])
+
+    # Combined 120k > 100k budget — keep both originals, don't merge
+    assert len(coalesced) == 2
+    case_id_sets = [set(m.case_ids) for m in coalesced]
+    assert {"CASE-BIG-A"} in case_id_sets
+    assert {"CASE-BIG-B"} in case_id_sets
