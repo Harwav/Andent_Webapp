@@ -4,7 +4,8 @@ import pytest
 
 from scripts.release_gate.evidence import EvidenceStore, StageResult, build_dataset_manifest
 from scripts.release_gate.preform_probe import is_virtual_device
-from scripts.release_gate.stages import validate_dataset
+from scripts.release_gate.run_release_gate import build_parser, default_evidence_dir
+from scripts.release_gate.stages import build_stage_plan, validate_dataset
 from scripts.release_gate.verdict import render_verdict
 
 
@@ -91,3 +92,60 @@ def test_is_virtual_device_uses_virtual_debug_signals():
     assert is_virtual_device({"id": "debug", "name": "Virtual Printer", "is_virtual": True})
     assert is_virtual_device({"device_id": "virtual-1", "name": "Debug Form 4BL"})
     assert not is_virtual_device({"device_id": "real-1", "name": "Lab Form 4BL", "is_virtual": False})
+
+
+def test_parser_uses_canonical_dataset_default(monkeypatch):
+    monkeypatch.delenv("FORMFLOW_RELEASE_TEST_DATA_DIR", raising=False)
+    args = build_parser().parse_args([])
+
+    assert str(args.test_data_dir).endswith("From 4BL Test Data")
+    assert args.preform_url == "http://127.0.0.1:44388"
+
+
+def test_parser_accepts_dataset_env_override(monkeypatch, tmp_path):
+    monkeypatch.setenv("FORMFLOW_RELEASE_TEST_DATA_DIR", str(tmp_path))
+    args = build_parser().parse_args([])
+
+    assert args.test_data_dir == tmp_path
+
+
+def test_default_evidence_dir_contains_pre_release_prefix():
+    evidence_dir = default_evidence_dir()
+
+    assert "docs" in evidence_dir.parts
+    assert "98_VerificationArtifacts" in evidence_dir.parts
+    assert evidence_dir.name.startswith("pre_release_")
+
+
+def test_stage_plan_contains_required_stage_names(tmp_path):
+    plan = build_stage_plan(
+        evidence_dir=tmp_path,
+        test_data_dir=tmp_path,
+        preform_url="http://127.0.0.1:44388",
+        headed=False,
+        skip_package_build=False,
+    )
+
+    assert [stage.name for stage in plan] == [
+        "environment",
+        "static",
+        "backend",
+        "browser-mocked",
+        "browser-live-app",
+        "live-preform-virtual",
+        "packaged-runtime",
+    ]
+
+
+def test_stage_plan_keeps_skip_package_build_out_of_playwright_args(tmp_path):
+    plan = build_stage_plan(
+        evidence_dir=tmp_path,
+        test_data_dir=tmp_path,
+        preform_url="http://127.0.0.1:44388",
+        headed=True,
+        skip_package_build=True,
+    )
+
+    packaged = next(stage for stage in plan if stage.name == "packaged-runtime")
+    assert "--skip-package-build" not in packaged.command
+    assert packaged.env["FORMFLOW_RELEASE_SKIP_PACKAGE_BUILD"] == "1"

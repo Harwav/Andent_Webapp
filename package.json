@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:release-gate": "playwright test tests/release_gate/smoke.spec.ts --project=chromium",
-    "test:release-gate:headed": "playwright test tests/release_gate/smoke.spec.ts tests/release_gate/ui-hooks.spec.ts tests/release_gate/bulk-actions.spec.ts --project=chromium --headed",
-    "test:release-gate:headed:live": "playwright test tests/release_gate/release_gate.spec.ts --project=chromium --headed"
+    "test:release-gate": "python scripts/release_gate/run_release_gate.py",
+    "test:release-gate:headed": "python scripts/release_gate/run_release_gate.py --headed",
+    "test:release-gate:headed:live": "python scripts/release_gate/run_release_gate.py --headed"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
