@@ -1170,6 +1170,25 @@ function createPrinterPill(row) {
     return pill;
 }
 
+function createThumbnailImage(snapshot, fileName) {
+    const image = document.createElement("img");
+    image.src = snapshot;
+    image.alt = `${fileName} preview`;
+    return image;
+}
+
+function updateThumbnailSnapshotButtons(snapshotKey, row) {
+    const snapshot = state.thumbnailSnapshots.cache.get(snapshotKey);
+    if (!snapshot) {
+        return;
+    }
+    document.querySelectorAll(".thumbnail-button").forEach((button) => {
+        if (button.dataset.thumbnailKey === snapshotKey) {
+            button.replaceChildren(createThumbnailImage(snapshot, row.file_name));
+        }
+    });
+}
+
 function createThumbnail(row) {
     const button = document.createElement("button");
     button.type = "button";
@@ -1178,6 +1197,7 @@ function createThumbnail(row) {
     button.disabled = !canPreview;
     button.addEventListener("click", () => openPreview(row));
     const snapshotKey = getThumbnailSnapshotKey(row);
+    button.dataset.thumbnailKey = snapshotKey;
     let snapshot = state.thumbnailSnapshots.cache.get(snapshotKey);
     if (!snapshot) {
         snapshot = getStoredThumbnailSnapshot(snapshotKey);
@@ -1186,10 +1206,7 @@ function createThumbnail(row) {
         }
     }
     if (snapshot) {
-        const image = document.createElement("img");
-        image.src = snapshot;
-        image.alt = `${row.file_name} preview`;
-        button.appendChild(image);
+        button.appendChild(createThumbnailImage(snapshot, row.file_name));
     } else {
         const placeholder = document.createElement("div");
         placeholder.className = "thumbnail-placeholder";
@@ -1298,7 +1315,7 @@ function pumpThumbnailSnapshotQueue() {
             .finally(() => {
                 state.thumbnailSnapshots.pending.delete(job.key);
                 state.thumbnailSnapshots.active = Math.max(0, state.thumbnailSnapshots.active - 1);
-                render();
+                updateThumbnailSnapshotButtons(job.key, job.row);
                 pumpThumbnailSnapshotQueue();
             });
     }
@@ -2215,9 +2232,11 @@ function renderBulkActions() {
         const readyToSend = canPrint() && Boolean(state.bulkPrinterValue);
         submitButton.disabled = !readyToSend || state.sendToPrintInFlight;
         submitButton.className = readyToSend ? "primary-button" : "secondary-button";
-        submitButton.textContent = readyToSend
-            ? `Send to Print (${readyRows.length})`
-            : `PreFormServer Required — Send to Print (${readyRows.length})`;
+        submitButton.textContent = state.sendToPrintInFlight
+            ? "Sending to Print..."
+            : readyToSend
+                ? `Send to Print (${readyRows.length})`
+                : `PreFormServer Required — Send to Print (${readyRows.length})`;
         if (!readyToSend && canPrint()) {
             submitButton.textContent = `Select Printer to Send (${readyRows.length})`;
         }
@@ -2512,6 +2531,7 @@ async function sendRowsToPrint(rows, deviceId) {
     state.sendToPrintInFlight = true;
     const previousJobIds = new Set(state.printQueue.jobs.map((job) => job.id));
     state.activeTab = "work-queue";
+    setStatus("Sending selected row(s) to print...");
     markRowsInProgress(rows, "Processing");
     render();
 

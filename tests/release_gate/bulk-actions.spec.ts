@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 type QueueRow = {
   row_id: number;
@@ -56,16 +56,7 @@ function makeRow(rowId: number, status: string): QueueRow {
   };
 }
 
-test('bulk dropdowns are inline self-applying controls', async ({ page }) => {
-  const rows = [makeRow(1, 'Ready'), makeRow(2, 'Ready')];
-  const bulkUpdates: unknown[] = [];
-
-  await page.route('/api/uploads/queue', async (route) => {
-    await route.fulfill({ json: { active_rows: rows, processed_rows: [] } });
-  });
-  await page.route('/api/print-queue/jobs', async (route) => {
-    await route.fulfill({ json: { jobs: [] } });
-  });
+async function mockPreformReady(page: Page) {
   await page.route('/api/preform-setup/status', async (route) => {
     await route.fulfill({
       json: {
@@ -81,6 +72,42 @@ test('bulk dropdowns are inline self-applying controls', async ({ page }) => {
       },
     });
   });
+  await page.route('/api/preform-setup/dispatch-mode', async (route) => {
+    await route.fulfill({ json: { mode: 'virtual', effective_mode: 'virtual' } });
+  });
+  await page.route('/api/preform-setup/printers', async (route) => {
+    await route.fulfill({ json: { available: true, message: null, printers: [] } });
+  });
+  await page.route('/api/preform-setup/devices', async (route) => {
+    await route.fulfill({
+      json: {
+        available: true,
+        message: null,
+        devices: [
+          {
+            id: 'virtual-form4bl',
+            name: 'Virtual Form 4BL',
+            model: 'Form 4BL',
+            status: 'Ready',
+            is_virtual: true,
+          },
+        ],
+      },
+    });
+  });
+}
+
+test('bulk controls stay inline and printer selection enables print submission', async ({ page }) => {
+  const rows = [makeRow(1, 'Ready'), makeRow(2, 'Ready')];
+  const bulkUpdates: unknown[] = [];
+
+  await page.route('/api/uploads/queue', async (route) => {
+    await route.fulfill({ json: { active_rows: rows, processed_rows: [] } });
+  });
+  await page.route('/api/print-queue/jobs', async (route) => {
+    await route.fulfill({ json: { jobs: [] } });
+  });
+  await mockPreformReady(page);
   await page.route('/api/uploads/rows/bulk-update', async (route) => {
     bulkUpdates.push(route.request().postDataJSON());
     await route.fulfill({ json: rows });
@@ -94,7 +121,7 @@ test('bulk dropdowns are inline self-applying controls', async ({ page }) => {
 
   const modelSelect = page.getByLabel('Change Model Type');
   const presetSelect = page.getByLabel('Change Preset');
-  const printerSelect = page.getByLabel('Change Printer');
+  const printerSelect = page.getByTestId('bulk-printer-select');
   await expect(modelSelect).toBeVisible();
   await expect(presetSelect).toBeVisible();
   await expect(printerSelect).toBeVisible();
@@ -115,9 +142,9 @@ test('bulk dropdowns are inline self-applying controls', async ({ page }) => {
   await expect.poll(() => bulkUpdates.length).toBe(2);
   expect(bulkUpdates[1]).toEqual({ row_ids: [1], preset: 'Splint - Flat, No Supports' });
 
-  await printerSelect.selectOption('Form 4B');
-  await expect.poll(() => bulkUpdates.length).toBe(3);
-  expect(bulkUpdates[2]).toEqual({ row_ids: [1], printer: 'Form 4B' });
+  await printerSelect.selectOption('virtual-form4bl');
+  expect(bulkUpdates).toHaveLength(2);
+  await expect(page.getByRole('button', { name: 'Send to Print (1)' })).toBeVisible();
 });
 
 test('bulk duplicate approval and print submission post selected ready rows', async ({ page }) => {
@@ -133,21 +160,7 @@ test('bulk duplicate approval and print submission post selected ready rows', as
   await page.route('/api/print-queue/jobs', async (route) => {
     await route.fulfill({ json: { jobs: [] } });
   });
-  await page.route('/api/preform-setup/status', async (route) => {
-    await route.fulfill({
-      json: {
-        readiness: 'ready',
-        install_path: 'managed',
-        managed_executable_path: 'managed/PreFormServer.exe',
-        detected_version: '3.57.2.624',
-        expected_version_min: '3.57.0',
-        expected_version_max: null,
-        last_health_check_at: null,
-        last_error_code: null,
-        last_error_message: null,
-      },
-    });
-  });
+  await mockPreformReady(page);
   await page.route('/api/uploads/rows/allow-duplicate', async (route) => {
     posts.duplicates.push(route.request().postDataJSON());
     rows[0].status = 'Ready';
@@ -167,9 +180,10 @@ test('bulk duplicate approval and print submission post selected ready rows', as
   await expect.poll(() => posts.duplicates.length).toBe(1);
   expect(posts.duplicates[0]).toEqual({ row_ids: [1] });
 
+  await page.getByTestId('bulk-printer-select').selectOption('virtual-form4bl');
   await page.getByRole('button', { name: 'Send to Print (3)' }).click();
   await expect.poll(() => posts.print.length).toBe(1);
-  expect(posts.print[0]).toEqual({ row_ids: [1, 2, 3] });
+  expect(posts.print[0]).toEqual({ row_ids: [1, 2, 3], device_id: 'virtual-form4bl' });
 });
 
 test('in-progress rows expose individual removal without bulk actions', async ({ page }) => {
@@ -191,21 +205,7 @@ test('in-progress rows expose individual removal without bulk actions', async ({
   await page.route('/api/print-queue/jobs', async (route) => {
     await route.fulfill({ json: { jobs: [] } });
   });
-  await page.route('/api/preform-setup/status', async (route) => {
-    await route.fulfill({
-      json: {
-        readiness: 'ready',
-        install_path: 'managed',
-        managed_executable_path: 'managed/PreFormServer.exe',
-        detected_version: '3.57.2.624',
-        expected_version_min: '3.57.0',
-        expected_version_max: null,
-        last_health_check_at: null,
-        last_error_code: null,
-        last_error_message: null,
-      },
-    });
-  });
+  await mockPreformReady(page);
   await page.route('/api/uploads/rows/*', async (route) => {
     if (route.request().method() === 'DELETE') {
       deletes.push(route.request().url());
@@ -235,5 +235,5 @@ test('in-progress rows expose individual removal without bulk actions', async ({
 
   await workQueueRow.locator('[data-testid="row-select"]').check();
   await expect(page.getByRole('button', { name: 'Delete (1)' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Send to Print (1)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Select Printer to Send (1)' })).toBeVisible();
 });

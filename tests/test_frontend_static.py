@@ -91,6 +91,16 @@ def test_thumbnail_preview_uses_threejs_snapshot_cache():
     assert "image.src = row.thumbnail_url" not in app_js
 
 
+def test_thumbnail_completion_updates_only_thumbnail_dom_not_full_app_render():
+    app_js = APP_JS.read_text(encoding="utf-8")
+    pump_thumbnail_queue = _extract_function_source(app_js, "pumpThumbnailSnapshotQueue")
+
+    assert "button.dataset.thumbnailKey" in app_js
+    assert "function updateThumbnailSnapshotButtons" in app_js
+    assert "updateThumbnailSnapshotButtons(job.key, job.row)" in pump_thumbnail_queue
+    assert "render();" not in pump_thumbnail_queue
+
+
 def test_send_to_print_keeps_user_on_work_queue_and_highlights_linked_jobs_later():
     app_js = APP_JS.read_text(encoding="utf-8")
     styles_css = STYLES_CSS.read_text(encoding="utf-8")
@@ -319,6 +329,9 @@ def test_send_to_print_uses_global_submit_guard():
     assert "state.sendToPrintInFlight = false;" in app_js
     assert "if (state.sendToPrintInFlight)" in app_js
     assert "submitButton.disabled = !readyToSend || state.sendToPrintInFlight;" in app_js
+    assert 'submitButton.textContent = state.sendToPrintInFlight' in app_js
+    assert 'Sending to Print...' in app_js
+    assert 'setStatus("Sending selected row(s) to print...");' in app_js
 
 
 def test_print_queue_displays_holding_density_cutoff_and_release():
