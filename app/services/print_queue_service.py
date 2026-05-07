@@ -1682,6 +1682,22 @@ def _update_reserved_print_job_as_held(
     )
     _screenshot_cache.pop(job_id, None)
 
+    # Remove any stale held job for the same lane that was created by a concurrent
+    # dispatch call (e.g. double-click). The job we just updated is the authoritative one.
+    lane_compat_key = result.get("compatibility_key")
+    device_id_val = result.get("printer_device_id")
+    if lane_compat_key is not None:
+        connection.execute(
+            """
+            DELETE FROM print_jobs
+            WHERE status = ?
+              AND compatibility_key = ?
+              AND printer_device_id IS ?
+              AND id != ?
+            """,
+            (HOLDING_STATUS, lane_compat_key, device_id_val, job_id),
+        )
+
 
 def _load_held_replan_rows(
     settings: "Settings",

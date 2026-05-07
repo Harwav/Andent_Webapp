@@ -130,6 +130,7 @@ const elements = {
     historyTab: document.getElementById("history-tab"),
     queueActionButton: document.getElementById("queue-action-button"),
     selectPageCheckbox: document.getElementById("select-page-checkbox"),
+    selectAllReadyBtn: document.getElementById("select-all-ready-btn"),
     selectionNote: document.getElementById("selection-note"),
     statusLegend: document.getElementById("status-legend"),
     statusText: document.getElementById("status-text"),
@@ -993,6 +994,11 @@ function toggleSelectPage(checked) {
     render();
 }
 
+function selectAllReady() {
+    state.activeRows.filter(isReadyForPrint).forEach((row) => state.selectedIds.add(row.row_id));
+    render();
+}
+
 function toggleRowSelection(row, checked) {
     if (!isEditableActiveRow(row)) {
         return;
@@ -1499,6 +1505,12 @@ function renderActiveRows() {
     const info = buildPageSelectionInfo(pageRows, filteredRows);
     elements.selectPageCheckbox.checked = info.rowIds.length > 0 && info.rowIds.every((rowId) => state.selectedIds.has(rowId));
     elements.selectPageCheckbox.disabled = info.rowIds.length === 0;
+
+    const allReadyRows = state.activeRows.filter(isReadyForPrint);
+    const allReadyOnPage = pageRows.filter(isReadyForPrint);
+    const hasReadyOffPage = allReadyRows.length > allReadyOnPage.length;
+    elements.selectAllReadyBtn.style.display = hasReadyOffPage ? "" : "none";
+    elements.selectAllReadyBtn.textContent = `All ${allReadyRows.length}`;
 }
 
 function renderWorkQueueSections() {
@@ -2256,10 +2268,50 @@ function renderBulkActions() {
                 render();
                 return;
             }
-            event.currentTarget.disabled = true;
+            state.sendToPrintInFlight = true;
+            render();
             await sendRowsToPrint(rows, state.bulkPrinterValue);
         });
         elements.bulkActions.appendChild(submitButton);
+    }
+
+    const allReadyRows = state.activeRows.filter(isReadyForPrint);
+    if (allReadyRows.length > 0) {
+        const sendAllButton = document.createElement("button");
+        sendAllButton.type = "button";
+        sendAllButton.dataset.testid = "send-all-ready-button";
+        const canSendAll = canPrint() && Boolean(state.bulkPrinterValue);
+        sendAllButton.disabled = !canSendAll || state.sendToPrintInFlight;
+        sendAllButton.className = canSendAll ? "primary-button" : "secondary-button";
+        sendAllButton.textContent = state.sendToPrintInFlight
+            ? "Sending to Print..."
+            : canSendAll
+                ? `Send All Ready (${allReadyRows.length})`
+                : `PreFormServer Required — Send All Ready (${allReadyRows.length})`;
+        if (!canSendAll && canPrint()) {
+            sendAllButton.textContent = `Select Printer to Send All (${allReadyRows.length})`;
+        }
+        sendAllButton.addEventListener("click", async () => {
+            if (!canPrint()) {
+                openPreformWizard();
+                setStatus("Complete PreFormServer setup before sending rows to print.", true);
+                return;
+            }
+            if (!state.bulkPrinterValue) {
+                setStatus("Select a printer before sending rows to print.", true);
+                render();
+                return;
+            }
+            const rows = state.activeRows.filter(isReadyForPrint);
+            if (rows.length === 0) {
+                render();
+                return;
+            }
+            state.sendToPrintInFlight = true;
+            render();
+            await sendRowsToPrint(rows, state.bulkPrinterValue);
+        });
+        elements.bulkActions.appendChild(sendAllButton);
     }
 
     const clearButton = document.createElement("button");
@@ -2908,6 +2960,10 @@ elements.dropzone.addEventListener("drop", async (event) => {
 
 elements.selectPageCheckbox.addEventListener("change", (event) => {
     toggleSelectPage(event.target.checked);
+});
+
+elements.selectAllReadyBtn.addEventListener("click", () => {
+    selectAllReady();
 });
 
 elements.previewModal.addEventListener("click", (event) => {

@@ -2924,3 +2924,81 @@ def test_send_to_print_returns_502_when_preform_unavailable(tmp_path):
     assert "Connection refused" in response.json()["detail"]
     assert get_upload_row_by_id(settings, row_ids[0]).status == "Ready"
     assert list_print_jobs(settings) == []
+
+
+def test_double_send_produces_single_held_job(tmp_path):
+    """Simulates a user double-clicking Send to Print: two sequential sends for the
+    same rows on the same lane must leave exactly one held job, not two.
+
+    The second send re-uses the existing held job by merging (the old held job rows
+    are rolled back into the pool) so the dedup guard in
+    _update_reserved_print_job_as_held must ensure no stale duplicate survives.
+    """
+    settings = replace(_build_settings(tmp_path), print_hold_density_target=0.95)
+    app = create_app(settings)
+    client = TestClient(app)
+
+    stl = tmp_path / "case-double.stl"
+    stl.write_text("solid d\nendsolid d\n", encoding="utf-8")
+    register_test_dims(str(stl), 20.0, 20.0)
+
+    row_ids = _seed_rows(
+        settings,
+        [
+            _row_payload(
+                stl,
+                case_id="CASE-DOUBLE",
+                preset="Ortho Solid - Flat, No Supports",
+                status="Ready",
+                content_hash="hash-double",
+                dimension_x_mm=20.0,
+                dimension_y_mm=20.0,
+            ),
+        ],
+    )
+
+    stub_client = StubPreFormClient(settings.preform_server_url)
+    stub_client.devices = [
+        {"id": "form-4bl-lab", "name": "Lab Printer", "model": "Form 4BL",
+         "status": "Ready", "is_virtual": True}
+    ]
+
+    patches = [
+        patch("app.services.preform_client.PreFormClient", return_value=stub_client),
+        patch("app.services.preform_setup_service.get_preform_setup_status",
+              return_value=_ready_setup_status(settings)),
+        patch("app.services.print_queue_service.validate_stl_file",
+              return_value=Mock(is_valid=True, message="OK")),
+    ]
+
+    with patches[0], patches[1], patches[2]:
+        r1 = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-lab"},
+        )
+        assert r1.status_code == 200
+
+        # Second send: row is now held/in_progress but user hits send again.
+        # Reset row to Ready to simulate the double-click race scenario.
+        from app.database import connect as db_connect
+        with closing(db_connect(settings)) as conn:
+            conn.execute(
+                "UPDATE upload_rows SET status = 'Ready', linked_print_job_id = NULL WHERE id IN ({})".format(
+                    ",".join("?" for _ in row_ids)
+                ),
+                tuple(row_ids),
+            )
+            conn.commit()
+
+        r2 = client.post(
+            "/api/uploads/rows/send-to-print",
+            json={"row_ids": row_ids, "device_id": "form-4bl-lab"},
+        )
+        assert r2.status_code == 200
+
+    jobs = list_print_jobs(settings)
+    held_jobs = [j for j in jobs if j.status == "Holding for More Cases"]
+    assert len(held_jobs) == 1, (
+        f"Expected exactly 1 held job after double send, got {len(held_jobs)}. "
+        f"Jobs: {[(j.id, j.status, j.hold_reason) for j in jobs]}"
+    )
