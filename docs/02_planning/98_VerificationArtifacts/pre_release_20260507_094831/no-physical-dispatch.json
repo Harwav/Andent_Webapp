@@ -1,0 +1,20 @@
+{
+  "pass": true,
+  "checked_jobs": 1,
+  "virtual_targets": [
+    "form 2",
+    "form 3",
+    "form 3/3+",
+    "form 3b",
+    "form 3b/3b+",
+    "form 3bl",
+    "form 3l",
+    "form 4",
+    "form 4b",
+    "form 4bl",
+    "form 4l",
+    "form cell",
+    "fuse 1",
+    "fuse 1+ 30w"
+  ]
+}

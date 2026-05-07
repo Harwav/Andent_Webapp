@@ -29,7 +29,10 @@ a = Analysis(
     ["run_formflow.py"],
     pathex=["."],
     binaries=[],
-    datas=[("app/static", "app/static")],
+    datas=[
+        ("app/static", "app/static"),
+        ("app/resources", "app/resources"),
+    ],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

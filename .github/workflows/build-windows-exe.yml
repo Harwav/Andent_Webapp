@@ -42,6 +42,16 @@ jobs:
         shell: pwsh
         run: python -c "import app.main; import desktop.tray_runtime; print('imports ok')"
 
+      - name: Focused packaging tests
+        shell: pwsh
+        run: |
+          $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = "1"
+          python -m pytest `
+            tests/test_exe_packaging.py `
+            tests/test_health_endpoints.py `
+            tests/test_preform_setup.py::test_printers_route_resolves_material_code_to_label `
+            -q
+
       - name: Resolve version
         id: version
         shell: pwsh

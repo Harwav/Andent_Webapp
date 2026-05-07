@@ -1,0 +1,10 @@
+{
+  "artifacts": [
+    "packaged-runtime.log"
+  ],
+  "command": "npx.cmd playwright test tests/release_gate/packaged_runtime.spec.ts --project=chromium",
+  "duration_seconds": 11.462,
+  "notes": [],
+  "stage": "packaged-runtime",
+  "status": "pass"
+}

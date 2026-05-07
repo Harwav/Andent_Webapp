@@ -1,0 +1,12 @@
+{
+  "artifacts": [
+    "dataset-manifest.json",
+    "preform-status.json",
+    "git-status.txt"
+  ],
+  "command": "environment probes",
+  "duration_seconds": 1.413,
+  "notes": [],
+  "stage": "environment",
+  "status": "pass"
+}

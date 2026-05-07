@@ -1,0 +1,10 @@
+{
+  "artifacts": [
+    "browser-mocked.log"
+  ],
+  "command": "npx.cmd playwright test tests/e2e tests/release_gate/smoke.spec.ts tests/release_gate/ui-hooks.spec.ts tests/release_gate/bulk-actions.spec.ts --project=chromium --workers=1",
+  "duration_seconds": 75.256,
+  "notes": [],
+  "stage": "browser-mocked",
+  "status": "pass"
+}

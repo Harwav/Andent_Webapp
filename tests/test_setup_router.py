@@ -85,3 +85,14 @@ def test_setup_html_posts_preform_zip_to_existing_route():
     html = Path("app/static/setup.html").read_text(encoding="utf-8")
     assert 'fetch("/api/preform-setup/install-from-zip"' in html
     assert "/api/preform/setup/install-from-zip" not in html
+
+
+def test_setup_html_directs_user_to_formlabs_api_download_page():
+    html = Path("app/static/setup.html").read_text(encoding="utf-8")
+    download_url = (
+        "https://support.formlabs.com/s/article/"
+        "Formlabs-API-downloads-and-release-notes?language=en_US"
+    )
+
+    assert download_url in html
+    assert "latest PreFormServer ZIP" in html

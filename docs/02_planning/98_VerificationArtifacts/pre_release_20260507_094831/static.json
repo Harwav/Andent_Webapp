@@ -1,0 +1,10 @@
+{
+  "artifacts": [
+    "python-compile.log"
+  ],
+  "command": "python -m py_compile app/main.py scripts/release_gate/run_release_gate.py",
+  "duration_seconds": 0.1,
+  "notes": [],
+  "stage": "static",
+  "status": "pass"
+}

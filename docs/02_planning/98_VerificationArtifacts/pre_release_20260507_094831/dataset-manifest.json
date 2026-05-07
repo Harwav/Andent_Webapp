@@ -1,0 +1,555 @@
+{
+  "created_at": "2026-05-07T01:48:33.010581+00:00",
+  "files": [
+    {
+      "name": "20260407_10934575_SCDL__10934575_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10934575_SCDL__10934575_UnsectionedModel_UpperJaw.stl",
+      "sha256": "d382cd36f413930c8fa52f95b5e60a1db0332820b48eb8cc3bedf518651b39c8",
+      "size_bytes": 11705484
+    },
+    {
+      "name": "20260407_10935175_SCDL__10935175_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10935175_SCDL__10935175_UnsectionedModel_UpperJaw.stl",
+      "sha256": "a1936129e5ab57264401e2e703997eae36f0d373718ac9bb81353f38c41f990d",
+      "size_bytes": 12182784
+    },
+    {
+      "name": "20260407_10935386_SCDL__10935386_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10935386_SCDL__10935386_UnsectionedModel_LowerJaw.stl",
+      "sha256": "280e095d2db17ee5e6026a32069a320263da82d13c61ba036da39c7cd690a330",
+      "size_bytes": 10800884
+    },
+    {
+      "name": "20260407_10935386_SCDL__10935386_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10935386_SCDL__10935386_UnsectionedModel_UpperJaw.stl",
+      "sha256": "c41a3f0abec0749089cbd939e7a7f5f81811781c4fca280b87555ad4edcbfdd1",
+      "size_bytes": 14719984
+    },
+    {
+      "name": "20260407_10935421_SCDL__10935421_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10935421_SCDL__10935421_UnsectionedModel_LowerJaw.stl",
+      "sha256": "bc21defa81e8133fab9643742c5fa2f637f7f288aa35adbe7c3b7de32413d20f",
+      "size_bytes": 25809184
+    },
+    {
+      "name": "20260407_10935421_SCDL__10935421_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10935421_SCDL__10935421_UnsectionedModel_UpperJaw.stl",
+      "sha256": "e8b107aa67dce9ef36e451a438afa4a3debd7257d0760c9feaa65e049437066b",
+      "size_bytes": 36130884
+    },
+    {
+      "name": "20260407_10935787_SCDL__10935787_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10935787_SCDL__10935787_UnsectionedModel_UpperJaw.stl",
+      "sha256": "9940361f9af62da9e5797365123ba78f984027f94ffd42c24e41ab4a50b5fe84",
+      "size_bytes": 13379584
+    },
+    {
+      "name": "20260407_10936293_SCDL_10936293_DD_A3_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10936293_SCDL_10936293_DD_A3_Antag.stl",
+      "sha256": "b4b90946658c075d9bf04d478486b7685ab9f06937ac847ea8a6fc8ee3221786",
+      "size_bytes": 14526084
+    },
+    {
+      "name": "20260407_10936293_SCDL_10936293_DD_A3_Tooth_17.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10936293_SCDL_10936293_DD_A3_Tooth_17.stl",
+      "sha256": "9ed173e2bf3f73e6a33a7a9ce45a68bd17a3f42bf9cc837b683b25ef8b8efd15",
+      "size_bytes": 3662084
+    },
+    {
+      "name": "20260407_10936293_SCDL_10936293_DD_A3_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10936293_SCDL_10936293_DD_A3_UnsectionedModel_UpperJaw.stl",
+      "sha256": "912a0a08dc6db00ce1e72b361e057786305c7fe72cfd432e7983e923124493e9",
+      "size_bytes": 17210184
+    },
+    {
+      "name": "20260407_10936455_SCDL_DD_A3_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10936455_SCDL_DD_A3_Antag.stl",
+      "sha256": "080639263dfee4bc3b87a89e30a70a739e081453e9fb75c94ca4a6bdb8e91d8a",
+      "size_bytes": 5721484
+    },
+    {
+      "name": "20260407_10936455_SCDL_DD_A3_Tooth_14.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10936455_SCDL_DD_A3_Tooth_14.stl",
+      "sha256": "a935777dfaae7db03d10f7d6f6d3713f9091bfef4030c20673e800ff468380f9",
+      "size_bytes": 3233284
+    },
+    {
+      "name": "20260407_10936455_SCDL_DD_A3_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10936455_SCDL_DD_A3_UnsectionedModel_UpperJaw.stl",
+      "sha256": "ad91f5fb53ce3914e7c9d1e8b759a5707237d59c58601a683e8754f8d1322aca",
+      "size_bytes": 13531984
+    },
+    {
+      "name": "20260407_10936507_SCDL_OPAQUE_UT_B4_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10936507_SCDL_OPAQUE_UT_B4_Antag.stl",
+      "sha256": "3dd6504cc442bc275b9ca2a2e4720e517e016e1410e53cb923ce1f9d76c7a017",
+      "size_bytes": 6195884
+    },
+    {
+      "name": "20260407_10936507_SCDL_OPAQUE_UT_B4_Tooth_14.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10936507_SCDL_OPAQUE_UT_B4_Tooth_14.stl",
+      "sha256": "348dfa059de0c2d08336a4966967f84764924df86789f10cfb43d9aa28751ba6",
+      "size_bytes": 2293584
+    },
+    {
+      "name": "20260407_10936507_SCDL_OPAQUE_UT_B4_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_10936507_SCDL_OPAQUE_UT_B4_UnsectionedModel_UpperJaw.stl",
+      "sha256": "ca4eac788ee51ee8bbeb4f13ca6bacb215b401b5955dbf55845eb9b3c40b2c14",
+      "size_bytes": 11371184
+    },
+    {
+      "name": "20260407_8425071_NORTH__HAMISH_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425071_NORTH__HAMISH_UnsectionedModel_LowerJaw.stl",
+      "sha256": "fc8cb2d761fa3d3d61ffff0008ee79f9684b3f087c056a88d97c0d04bccfd964",
+      "size_bytes": 6751884
+    },
+    {
+      "name": "20260407_8425071_NORTH__HAMISH_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425071_NORTH__HAMISH_UnsectionedModel_UpperJaw.stl",
+      "sha256": "da382302d9b54853ea51217307fb0409c96928d9922133275afc56e24ce9ed0d",
+      "size_bytes": 9013884
+    },
+    {
+      "name": "20260407_8425205_VALE__HARRY_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425205_VALE__HARRY_UnsectionedModel_LowerJaw.stl",
+      "sha256": "2ccd56c454f0ce3ebe83482de653d2872bd77840f55434613d56f51f397335dd",
+      "size_bytes": 15156584
+    },
+    {
+      "name": "20260407_8425205_VALE__HARRY_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425205_VALE__HARRY_UnsectionedModel_UpperJaw.stl",
+      "sha256": "2def9c2ca0e55e37348e0f1eef2e5b324ce3f976f35ed1bc7e5941da20d02b00",
+      "size_bytes": 19747684
+    },
+    {
+      "name": "20260407_8425209_Dental_Nigel_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425209_Dental_Nigel_Antag.stl",
+      "sha256": "564e3d3d5460eb47e16e544b8370368c1d1ce8265e3c2e1b54c6c6a9782b7d62",
+      "size_bytes": 9535484
+    },
+    {
+      "name": "20260407_8425209_Dental_Nigel_Tooth_47.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425209_Dental_Nigel_Tooth_47.stl",
+      "sha256": "68abfd334ae311b734b7e25ea7268a7a40411176ad660ffab1dd35eb76c8dec7",
+      "size_bytes": 3624084
+    },
+    {
+      "name": "20260407_8425209_Dental_Nigel_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425209_Dental_Nigel_UnsectionedModel_LowerJaw.stl",
+      "sha256": "deef5fcb4ae02bc5e39962c17d4c336e124ed854be996f11ba787a6d7dd9bdef",
+      "size_bytes": 10776284
+    },
+    {
+      "name": "20260407_8425217_DICKSON__LIAM_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425217_DICKSON__LIAM_UnsectionedModel_LowerJaw.stl",
+      "sha256": "d0a2271038efc817d5f7e09de746698a7e96167ce58d64d40c83b8117bb83768",
+      "size_bytes": 11459284
+    },
+    {
+      "name": "20260407_8425217_DICKSON__LIAM_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425217_DICKSON__LIAM_UnsectionedModel_UpperJaw.stl",
+      "sha256": "14a20397578e3b269c9e734319bea555ab55d8df5a7afddbb172a65a6b9a8218",
+      "size_bytes": 15577584
+    },
+    {
+      "name": "20260407_8425223_DICKSON__HARRY_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425223_DICKSON__HARRY_UnsectionedModel_LowerJaw.stl",
+      "sha256": "16dba9a7ac2547cba50b06a3ab4ee5070a195f36f3d63ba6d0200330dd1e0746",
+      "size_bytes": 11818784
+    },
+    {
+      "name": "20260407_8425223_DICKSON__HARRY_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425223_DICKSON__HARRY_UnsectionedModel_UpperJaw.stl",
+      "sha256": "f4cea0d77d2b03a2ac7ae2b3d9fce0a40c38f5167296c2ca0659bbf154656db7",
+      "size_bytes": 14765684
+    },
+    {
+      "name": "20260407_8425250_KEDRON__NOAH_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425250_KEDRON__NOAH_UnsectionedModel_UpperJaw.stl",
+      "sha256": "0069576a76aac5129999226bee41ae9dbf53525fac382bbc69e01ca85493d591",
+      "size_bytes": 29632084
+    },
+    {
+      "name": "20260407_8425251_HEASLEY__MITCHELL_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425251_HEASLEY__MITCHELL_UnsectionedModel_UpperJaw.stl",
+      "sha256": "fe958308143e380bc117d0e2df242e9cc3b7de7ab2daea8d05e686f204acf645",
+      "size_bytes": 37163384
+    },
+    {
+      "name": "20260407_8425254_Women_William_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425254_Women_William_Antag.stl",
+      "sha256": "e661f332ad28017a1e95eda966051a4e60177d3265b04db0e9a401bdcace152c",
+      "size_bytes": 5363284
+    },
+    {
+      "name": "20260407_8425254_Women_William_Tooth_26.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425254_Women_William_Tooth_26.stl",
+      "sha256": "740efde70132f6019b40efa5984058b0f5148ab8778cc06fa1513fe6484aad3b",
+      "size_bytes": 3793484
+    },
+    {
+      "name": "20260407_8425254_Women_William_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425254_Women_William_UnsectionedModel_UpperJaw.stl",
+      "sha256": "58bed1c1d82de1dfc9c7e7e35cca03d0501b9a79ce66087fa0e358f51082a578",
+      "size_bytes": 12737684
+    },
+    {
+      "name": "20260407_8425255_NORTHSIDE__HUON_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425255_NORTHSIDE__HUON_UnsectionedModel_UpperJaw.stl",
+      "sha256": "b49277800ef666ed2de2699e73ced411581a87e0ff68de5385ef513c9faf3bce",
+      "size_bytes": 10048784
+    },
+    {
+      "name": "20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_Antag.stl",
+      "sha256": "45e2a1a9b9c1a27e45312102bce981a93cc196a40820ec077222203486c15697",
+      "size_bytes": 5331584
+    },
+    {
+      "name": "20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_Tooth_45.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_Tooth_45.stl",
+      "sha256": "a54cb2073ad333d6a836c33642c50651b29d298e870ab60a7925e3a6179fe997",
+      "size_bytes": 1593684
+    },
+    {
+      "name": "20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425256_1300_Smiles_Sandra_UT_A1_OPAQUE_UnsectionedModel_LowerJaw.stl",
+      "sha256": "96cadae40e2c17ff01351b542b24eb2cc8c66269ffa83c148a62d269d0d4cd9e",
+      "size_bytes": 8657584
+    },
+    {
+      "name": "20260407_8425259_CONTEMPORARY__SAM_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425259_CONTEMPORARY__SAM_UnsectionedModel_LowerJaw.stl",
+      "sha256": "e7d3f57f4242ea609789098f34d8f1c14e849b5bf99a8c1c6170cc5c55f89e29",
+      "size_bytes": 10404484
+    },
+    {
+      "name": "20260407_8425259_CONTEMPORARY__SAM_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425259_CONTEMPORARY__SAM_UnsectionedModel_UpperJaw.stl",
+      "sha256": "8fe5168b6e315190fda1496ee5e29c275152c5af256b0151e1e831205abf4f00",
+      "size_bytes": 15864684
+    },
+    {
+      "name": "20260407_8425271_doM_Julian_UT_A4_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425271_doM_Julian_UT_A4_Antag.stl",
+      "sha256": "b5f15628325ee2c330bde476903ac2ab75ed3762be168a37278d2c16272428a2",
+      "size_bytes": 6399784
+    },
+    {
+      "name": "20260407_8425271_doM_Julian_UT_A4_Tooth_17.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425271_doM_Julian_UT_A4_Tooth_17.stl",
+      "sha256": "c23b6e65502d096c0a645d452d6589ffc30ece04e64388a41a27fe2148d31e32",
+      "size_bytes": 3785184
+    },
+    {
+      "name": "20260407_8425271_doM_Julian_UT_A4_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425271_doM_Julian_UT_A4_UnsectionedModel_UpperJaw.stl",
+      "sha256": "781e6920715b28367d6bbf44967e19446a3f5e68e914c0736f16484f562d04c9",
+      "size_bytes": 12387684
+    },
+    {
+      "name": "20260407_8425299_Dental_Robert_UT_A35_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425299_Dental_Robert_UT_A35_Antag.stl",
+      "sha256": "6014cdd32fd8dc144d939b15bfe67833c248c52d37e6d02b2f26b33e9af7ded9",
+      "size_bytes": 11325684
+    },
+    {
+      "name": "20260407_8425299_Dental_Robert_UT_A35_Tooth_45.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425299_Dental_Robert_UT_A35_Tooth_45.stl",
+      "sha256": "7a383e0f1ca8b1fa08bc0d64d539787529ba969f4e23fb8b5f15f2e6d1d693be",
+      "size_bytes": 1017284
+    },
+    {
+      "name": "20260407_8425299_Dental_Robert_UT_A35_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425299_Dental_Robert_UT_A35_UnsectionedModel_LowerJaw.stl",
+      "sha256": "855c136a3e191d167676804f64d1606340d061deca61c2b02fa794a5c326a0c9",
+      "size_bytes": 9831884
+    },
+    {
+      "name": "20260407_8425306_Healesville_Ken_UT_A35_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425306_Healesville_Ken_UT_A35_Antag.stl",
+      "sha256": "5e245f4a8494b2748085d17a584b7f99cf1e2b9bc773babf39ff0160bfb12718",
+      "size_bytes": 6674784
+    },
+    {
+      "name": "20260407_8425306_Healesville_Ken_UT_A35_Tooth_45.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425306_Healesville_Ken_UT_A35_Tooth_45.stl",
+      "sha256": "7762d7b9111e04978d7dd12bc9f6a1c4c3459d86343d19a8e8b71c650e57ea2f",
+      "size_bytes": 3262484
+    },
+    {
+      "name": "20260407_8425306_Healesville_Ken_UT_A35_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425306_Healesville_Ken_UT_A35_UnsectionedModel_LowerJaw.stl",
+      "sha256": "6b4c23f8361cd60da6f0ae80ef9e66b665dd428f2cf62addf1b5e86508ba03bb",
+      "size_bytes": 19684184
+    },
+    {
+      "name": "20260407_8425317_SOUTH__HENRY_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425317_SOUTH__HENRY_UnsectionedModel_UpperJaw.stl",
+      "sha256": "d57ec3287a6ece58d2ab059bd763384d2632a7452a1cef031202630be1022696",
+      "size_bytes": 18243184
+    },
+    {
+      "name": "20260407_8425322_James__Lili_UT_A3_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425322_James__Lili_UT_A3_Antag.stl",
+      "sha256": "483f1843fdab22d6f3413555b69752a8443ac496b0525d9f15dee8219d30a457",
+      "size_bytes": 7113784
+    },
+    {
+      "name": "20260407_8425322_James__Lili_UT_A3_Tooth_47.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425322_James__Lili_UT_A3_Tooth_47.stl",
+      "sha256": "cd8fec5747d9f48f806d0dd8a5546cdba9f82718088af0913f5cfcd0056d3045",
+      "size_bytes": 2762484
+    },
+    {
+      "name": "20260407_8425322_James__Lili_UT_A3_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425322_James__Lili_UT_A3_UnsectionedModel_LowerJaw.stl",
+      "sha256": "781826bb432dcd4b81691c6e1b32db1a9d4dbe34a7a9cf936ef6c14fe1f24802",
+      "size_bytes": 11206684
+    },
+    {
+      "name": "20260407_8425323_Precision_Riah_MT_A2_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425323_Precision_Riah_MT_A2_Antag.stl",
+      "sha256": "5a2fab5425ab221eb47ab97a89f8fee9ebc4caac3d2f7c4f62e945a1cd0ed1ec",
+      "size_bytes": 9472484
+    },
+    {
+      "name": "20260407_8425323_Precision_Riah_MT_A2_Tooth_15.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425323_Precision_Riah_MT_A2_Tooth_15.stl",
+      "sha256": "4fcb0c0e727b68c47354d9e97f4d90e09f67508038e4eb801248f5f7b6f8a39c",
+      "size_bytes": 2007284
+    },
+    {
+      "name": "20260407_8425323_Precision_Riah_MT_A2_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425323_Precision_Riah_MT_A2_UnsectionedModel_UpperJaw.stl",
+      "sha256": "c40262cda43c321a25dff83d2da23720e85fe83f2d5cfab737cd3fc1cbd2b53a",
+      "size_bytes": 16202784
+    },
+    {
+      "name": "20260407_8425339_Meadow_Mouna_UT_A35_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425339_Meadow_Mouna_UT_A35_Antag.stl",
+      "sha256": "f0994c73f125a7f8b4b37e7388f1ed28ea69f5a4e7df6c9ff4114231d21c0f88",
+      "size_bytes": 12354784
+    },
+    {
+      "name": "20260407_8425339_Meadow_Mouna_UT_A35_Tooth_36.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425339_Meadow_Mouna_UT_A35_Tooth_36.stl",
+      "sha256": "5e6e15d9a7aedbac6ac052f9d3492b6915f5477b75358aa3bfb0c88c2ffd55fc",
+      "size_bytes": 2847984
+    },
+    {
+      "name": "20260407_8425339_Meadow_Mouna_UT_A35_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425339_Meadow_Mouna_UT_A35_UnsectionedModel_LowerJaw.stl",
+      "sha256": "b3dee379783d36012bd67d63f1c790cf4d78f253a7afa487874aae2ecc0666a6",
+      "size_bytes": 12361984
+    },
+    {
+      "name": "20260407_8425342_GREEN__JEM_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425342_GREEN__JEM_UnsectionedModel_LowerJaw.stl",
+      "sha256": "076741ed16c1fc7b4a728bbe416d89b68f9d8caeeccdb55c71f58aa80a33c894",
+      "size_bytes": 8098684
+    },
+    {
+      "name": "20260407_8425342_GREEN__JEM_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425342_GREEN__JEM_UnsectionedModel_UpperJaw.stl",
+      "sha256": "56a1da6c51923eae89e299b4ee82bd96480c63e137c454ba5ac9b7964f1f4f56",
+      "size_bytes": 12124484
+    },
+    {
+      "name": "20260407_8425356_Meadow_Muhammed_UT_A2_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425356_Meadow_Muhammed_UT_A2_Antag.stl",
+      "sha256": "63801ecbe0481b540f58807e3dba86884bcc055fd282e53160057acf8447b5a8",
+      "size_bytes": 13179384
+    },
+    {
+      "name": "20260407_8425356_Meadow_Muhammed_UT_A2_Tooth_36.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425356_Meadow_Muhammed_UT_A2_Tooth_36.stl",
+      "sha256": "d28b6b1ece7daf67ed714226e31c6c8b031f297be136035d52e898dfddd529c3",
+      "size_bytes": 2112984
+    },
+    {
+      "name": "20260407_8425356_Meadow_Muhammed_UT_A2_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425356_Meadow_Muhammed_UT_A2_UnsectionedModel_LowerJaw.stl",
+      "sha256": "8ba30ae37108f8292045c9373f015bef182f4e1fce24b0b97261b8b02709bd9b",
+      "size_bytes": 12863584
+    },
+    {
+      "name": "20260407_8425393_Phillip_Deborah_MT_A2_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425393_Phillip_Deborah_MT_A2_Antag.stl",
+      "sha256": "1f5814bd0d869e576d26b42b60fabf671ae13bb9559434155d295a5c9b814aba",
+      "size_bytes": 4947984
+    },
+    {
+      "name": "20260407_8425393_Phillip_Deborah_MT_A2_Tooth_46.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425393_Phillip_Deborah_MT_A2_Tooth_46.stl",
+      "sha256": "4b4be3ddc4000ff36a732233182bb4465837ed640910bc90388bbb908dbc6984",
+      "size_bytes": 3851184
+    },
+    {
+      "name": "20260407_8425393_Phillip_Deborah_MT_A2_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425393_Phillip_Deborah_MT_A2_UnsectionedModel_LowerJaw.stl",
+      "sha256": "e278feb0d63852426d76b5cf0dba43f6f54c831deb72880c73c4e178529e3ba9",
+      "size_bytes": 6428284
+    },
+    {
+      "name": "20260407_8425405_Hobsons__Julie_MT_A3_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425405_Hobsons__Julie_MT_A3_Antag.stl",
+      "sha256": "9f91ae52d95247951c4ab8f4b3866a02bc0659771664345fbf890d7d6ec8c7d6",
+      "size_bytes": 6885784
+    },
+    {
+      "name": "20260407_8425405_Hobsons__Julie_MT_A3_Tooth_46.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425405_Hobsons__Julie_MT_A3_Tooth_46.stl",
+      "sha256": "35d7369b51f8d24f077a6fb5d234856a48d99dd3ada73cd07f0816d9f7be0d24",
+      "size_bytes": 2879984
+    },
+    {
+      "name": "20260407_8425405_Hobsons__Julie_MT_A3_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425405_Hobsons__Julie_MT_A3_UnsectionedModel_LowerJaw.stl",
+      "sha256": "5eafe9b09d2611084c97a15631217546575f0341f0badc7ad6974559d25c2428",
+      "size_bytes": 9706984
+    },
+    {
+      "name": "20260407_8425408_Erica__Sam_UT_TBC_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425408_Erica__Sam_UT_TBC_Antag.stl",
+      "sha256": "7c108ae6010b905b89b0d4927d24388c09e653b81fe4d332da250641937074d4",
+      "size_bytes": 5862584
+    },
+    {
+      "name": "20260407_8425408_Erica__Sam_UT_TBC_Tooth_15.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425408_Erica__Sam_UT_TBC_Tooth_15.stl",
+      "sha256": "d9911418582cd09c1f140eb857af365aeb059d594557bec06133b1595274e417",
+      "size_bytes": 1880684
+    },
+    {
+      "name": "20260407_8425408_Erica__Sam_UT_TBC_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425408_Erica__Sam_UT_TBC_UnsectionedModel_UpperJaw.stl",
+      "sha256": "a83cb6ab3e78195a56599c3f1d63e4e5a2a6ed23ed152b7421148481bad9d0a9",
+      "size_bytes": 12978084
+    },
+    {
+      "name": "20260407_8425417_Sunrise__Natasha_UT_A2_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425417_Sunrise__Natasha_UT_A2_Antag.stl",
+      "sha256": "308e59e2607beb807311ffb17eb1590472449201c1ab9b46fc7afb917c44865a",
+      "size_bytes": 6219384
+    },
+    {
+      "name": "20260407_8425417_Sunrise__Natasha_UT_A2_Tooth_45.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425417_Sunrise__Natasha_UT_A2_Tooth_45.stl",
+      "sha256": "f70292751a0a07340940a0d00ee017579a57fcff265fdab2c9a5a8a49f7a0d18",
+      "size_bytes": 1682784
+    },
+    {
+      "name": "20260407_8425417_Sunrise__Natasha_UT_A2_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425417_Sunrise__Natasha_UT_A2_UnsectionedModel_LowerJaw.stl",
+      "sha256": "0105757830008d3eb27d75b6773f4a31f98034ee313ef31c81783f850475914f",
+      "size_bytes": 8857184
+    },
+    {
+      "name": "20260407_8425424_Sydenham_Zelko__UT_A3_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425424_Sydenham_Zelko__UT_A3_Antag.stl",
+      "sha256": "eff8c03b039bdfd1c0404222ddb0f915e647d1410517a84f28b9392deb619410",
+      "size_bytes": 9807784
+    },
+    {
+      "name": "20260407_8425424_Sydenham_Zelko__UT_A3_Tooth_37.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425424_Sydenham_Zelko__UT_A3_Tooth_37.stl",
+      "sha256": "fd4007bd9c0e771c2763cc06d48956effd61ffbb081fc75c8e25a1c22cd21324",
+      "size_bytes": 5696684
+    },
+    {
+      "name": "20260407_8425424_Sydenham_Zelko__UT_A3_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425424_Sydenham_Zelko__UT_A3_UnsectionedModel_LowerJaw.stl",
+      "sha256": "dff12d41e3f68dd06735d907483432c7d4ca54765145a3fbbdce1972ebcf6d72",
+      "size_bytes": 19306184
+    },
+    {
+      "name": "20260407_8425435_Jetty_Rob_UT_A35_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425435_Jetty_Rob_UT_A35_Antag.stl",
+      "sha256": "fb246b396c7a2eb6ee747fd67f78bb4d2adf50d82cf15298a58ee9eb7ce0f53d",
+      "size_bytes": 6144584
+    },
+    {
+      "name": "20260407_8425435_Jetty_Rob_UT_A35_Tooth_16.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425435_Jetty_Rob_UT_A35_Tooth_16.stl",
+      "sha256": "01c21d149c19062a9221526fb84a11838f5b9ddb41a6ca89deacb0e42e5e9bed",
+      "size_bytes": 3470784
+    },
+    {
+      "name": "20260407_8425435_Jetty_Rob_UT_A35_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425435_Jetty_Rob_UT_A35_UnsectionedModel_UpperJaw.stl",
+      "sha256": "2a95518ff227192116e3bbb1226ea811e8ba94f30be60dc2324dd1250a447c5f",
+      "size_bytes": 11414784
+    },
+    {
+      "name": "20260407_8425442_Maven_Lynn_UT_A3_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425442_Maven_Lynn_UT_A3_Antag.stl",
+      "sha256": "af5538acd75fbed17b52c6a11dd3270679efe3b7e8ffc2d124fcd207bac6133d",
+      "size_bytes": 10185584
+    },
+    {
+      "name": "20260407_8425442_Maven_Lynn_UT_A3_Tooth_26.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425442_Maven_Lynn_UT_A3_Tooth_26.stl",
+      "sha256": "4cbc6358a08d8f4d9a7de23b14958e42add98dbec43d5da859cce15576af5726",
+      "size_bytes": 2730884
+    },
+    {
+      "name": "20260407_8425442_Maven_Lynn_UT_A3_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_8425442_Maven_Lynn_UT_A3_UnsectionedModel_UpperJaw.stl",
+      "sha256": "137d33d3419f9304c43fb8667202aa8423a26c3cfd56d6c12b5be13b165c01b2",
+      "size_bytes": 14223684
+    },
+    {
+      "name": "20260407_9690917_SCDL__9690917_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_9690917_SCDL__9690917_UnsectionedModel_LowerJaw.stl",
+      "sha256": "5067c9f58fb1198c7becdbd4cf2a8735add77f4769e9e7f9000f71f34e656991",
+      "size_bytes": 5122484
+    },
+    {
+      "name": "20260407_9690917_SCDL__9690917_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260407_9690917_SCDL__9690917_UnsectionedModel_UpperJaw.stl",
+      "sha256": "64a382290a194796b6062e1d7d7dd75b765a190e953063534b6eb5f57659c9af",
+      "size_bytes": 9236284
+    },
+    {
+      "name": "20260408_8424903_Dentists_Efstratia_UT_C2_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260408_8424903_Dentists_Efstratia_UT_C2_Antag.stl",
+      "sha256": "b6a4fc33e28bb774110cb4636734cb1e679da190955483c06d5e25f2034a4cb3",
+      "size_bytes": 5797084
+    },
+    {
+      "name": "20260408_8424903_Dentists_Efstratia_UT_C2_Tooth_37.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260408_8424903_Dentists_Efstratia_UT_C2_Tooth_37.stl",
+      "sha256": "813b9b4fe0ef0443f947fcffda702f20d2f0476ac889e991ea29f5d209dbb1c0",
+      "size_bytes": 2955584
+    },
+    {
+      "name": "20260408_8424903_Dentists_Efstratia_UT_C2_UnsectionedModel_LowerJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260408_8424903_Dentists_Efstratia_UT_C2_UnsectionedModel_LowerJaw.stl",
+      "sha256": "b6b3096ecd56fa5649d283e814519c922fc83375c7025a9b8f0019e7d141a62b",
+      "size_bytes": 9024484
+    },
+    {
+      "name": "20260408_8424921_Googong_Lynette_M_Antag.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260408_8424921_Googong_Lynette_M_Antag.stl",
+      "sha256": "134f8a5c2eee4ff38767ff23f8516dfa973ad74310a48575cb206b3fc3881feb",
+      "size_bytes": 4460184
+    },
+    {
+      "name": "20260408_8424921_Googong_Lynette_M_Tooth_25.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260408_8424921_Googong_Lynette_M_Tooth_25.stl",
+      "sha256": "b84f0576a299bfa7b0a85b4a13fcbed074f6a3f1338492940d3b9745417a88f1",
+      "size_bytes": 2321684
+    },
+    {
+      "name": "20260408_8424921_Googong_Lynette_M_UnsectionedModel_UpperJaw.stl",
+      "path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data\\20260408_8424921_Googong_Lynette_M_UnsectionedModel_UpperJaw.stl",
+      "sha256": "d63c1c62758ba60bfd740b282798f4d67b1ca9506f40a10011d7c0d9314fbd38",
+      "size_bytes": 11591384
+    }
+  ],
+  "git_commit": "1c214c2e41621693a3a48c572cea02a522e0b3e7",
+  "source_path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data",
+  "stl_count": 91,
+  "total_bytes": 894285044
+}

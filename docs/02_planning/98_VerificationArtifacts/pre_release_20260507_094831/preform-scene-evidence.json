@@ -1,0 +1,52 @@
+{
+  "id": "ef107ec3-e040-47da-9a4a-07af43ab7af1",
+  "layer_count": 254,
+  "material_usage": {
+    "unsupported_volume_ml": 35.94184715101043,
+    "volume_ml": 35.94184715101043
+  },
+  "models": [
+    {
+      "bounding_box": {
+        "max_corner": {
+          "x": 16.649106979370117,
+          "y": 8.264907836914062,
+          "z": 25.443233489990234
+        },
+        "min_corner": {
+          "x": -35.60405731201172,
+          "y": -61.82807159423828,
+          "z": 0.00010000000474974513
+        }
+      },
+      "canonical_model_hash": "af7281b25e0cff9b7d8de4d8d2d75575dda3b435ee242f29cb3341ae",
+      "has_supports": false,
+      "id": "{d11194fb-77a1-4a88-b85a-56e4adb4b5ff}",
+      "in_bounds": true,
+      "lock": "FREE",
+      "name": "20260407_10934575_SCDL__10934575_UnsectionedModel_UpperJaw",
+      "orientation": {
+        "x": 0.000007577993528684601,
+        "y": -9.425401117368892e-7,
+        "z": -141.04981994628906
+      },
+      "original_file": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\test-results\\release-gate\\live-app\\uploads\\0b3800bdb9b2478583618de32dd310c5\\20260407_10934575_SCDL__10934575_UnsectionedModel_UpperJaw.stl",
+      "position": {
+        "x": -9.512441635131836,
+        "y": -25.672351837158203,
+        "z": 0.0001004385921987705
+      },
+      "raw_mesh_hash": "20a08235c5fe9d7b92516c9456fbfa8e502e7f703b8863eae455663c",
+      "scale": 1,
+      "units": "MILLIMETERS",
+      "visible": true
+    }
+  ],
+  "scene_settings": {
+    "layer_thickness_mm": "0.1",
+    "machine_type": "FRML-4-0",
+    "material_code": "FLPMBE01",
+    "print_setting": "DEFAULT"
+  },
+  "scene_id": "ef107ec3-e040-47da-9a4a-07af43ab7af1"
+}

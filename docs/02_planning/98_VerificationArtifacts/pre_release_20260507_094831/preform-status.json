@@ -1,0 +1,463 @@
+{
+  "base_url": "http://127.0.0.1:44388",
+  "devices": {
+    "count": 23,
+    "devices": [
+      {
+        "connection_type": "WIFI",
+        "firmware_version": "1.3.0-2594",
+        "id": "Blast-IntegralOcelot",
+        "ip_address": "10.24.10.93",
+        "is_connected": true,
+        "product_name": "Fuse Blast",
+        "status": "Idle"
+      },
+      {
+        "cartridge_data": {
+          "": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "",
+            "cartridgeOriginalVolume_mL": 0
+          }
+        },
+        "connection_type": "VIRTUAL",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "virtual-1.2.3-456",
+        "form_auto_status": "",
+        "id": "Form 3/3+",
+        "ip_address": "192.0.2.0",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "product_name": "Form 3",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer",
+        "tank_id": "",
+        "tank_material_code": ""
+      },
+      {
+        "cartridge_data": {
+          "": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "",
+            "cartridgeOriginalVolume_mL": 0
+          }
+        },
+        "connection_type": "VIRTUAL",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "virtual-1.2.3-456",
+        "form_auto_status": "",
+        "id": "Form 3B/3B+",
+        "ip_address": "192.0.2.1",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "product_name": "Form 3B",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer",
+        "tank_id": "",
+        "tank_material_code": ""
+      },
+      {
+        "cartridge_data": {
+          "": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "",
+            "cartridgeOriginalVolume_mL": 0
+          }
+        },
+        "connection_type": "VIRTUAL",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "virtual-1.2.3-456",
+        "form_auto_status": "",
+        "id": "Form 3BL",
+        "ip_address": "192.0.2.3",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "product_name": "Form 3BL",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer",
+        "tank_id": "",
+        "tank_material_code": ""
+      },
+      {
+        "cartridge_data": {
+          "": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "",
+            "cartridgeOriginalVolume_mL": 0
+          }
+        },
+        "connection_type": "VIRTUAL",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "virtual-1.2.3-456",
+        "form_auto_status": "",
+        "id": "Form 3L",
+        "ip_address": "192.0.2.2",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "product_name": "Form 3L",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer",
+        "tank_id": "",
+        "tank_material_code": ""
+      },
+      {
+        "connection_type": "VIRTUAL",
+        "firmware_version": "virtual-1.2.3-456",
+        "id": "Form Cell",
+        "ip_address": "192.0.2.5",
+        "is_connected": true,
+        "product_name": "Form Cell",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer"
+      },
+      {
+        "cartridge_data": {
+          "": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "",
+            "cartridgeOriginalVolume_mL": 0
+          }
+        },
+        "connection_type": "VIRTUAL",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "virtual-1.2.3-456",
+        "id": "Form 2",
+        "ip_address": "192.0.2.4",
+        "is_connected": true,
+        "product_name": "Form 2",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer",
+        "tank_id": "",
+        "tank_material_code": ""
+      },
+      {
+        "cartridge_data": {
+          "04275a42be1e90": {
+            "cartridgeEstimatedVolumeDispensed_mL": 210.47998046875,
+            "cartridgeMaterialCode": "FLTO1502",
+            "cartridgeOriginalVolume_mL": 5000
+          },
+          "NONE": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "NONE",
+            "cartridgeOriginalVolume_mL": 0
+          }
+        },
+        "connection_type": "WIFI",
+        "estimated_print_time_remaining_ms": 17928886.029118843,
+        "firmware_version": "1.15.1-2853",
+        "id": "Diesel-L-EVT5-003",
+        "ip_address": "10.24.10.199",
+        "is_connected": true,
+        "is_remote_print_enabled": true,
+        "product_name": "Form 4BL",
+        "ready_to_print_now": false,
+        "status": "Preprint",
+        "tank_id": "04257bca6e1490",
+        "tank_material_code": "FLTO1502"
+      },
+      {
+        "cartridge_data": {
+          "": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "",
+            "cartridgeOriginalVolume_mL": 0
+          }
+        },
+        "connection_type": "VIRTUAL",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "virtual-1.2.3-456",
+        "id": "Form 4",
+        "ip_address": "192.0.2.6",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "product_name": "Form 4",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer",
+        "tank_id": "",
+        "tank_material_code": ""
+      },
+      {
+        "cartridge_data": {
+          "": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "",
+            "cartridgeOriginalVolume_mL": -1
+          }
+        },
+        "connection_type": "VIRTUAL",
+        "estimated_print_time_remaining_ms": -1,
+        "firmware_version": "0",
+        "id": "Form 4B",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "product_name": "Form 4B",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer",
+        "tank_id": "",
+        "tank_material_code": ""
+      },
+      {
+        "cartridge_data": {
+          "": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "",
+            "cartridgeOriginalVolume_mL": -1
+          }
+        },
+        "connection_type": "VIRTUAL",
+        "estimated_print_time_remaining_ms": -1,
+        "firmware_version": "0",
+        "id": "Form 4BL",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "product_name": "Form 4BL",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer",
+        "tank_id": "",
+        "tank_material_code": ""
+      },
+      {
+        "cartridge_data": {
+          "": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "",
+            "cartridgeOriginalVolume_mL": 0
+          }
+        },
+        "connection_type": "VIRTUAL",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "virtual-1.2.3-456",
+        "id": "Form 4L",
+        "ip_address": "192.0.2.8",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "product_name": "Form 4L",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer",
+        "tank_id": "",
+        "tank_material_code": ""
+      },
+      {
+        "cartridge_data": {
+          "04106b5a7f2190": {
+            "cartridgeEstimatedVolumeDispensed_mL": 900,
+            "cartridgeMaterialCode": "FLTO1502",
+            "cartridgeOriginalVolume_mL": 1000
+          }
+        },
+        "connection_type": "WIFI",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "1.15.1-2853",
+        "id": "Form4-AcousticFawn",
+        "ip_address": "10.24.10.123",
+        "is_connected": true,
+        "is_remote_print_enabled": true,
+        "product_name": "Form 4B",
+        "ready_to_print_now": true,
+        "status": "Ready",
+        "tank_id": "044778ca6e1490",
+        "tank_material_code": "FLTO1502"
+      },
+      {
+        "cartridge_data": {
+          "042c2a92451390": {
+            "cartridgeEstimatedVolumeDispensed_mL": 900,
+            "cartridgeMaterialCode": "FLBMAM01",
+            "cartridgeOriginalVolume_mL": 1000
+          }
+        },
+        "connection_type": "WIFI",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "1.15.1-2853",
+        "id": "Form4-GoldenJaguar",
+        "ip_address": "10.24.10.126",
+        "is_connected": true,
+        "is_remote_print_enabled": true,
+        "product_name": "Form 4B",
+        "ready_to_print_now": true,
+        "status": "Ready",
+        "tank_id": "044870fa6e1490",
+        "tank_material_code": "FLBMAM01"
+      },
+      {
+        "cartridge_data": {
+          "04b5361a6f1490": {
+            "cartridgeEstimatedVolumeDispensed_mL": 1000,
+            "cartridgeMaterialCode": "FLGPGR05",
+            "cartridgeOriginalVolume_mL": 1000
+          }
+        },
+        "connection_type": "WIFI",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "1.15.1-2853",
+        "id": "Form4-HistoricalHare",
+        "ip_address": "10.24.10.129",
+        "is_connected": true,
+        "is_remote_print_enabled": true,
+        "product_name": "Form 4B",
+        "ready_to_print_now": false,
+        "status": "Not ready",
+        "tank_id": "042d6ffa6e1490",
+        "tank_material_code": "FLGPGR05"
+      },
+      {
+        "cartridge_data": {
+          "0455c132be1e90": {
+            "cartridgeEstimatedVolumeDispensed_mL": 300,
+            "cartridgeMaterialCode": "FLTCLV01",
+            "cartridgeOriginalVolume_mL": 1000
+          }
+        },
+        "connection_type": "WIFI",
+        "estimated_print_time_remaining_ms": 11221320.717583,
+        "firmware_version": "1.15.1-2853",
+        "id": "Form4-TopazPanda",
+        "ip_address": "10.24.10.110",
+        "is_connected": true,
+        "is_remote_print_enabled": true,
+        "product_name": "Form 4B",
+        "ready_to_print_now": false,
+        "status": "Printing",
+        "tank_id": "048e5902be1e90",
+        "tank_material_code": "FLTCLV01"
+      },
+      {
+        "cartridge_data": {
+          "04bed8ca6e1490": {
+            "cartridgeEstimatedVolumeDispensed_mL": 3895.8399658203125,
+            "cartridgeMaterialCode": "FLGPBK05",
+            "cartridgeOriginalVolume_mL": 5000
+          },
+          "NONE": {
+            "cartridgeEstimatedVolumeDispensed_mL": 0,
+            "cartridgeMaterialCode": "NONE",
+            "cartridgeOriginalVolume_mL": 0
+          }
+        },
+        "connection_type": "WIFI",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "1.15.1-2853",
+        "id": "Form4L-EconomicWalrus",
+        "ip_address": "10.24.10.205",
+        "is_connected": true,
+        "is_remote_print_enabled": true,
+        "product_name": "Form 4BL",
+        "ready_to_print_now": false,
+        "status": "Not ready",
+        "tank_id": "04a2beba6b1490",
+        "tank_material_code": "FLGPBK05"
+      },
+      {
+        "bed_temperature_c": 0,
+        "connection_type": "VIRTUAL",
+        "cylinder_material_code": "",
+        "cylinder_serial": "",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "virtual-1.2.3-456",
+        "id": "Fuse 1",
+        "ip_address": "192.0.2.10",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "powder_credit_g": 1,
+        "powder_level": "UNKNOWN",
+        "printer_material_code": "UNKNOWN",
+        "printing_guid": "{00000000-0000-0000-0000-000000000000}",
+        "printing_layer": -1,
+        "product_name": "Fuse 1",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer"
+      },
+      {
+        "bed_temperature_c": 0,
+        "connection_type": "VIRTUAL",
+        "cylinder_material_code": "",
+        "cylinder_serial": "",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "virtual-1.2.3-456",
+        "id": "Fuse 1+ 30W",
+        "ip_address": "192.0.2.11",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "powder_credit_g": 1,
+        "powder_level": "UNKNOWN",
+        "printer_material_code": "UNKNOWN",
+        "printing_guid": "{00000000-0000-0000-0000-000000000000}",
+        "printing_layer": -1,
+        "product_name": "Fuse 1+ 30W",
+        "ready_to_print_now": false,
+        "status": "Virtual Printer"
+      },
+      {
+        "bed_temperature_c": 26.169921875,
+        "connection_type": "WIFI",
+        "cylinder_material_code": "NONE",
+        "cylinder_serial": "",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "1.24.0-2828",
+        "id": "LinenCavy",
+        "ip_address": "10.24.10.97",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "powder_credit_g": 0,
+        "powder_level": "EMPTY",
+        "printer_material_code": "UNKNOWN",
+        "printing_guid": "{00000000-0000-0000-0000-000000000000}",
+        "printing_layer": -1,
+        "product_name": "Fuse 1+ 30W",
+        "ready_to_print_now": false,
+        "status": "Idle"
+      },
+      {
+        "bed_temperature_c": 28.4091796875,
+        "connection_type": "WIFI",
+        "cylinder_material_code": "FLP12T01",
+        "cylinder_serial": "BC-FS1-230V-KHT7L",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "1.24.1-2860",
+        "id": "QuartzCanary",
+        "ip_address": "10.24.10.235",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "powder_credit_g": 33632,
+        "powder_level": "LOW",
+        "printer_material_code": "FLP12T01",
+        "printing_guid": "{00000000-0000-0000-0000-000000000000}",
+        "printing_layer": -1,
+        "product_name": "Fuse 1+ 30W",
+        "ready_to_print_now": false,
+        "status": "Idle"
+      },
+      {
+        "bed_temperature_c": 23.0693359375,
+        "connection_type": "WIFI",
+        "cylinder_material_code": "NONE",
+        "cylinder_serial": "",
+        "estimated_print_time_remaining_ms": 0,
+        "firmware_version": "1.24.0-2828",
+        "id": "VersedMyzornis",
+        "ip_address": "10.24.10.22",
+        "is_connected": true,
+        "is_remote_print_enabled": false,
+        "powder_credit_g": 59829,
+        "powder_level": "EMPTY",
+        "printer_material_code": "FLP12G01",
+        "printing_guid": "{00000000-0000-0000-0000-000000000000}",
+        "printing_layer": -1,
+        "product_name": "Fuse 1",
+        "ready_to_print_now": false,
+        "status": "Idle"
+      },
+      {
+        "connection_type": "WIFI",
+        "firmware_version": "1.7.0-2589",
+        "id": "PetiteGundi",
+        "ip_address": "10.24.10.95",
+        "is_connected": true,
+        "product_name": "Fuse Sift",
+        "status": "Idle"
+      }
+    ]
+  },
+  "reachable": true
+}

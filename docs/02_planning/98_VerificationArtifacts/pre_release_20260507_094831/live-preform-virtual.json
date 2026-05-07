@@ -1,0 +1,10 @@
+{
+  "artifacts": [
+    "live-preform-virtual.log"
+  ],
+  "command": "npx.cmd playwright test tests/release_gate/live_pack_invariants.spec.ts --project=chromium",
+  "duration_seconds": 48.493,
+  "notes": [],
+  "stage": "live-preform-virtual",
+  "status": "pass"
+}

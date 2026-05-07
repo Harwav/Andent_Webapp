@@ -33,6 +33,7 @@ Technical planning documents for the Andent Web Auto Prep system.
 | **Understand system design** | 02 — Architecture | [`02_Architecture-andent-web.md`](02_Architecture-andent-web.md) |
 | **Understand classification logic** | 02.01 — Algorithm | [`02.01_Algorithm-classification.md`](02.01_Algorithm-classification.md) |
 | **Understand PreFormServer handoff** | 02.02 — Handoff | [`02.02_Architecture-PreFormServer-handoff.md`](02.02_Architecture-PreFormServer-handoff.md) |
+| **Build the Windows EXE** | 02.05 — Windows EXE Build | [`02.05_Architecture-Windows-EXE-build.md`](02.05_Architecture-Windows-EXE-build.md) |
 | **See implementation timeline** | 04 — Roadmap | [`04_Roadmap-implementation.md`](04_Roadmap-implementation.md) |
 | **Understand test coverage** | 05 — Test Spec | [`05_TestSpec-andent-web.md`](05_TestSpec-andent-web.md) |
 | **See future improvements** | 06 — Future | [`06_Future/`](06_Future/) |
@@ -59,6 +60,7 @@ Code (core/, app/)
 | # | Document | Status | Last Updated | Purpose |
 |---|----------|--------|--------------|---------|
 | 02.04 | Virtual Printer Debug Handoff | Active | 2026-04-28 | Real PreForm endpoint against virtual printer |
+| 02.05 | Windows EXE Build | Active | 2026-05-07 | Local and GitHub Actions EXE build guide |
 | 00 | README / AGENTS | ✅ Active | 2026-04-21 | Navigation |
 | 01 | PRD | ✅ Active | 2026-04-21 | Requirements |
 | 02 | Architecture | ✅ Active | 2026-04-21 | System design |

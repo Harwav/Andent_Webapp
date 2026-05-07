@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import sys
 from pathlib import Path
 
@@ -26,3 +27,27 @@ def test_application_version_uses_semver_triplet():
 
     assert len(parts) == 3
     assert all(part.isdigit() for part in parts)
+
+
+def test_material_catalog_has_packaged_resource_fallback(tmp_path):
+    from app.routers import preform_setup
+
+    preform_setup._MATERIAL_LABEL_CACHE = None
+    settings = build_settings(
+        data_dir=tmp_path / "data",
+        database_path=tmp_path / "data" / "formflow.db",
+    )
+    settings = replace(settings, project_root=tmp_path)
+
+    mapping = preform_setup._material_label_map(settings)
+
+    assert mapping["FLTO1502"] == "Tough 1500 V2"
+    assert mapping["FLBMAM01"] == "BioMed Amber V1"
+
+
+def test_pyinstaller_spec_bundles_runtime_resources():
+    spec_text = Path("formflow.spec").read_text(encoding="utf-8")
+
+    assert '("app/static", "app/static")' in spec_text
+    assert '("app/resources", "app/resources")' in spec_text
+    assert Path("app/resources/preform-list-materials-latest.json").is_file()

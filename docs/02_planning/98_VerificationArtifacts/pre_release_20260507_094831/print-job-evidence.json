@@ -1,0 +1,65 @@
+{
+  "jobs": [
+    {
+      "id": 1,
+      "job_name": "260507_0001",
+      "status": "Queued",
+      "hold_reason": null,
+      "printer_device_id": "Form 4BL",
+      "printer_device_name": "Form 4BL",
+      "case_ids": [
+        "10934575"
+      ],
+      "preset_names": [
+        "Ortho Solid - Flat, No Supports"
+      ],
+      "compatibility_key": "form-4bl|precision-model-v1|100",
+      "manifest": {
+        "compatibility_key": "form-4bl|precision-model-v1|100",
+        "case_ids": [
+          "10934575"
+        ],
+        "preset_names": [
+          "Ortho Solid - Flat, No Supports"
+        ],
+        "import_groups": [
+          {
+            "preset_name": "Ortho Solid - Flat, No Supports",
+            "preform_hint": "ortho_solid_v1",
+            "row_ids": [
+              1
+            ],
+            "files": [
+              {
+                "row_id": 1,
+                "case_id": "10934575",
+                "file_name": "20260407_10934575_SCDL__10934575_UnsectionedModel_UpperJaw.stl",
+                "file_path": "C:\\Users\\Marcus\\Documents\\Andent_Webapp\\test-results\\release-gate\\live-app\\uploads\\0b3800bdb9b2478583618de32dd310c5\\20260407_10934575_SCDL__10934575_UnsectionedModel_UpperJaw.stl",
+                "preset_name": "Ortho Solid - Flat, No Supports",
+                "compatibility_key": "form-4bl|precision-model-v1|100",
+                "xy_footprint_estimate": 2235.1953125,
+                "support_inflation_factor": 1,
+                "order": 0,
+                "preform_hint": "ortho_solid_v1"
+              }
+            ]
+          }
+        ],
+        "planning_status": "planned",
+        "non_plannable_reason": null,
+        "printer_group": "Form 4BL",
+        "material_label": "Precision Model V1",
+        "material_code": "FLPMBE01",
+        "machine_type": "FRML-4-0",
+        "layer_thickness_mm": 0.1,
+        "print_setting": "DEFAULT",
+        "model_spacing_mm": 1,
+        "allow_overlapping_supports": false,
+        "printer_xy_budget": 69188,
+        "used_xy_budget": 2235.1953125,
+        "estimated_density": 0.032306112512285365
+      },
+      "scene_id": "ef107ec3-e040-47da-9a4a-07af43ab7af1"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "artifacts": [
+    "browser-live-app.log"
+  ],
+  "command": "npx.cmd playwright test tests/release_gate/live_virtual_handoff.spec.ts --project=chromium",
+  "duration_seconds": 43.468,
+  "notes": [],
+  "stage": "browser-live-app",
+  "status": "pass"
+}

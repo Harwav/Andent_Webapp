@@ -1,0 +1,83 @@
+{
+  "metadata": {
+    "dataset_path": "C:\\Users\\Marcus\\Desktop\\From 4BL Test Data",
+    "git_commit": "1c214c2e41621693a3a48c572cea02a522e0b3e7",
+    "preform_url": "http://127.0.0.1:44388",
+    "stl_count": 91
+  },
+  "ship": true,
+  "stages": [
+    {
+      "artifacts": [
+        "dataset-manifest.json",
+        "preform-status.json",
+        "git-status.txt"
+      ],
+      "command": "environment probes",
+      "duration_seconds": 1.413,
+      "notes": [],
+      "stage": "environment",
+      "status": "pass"
+    },
+    {
+      "artifacts": [
+        "python-compile.log"
+      ],
+      "command": "python -m py_compile app/main.py scripts/release_gate/run_release_gate.py",
+      "duration_seconds": 0.1,
+      "notes": [],
+      "stage": "static",
+      "status": "pass"
+    },
+    {
+      "artifacts": [
+        "pytest.log"
+      ],
+      "command": "python -m pytest tests/ -q",
+      "duration_seconds": 24.719,
+      "notes": [],
+      "stage": "backend",
+      "status": "pass"
+    },
+    {
+      "artifacts": [
+        "browser-mocked.log"
+      ],
+      "command": "npx.cmd playwright test tests/e2e tests/release_gate/smoke.spec.ts tests/release_gate/ui-hooks.spec.ts tests/release_gate/bulk-actions.spec.ts --project=chromium --workers=1",
+      "duration_seconds": 75.256,
+      "notes": [],
+      "stage": "browser-mocked",
+      "status": "pass"
+    },
+    {
+      "artifacts": [
+        "browser-live-app.log"
+      ],
+      "command": "npx.cmd playwright test tests/release_gate/live_virtual_handoff.spec.ts --project=chromium",
+      "duration_seconds": 43.468,
+      "notes": [],
+      "stage": "browser-live-app",
+      "status": "pass"
+    },
+    {
+      "artifacts": [
+        "live-preform-virtual.log"
+      ],
+      "command": "npx.cmd playwright test tests/release_gate/live_pack_invariants.spec.ts --project=chromium",
+      "duration_seconds": 48.493,
+      "notes": [],
+      "stage": "live-preform-virtual",
+      "status": "pass"
+    },
+    {
+      "artifacts": [
+        "packaged-runtime.log"
+      ],
+      "command": "npx.cmd playwright test tests/release_gate/packaged_runtime.spec.ts --project=chromium",
+      "duration_seconds": 11.462,
+      "notes": [],
+      "stage": "packaged-runtime",
+      "status": "pass"
+    }
+  ]
+}

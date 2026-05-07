@@ -1,0 +1,10 @@
+{
+  "artifacts": [
+    "pytest.log"
+  ],
+  "command": "python -m pytest tests/ -q",
+  "duration_seconds": 24.719,
+  "notes": [],
+  "stage": "backend",
+  "status": "pass"
+}

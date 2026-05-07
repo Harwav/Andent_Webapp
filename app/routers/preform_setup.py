@@ -86,10 +86,16 @@ def _material_label_map(settings) -> dict[str, str]:
     global _MATERIAL_LABEL_CACHE
     if _MATERIAL_LABEL_CACHE is not None:
         return _MATERIAL_LABEL_CACHE
-    catalog_path = Path(settings.project_root) / ".omx" / "preform-list-materials-latest.json"
+    catalog_paths = (
+        Path(__file__).resolve().parents[1] / "resources" / "preform-list-materials-latest.json",
+        Path(settings.project_root) / ".omx" / "preform-list-materials-latest.json",
+    )
     mapping: dict[str, str] = {}
-    try:
-        data = json.loads(catalog_path.read_text(encoding="utf-8-sig"))
+    for catalog_path in catalog_paths:
+        try:
+            data = json.loads(catalog_path.read_text(encoding="utf-8-sig"))
+        except Exception:
+            continue
         for pt in data.get("printer_types", []):
             for mat in pt.get("materials", []):
                 label = mat.get("label", "").strip()
@@ -97,8 +103,8 @@ def _material_label_map(settings) -> dict[str, str]:
                     code = ms.get("scene_settings", {}).get("material_code", "").strip().upper()
                     if code and label:
                         mapping[code] = label
-    except Exception:
-        pass
+        if mapping:
+            break
     _MATERIAL_LABEL_CACHE = mapping
     return mapping
 

@@ -1,0 +1,7 @@
+ M tests/e2e/case-selection.spec.ts
+ M tests/e2e/legend-filters.spec.ts
+ M tests/e2e/polling.spec.ts
+ M tests/e2e/preview-modal.spec.ts
+ M tests/e2e/undo-removal.spec.ts
+?? docs/02_planning/98_VerificationArtifacts/pre_release_20260507_094820/
+?? docs/02_planning/98_VerificationArtifacts/pre_release_20260507_094831/
