@@ -106,11 +106,12 @@ test.describe('Undo Removal', () => {
   });
 
   test('undo expires after 5 seconds', async ({ page }) => {
+    let deleted = false;
     // Mock queue with a file ready
     await page.route('/api/uploads/queue', async (route) => {
       await route.fulfill({
         json: {
-          active_rows: [{
+          active_rows: deleted ? [] : [{
             row_id: 'test-1',
             file_name: 'test-expiry.stl',
             case_id: 'CASE001',
@@ -125,6 +126,7 @@ test.describe('Undo Removal', () => {
 
     // Mock the DELETE API call
     await page.route(/\/api\/uploads\/rows\/test-1/, async (route) => {
+      deleted = true;
       await route.fulfill({ status: 204, body: '' });
     });
 
@@ -142,7 +144,7 @@ test.describe('Undo Removal', () => {
 
     // Undo button should be gone and row should be permanently deleted
     await expect(page.locator('#active-body tr').first().locator('.undo-button')).not.toBeVisible();
-    // The row might still show briefly before the API call completes
-    await expect(page.locator('#active-body tr')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.getByText('Add STL files or folders to start the queue.')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#active-body')).not.toContainText('test-expiry.stl');
   });
 });

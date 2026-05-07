@@ -52,8 +52,9 @@ test.describe('Polling', () => {
       });
     });
 
-    // Wait for polling to occur (default polling interval is 5 seconds)
-    await page.waitForTimeout(6000);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Active Queue' })).toBeVisible();
+    await page.waitForTimeout(11000);
 
     // Verify multiple requests were made (polling occurred)
     expect(requestCount).toBeGreaterThan(1);
@@ -68,7 +69,8 @@ test.describe('Polling', () => {
       await route.fulfill({ json: { jobs: [] } });
     });
 
-    // Wait for polling to occur
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Active Queue' })).toBeVisible();
     await page.waitForTimeout(6000);
 
     // Verify multiple requests were made
@@ -94,6 +96,9 @@ test.describe('Polling', () => {
       await route.fulfill({ json: { jobs: [] } });
     });
 
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Active Queue' })).toBeVisible();
+
     // Wait for initial polling
     await page.waitForTimeout(3000);
 
@@ -117,7 +122,7 @@ test.describe('Polling', () => {
       expect(printDelta).toBeLessThanOrEqual(1);
     } else {
       // If no pause button, verify polling continues
-      await page.waitForTimeout(6000);
+      await page.waitForTimeout(11000);
       expect(uploadRequestCount).toBeGreaterThan(initialUploadCount);
       expect(printRequestCount).toBeGreaterThan(initialPrintCount);
     }
@@ -153,11 +158,9 @@ test.describe('Polling', () => {
       }
     });
 
-    // Initial load
-    await page.waitForTimeout(500);
-
-    // Wait for polling to fetch new data
-    await page.waitForTimeout(6000);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Active Queue' })).toBeVisible();
+    await page.waitForTimeout(11000);
 
     // New data should appear in the queue
     await expect(page.locator('#active-body')).toContainText('polled-file.stl');

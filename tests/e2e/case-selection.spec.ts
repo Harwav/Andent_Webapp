@@ -76,9 +76,9 @@ test.describe('Case Selection', () => {
     // Wait for rows to load
     await expect(page.locator('#active-body tr')).toHaveCount(4, { timeout: 10000 });
 
-    // Click on a row with caseId CASE001
+    // Check one row with caseId CASE001
     const case1Row = page.locator('tr[data-file-name="case1_upper.stl"]');
-    await case1Row.click();
+    await case1Row.locator('[data-testid="row-select"]').check();
 
     // Both rows with CASE001 should be selected
     const case1Upper = page.locator('tr[data-file-name="case1_upper.stl"] [data-testid="row-select"]');
@@ -101,14 +101,14 @@ test.describe('Case Selection', () => {
 
     // Select first row
     const case1Upper = page.locator('tr[data-file-name="case1_upper.stl"]');
-    await case1Upper.click();
+    await case1Upper.locator('[data-testid="row-select"]').check();
 
     // Verify one is selected
     await expect(page.locator('tr[data-file-name="case1_upper.stl"] [data-testid="row-select"]')).toBeChecked();
 
-    // Ctrl+click to add another row (different case)
+    // Check another row to add a different case
     const case2Upper = page.locator('tr[data-file-name="case2_upper.stl"]');
-    await case2Upper.click({ modifiers: ['Control'] });
+    await case2Upper.locator('[data-testid="row-select"]').check();
 
     // Both should now be selected
     await expect(page.locator('tr[data-file-name="case1_upper.stl"] [data-testid="row-select"]')).toBeChecked();
@@ -125,16 +125,16 @@ test.describe('Case Selection', () => {
       await expect(selectionCounter).toHaveText('0');
     }
 
-    // Click to select all rows with same case (CASE001 has 2 rows)
-    await page.locator('tr[data-file-name="case1_upper.stl"]').click();
+    // Check one row to select all rows with same case (CASE001 has 2 rows)
+    await page.locator('tr[data-file-name="case1_upper.stl"] [data-testid="row-select"]').check();
 
     // Selection count should update
     if (await selectionCounter.isVisible()) {
       await expect(selectionCounter).toHaveText('2');
     }
 
-    // Click to select all rows with another case (CASE002 has 2 rows)
-    await page.locator('tr[data-file-name="case2_upper.stl"]').click();
+    // Check one row to select all rows with another case (CASE002 has 2 rows)
+    await page.locator('tr[data-file-name="case2_upper.stl"] [data-testid="row-select"]').check();
 
     // Selection count should now be 4 (all rows)
     if (await selectionCounter.isVisible()) {
@@ -142,21 +142,22 @@ test.describe('Case Selection', () => {
     }
   });
 
-  test('clicking selected case deselects all', async ({ page }) => {
+  test('unchecking selected row keeps other same-case selections', async ({ page }) => {
     // Wait for rows to load
     await expect(page.locator('#active-body tr')).toHaveCount(4, { timeout: 10000 });
 
     // Select a case
-    await page.locator('tr[data-file-name="case1_upper.stl"]').click();
+    const case1Checkbox = page.locator('tr[data-file-name="case1_upper.stl"] [data-testid="row-select"]');
+    await case1Checkbox.check();
 
     // Verify rows are selected
-    await expect(page.locator('tr[data-file-name="case1_upper.stl"] [data-testid="row-select"]')).toBeChecked();
+    await expect(case1Checkbox).toBeChecked();
 
-    // Click again to deselect
-    await page.locator('tr[data-file-name="case1_upper.stl"]').click();
+    // Uncheck again to deselect that row
+    await case1Checkbox.uncheck();
 
-    // All should be deselected
+    // Only that row is deselected; other grouped rows remain selected until cleared directly.
     await expect(page.locator('tr[data-file-name="case1_upper.stl"] [data-testid="row-select"]')).not.toBeChecked();
-    await expect(page.locator('tr[data-file-name="case1_lower.stl"] [data-testid="row-select"]')).not.toBeChecked();
+    await expect(page.locator('tr[data-file-name="case1_lower.stl"] [data-testid="row-select"]')).toBeChecked();
   });
 });

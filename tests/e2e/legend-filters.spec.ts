@@ -47,19 +47,19 @@ test.describe('Legend Filters', () => {
             {
               id: 'file-3',
               row_id: 'file-3',
-              file_name: 'file-error.stl',
+              file_name: 'file-review.stl',
               case_id: 'CASE003',
               model_type: 'Upper',
-              status: 'Error',
+              status: 'Needs Review',
               is_temp: false
             },
             {
               id: 'file-4',
               row_id: 'file-4',
-              file_name: 'file-complete.stl',
+              file_name: 'file-duplicate.stl',
               case_id: 'CASE004',
               model_type: 'Upper',
-              status: 'Complete',
+              status: 'Duplicate',
               is_temp: false
             },
           ],
@@ -84,8 +84,8 @@ test.describe('Legend Filters', () => {
     // Legend should contain status chips for different statuses
     await expect(legend).toContainText('Ready');
     await expect(legend).toContainText('Analyzing');
-    await expect(legend).toContainText('Error');
-    await expect(legend).toContainText('Complete');
+    await expect(legend).toContainText('Needs Review');
+    await expect(legend).toContainText('Duplicate');
   });
 
   test('clicking filter updates active filters', async ({ page }) => {
@@ -96,25 +96,21 @@ test.describe('Legend Filters', () => {
     // Initially, all 4 files should be visible
     await expect(page.locator('#active-body')).toContainText('file-ready.stl');
     await expect(page.locator('#active-body')).toContainText('file-analyzing.stl');
-    await expect(page.locator('#active-body')).toContainText('file-error.stl');
-    await expect(page.locator('#active-body')).toContainText('file-complete.stl');
+    await expect(page.locator('#active-body')).toContainText('file-review.stl');
+    await expect(page.locator('#active-body')).toContainText('file-duplicate.stl');
 
-    // Click on "Ready" legend item to toggle it
+    // Click on "Ready" legend item to filter to that status.
     const readyChip = page.locator('.legend-item').filter({ hasText: 'Ready' });
     await readyChip.click();
 
-    // Wait for filter to apply
-    await page.waitForTimeout(500);
-
-    // Only "Ready" file should be hidden (3 rows visible)
-    await expect(page.locator('#active-body tr')).toHaveCount(3);
-    await expect(page.locator('#active-body')).not.toContainText('file-ready.stl');
+    await expect(page.locator('#active-body tr')).toHaveCount(1);
+    await expect(page.locator('#active-body')).toContainText('file-ready.stl');
+    await expect(page.locator('#active-body')).not.toContainText('file-analyzing.stl');
 
     // Click again to re-enable
     await readyChip.click();
 
     // All files should be visible again
-    await page.waitForTimeout(500);
     await expect(page.locator('#active-body tr')).toHaveCount(4);
   });
 
@@ -122,33 +118,26 @@ test.describe('Legend Filters', () => {
     // Wait for rows
     await expect(page.locator('#active-body tr')).toHaveCount(4, { timeout: 10000 });
 
-    // Click on "Error" legend item
-    const errorChip = page.locator('.legend-item').filter({ hasText: 'Error' });
-    await errorChip.click();
+    const reviewChip = page.locator('.legend-item').filter({ hasText: 'Needs Review' });
+    await reviewChip.click();
 
-    // Wait for filter to apply
-    await page.waitForTimeout(500);
-
-    // Only "Error" file should be visible (1 row)
+    // Only "Needs Review" file should be visible (1 row)
     await expect(page.locator('#active-body tr')).toHaveCount(1);
-    await expect(page.locator('#active-body')).toContainText('file-error.stl');
+    await expect(page.locator('#active-body')).toContainText('file-review.stl');
   });
 
   test('multiple filters can be active', async ({ page }) => {
     // Wait for rows
     await expect(page.locator('#active-body tr')).toHaveCount(4, { timeout: 10000 });
 
-    // Enable "Ready" and "Complete" filters, disable others
-    await page.locator('.legend-item').filter({ hasText: 'Analyzing' }).click();
-    await page.locator('.legend-item').filter({ hasText: 'Error' }).click();
+    await page.locator('.legend-item').filter({ hasText: 'Ready' }).click();
+    await page.locator('.legend-item').filter({ hasText: 'Duplicate' }).click();
 
-    // Wait for filter to apply
-    await page.waitForTimeout(500);
-
-    // Only "Ready" and "Complete" files should be visible (2 rows)
+    // Only selected status filters should be visible.
     await expect(page.locator('#active-body tr')).toHaveCount(2);
     await expect(page.locator('#active-body')).toContainText('file-ready.stl');
-    await expect(page.locator('#active-body')).toContainText('file-complete.stl');
+    await expect(page.locator('#active-body')).toContainText('file-duplicate.stl');
+    await expect(page.locator('#active-body')).not.toContainText('file-analyzing.stl');
   });
 
   test('filter chip shows active state', async ({ page }) => {

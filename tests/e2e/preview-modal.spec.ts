@@ -27,14 +27,31 @@ test.describe('Preview Modal', () => {
           active_rows: [{
             row_id: 'test-1',
             file_name: 'test-preview.stl',
+            file_url: '/fixtures/test-preview.stl',
             case_id: 'CASE001',
             model_type: 'Upper',
             status: 'Ready',
-            is_temp: true,
-            file: new Blob(['solid model'], { type: 'application/sla' })
+            is_temp: false
           }],
           processed_rows: []
         }
+      });
+    });
+
+    await page.route('/fixtures/test-preview.stl', async (route) => {
+      await route.fulfill({
+        contentType: 'application/sla',
+        body: [
+          'solid preview',
+          'facet normal 0 0 1',
+          'outer loop',
+          'vertex 0 0 0',
+          'vertex 1 0 0',
+          'vertex 0 1 0',
+          'endloop',
+          'endfacet',
+          'endsolid preview',
+        ].join('\n'),
       });
     });
 
@@ -52,6 +69,7 @@ test.describe('Preview Modal', () => {
 
     // Click on thumbnail button to open modal
     const thumbnailButton = page.locator('.thumbnail-button').first();
+    await expect(thumbnailButton).toBeEnabled();
     await thumbnailButton.click();
 
     // Modal should be visible
@@ -65,7 +83,9 @@ test.describe('Preview Modal', () => {
     await expect(page.locator('#active-body tr')).toBeVisible({ timeout: 10000 });
 
     // Open modal
-    await page.locator('.thumbnail-button').first().click();
+    const thumbnailButton = page.locator('.thumbnail-button').first();
+    await expect(thumbnailButton).toBeEnabled();
+    await thumbnailButton.click();
     await expect(page.locator('#preview-modal')).not.toHaveClass(/hidden/);
 
     // Close modal using the close button
@@ -81,11 +101,13 @@ test.describe('Preview Modal', () => {
     await expect(page.locator('#active-body tr')).toBeVisible({ timeout: 10000 });
 
     // Open modal
-    await page.locator('.thumbnail-button').first().click();
+    const thumbnailButton = page.locator('.thumbnail-button').first();
+    await expect(thumbnailButton).toBeEnabled();
+    await thumbnailButton.click();
     await expect(page.locator('#preview-modal')).not.toHaveClass(/hidden/);
 
-    // Click backdrop to close
-    await page.locator('#preview-modal .modal-backdrop').click();
+    // Click exposed backdrop outside the centered modal card.
+    await page.mouse.click(8, 8);
 
     // Modal should be hidden
     await expect(page.locator('#preview-modal')).toHaveClass(/hidden/);
