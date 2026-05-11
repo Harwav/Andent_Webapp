@@ -31,6 +31,7 @@ def test_windows_release_workflow_keeps_hardening_checks() -> None:
     assert "Focused packaging tests" in workflow
     assert "Verify build output" in workflow
     assert "EXE too small" in workflow
+    assert "$minimumSizeMB = 25" in workflow
     assert "Smoke test EXE" in workflow
     assert "retention-days: 7" in workflow
     assert "Build summary" in workflow

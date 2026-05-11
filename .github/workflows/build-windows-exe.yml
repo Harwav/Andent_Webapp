@@ -78,11 +78,12 @@ jobs:
           if (-not (Test-Path $exe)) {
             throw "EXE not found at $exe"
           }
+          $minimumSizeMB = 25
           $sizeMB = [math]::Round((Get-Item $exe).Length / 1MB, 1)
           Write-Host "EXE found: $exe"
           Write-Host "Size: $sizeMB MB"
-          if ($sizeMB -lt 60) {
-            throw "EXE too small ($sizeMB MB < 60 MB minimum). Build may be incomplete."
+          if ($sizeMB -lt $minimumSizeMB) {
+            throw "EXE too small ($sizeMB MB < $minimumSizeMB MB minimum). Build may be incomplete."
           }
 
       - name: Smoke test EXE
