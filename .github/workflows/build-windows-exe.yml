@@ -8,7 +8,7 @@ on:
         required: false
         type: string
       create_release:
-        description: "Create a GitHub Release with the EXE asset."
+        description: "Create or update a GitHub Release in Harwav/Andent_Web_Release."
         required: false
         default: false
         type: boolean
@@ -21,16 +21,18 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    name: Build Windows Executable
+    runs-on: windows-2022
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.13.9
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.13.9"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
@@ -69,13 +71,24 @@ jobs:
         shell: pwsh
         run: python scripts/builders/build_windows_exe.py --version "${{ steps.version.outputs.version }}"
 
-      - name: Smoke test EXE
+      - name: Verify build output
         shell: pwsh
         run: |
           $exe = "dist/FormFlow_v${{ steps.version.outputs.version }}.exe"
           if (-not (Test-Path $exe)) {
             throw "EXE not found at $exe"
           }
+          $sizeMB = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "EXE found: $exe"
+          Write-Host "Size: $sizeMB MB"
+          if ($sizeMB -lt 60) {
+            throw "EXE too small ($sizeMB MB < 60 MB minimum). Build may be incomplete."
+          }
+
+      - name: Smoke test EXE
+        shell: pwsh
+        run: |
+          $exe = "dist/FormFlow_v${{ steps.version.outputs.version }}.exe"
           $env:FORMFLOW_WEB_PORT = "8765"
           $env:FORMFLOW_WEB_OPEN_BROWSER = "0"
           $process = Start-Process -FilePath $exe -PassThru -WindowStyle Hidden
@@ -112,11 +125,47 @@ jobs:
         with:
           name: FormFlow_v${{ steps.version.outputs.version }}
           path: dist/FormFlow_v${{ steps.version.outputs.version }}.exe
+          retention-days: 7
 
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.create_release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: FormFlow v${{ steps.version.outputs.version }}
-          files: dist/FormFlow_v${{ steps.version.outputs.version }}.exe
+      - name: Create GitHub Release in Public Repo
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.create_release)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.ANDENT_RELEASE_REPO_TOKEN }}
+        run: |
+          if (-not $env:GH_TOKEN) {
+            throw "ANDENT_RELEASE_REPO_TOKEN is required to publish to Harwav/Andent_Web_Release."
+          }
+
+          $version = "${{ steps.version.outputs.version }}"
+          $tagName = "v$version"
+          $exeFile = (Resolve-Path "dist/FormFlow_v$version.exe").Path
+          $repo = "Harwav/Andent_Web_Release"
+          $assetName = Split-Path $exeFile -Leaf
+
+          gh release view $tagName --repo $repo 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tagName already exists in $repo, updating $assetName..."
+            gh release delete-asset $tagName $assetName --repo $repo --yes 2>$null
+            gh release upload $tagName $exeFile --repo $repo
+          } else {
+            Write-Host "Creating release $tagName in $repo..."
+            gh release create $tagName `
+              --repo $repo `
+              --title "FormFlow v$version" `
+              --notes "## FormFlow v$version`n`nDownload the Windows EXE below to install or update Andent Web / FormFlow." `
+              $exeFile
+          }
+
+      - name: Build summary
+        shell: pwsh
+        run: |
+          $exe = Get-Item "dist/FormFlow_v${{ steps.version.outputs.version }}.exe"
+          $sizeMB = [math]::Round($exe.Length / 1MB, 2)
+          echo "# Build Summary" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ steps.version.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Platform:** Windows" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Python:** 3.13.9" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Artifact:** ``$($exe.Name)`` ($sizeMB MB)" >> $env:GITHUB_STEP_SUMMARY
+          echo "**Release repo:** Harwav/Andent_Web_Release" >> $env:GITHUB_STEP_SUMMARY

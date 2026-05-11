@@ -65,7 +65,9 @@ try {
 }
 ```
 
-5. For release automation, use `.github/workflows/build-windows-exe.yml`. It builds on `windows-latest`, smoke-tests the EXE, uploads the artifact, and creates a GitHub Release on `vX.Y.Z` tags or manual dispatch with `create_release=true`.
+5. For release automation, use `.github/workflows/build-windows-exe.yml`. It builds on `windows-2022` with Python 3.13.9, runs focused packaging checks, verifies the EXE size, smoke-tests the EXE, uploads the artifact, and publishes releases to the public `Harwav/Andent_Web_Release` repo on `vX.Y.Z` tags or manual dispatch with `create_release=true`.
+
+   The private source repo must define a GitHub Actions secret named `ANDENT_RELEASE_REPO_TOKEN`. Its token needs permission to create releases and upload release assets in `Harwav/Andent_Web_Release`.
 
 6. For tray releases, launch the EXE normally on a Windows desktop and verify:
    - a tray icon appears
